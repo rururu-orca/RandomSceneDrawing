@@ -1,0 +1,9 @@
+source https://api.nuget.org/v3/index.json
+
+storage: none
+framework: net5.0-windows
+
+nuget Elmish.WPF >= 4.0.0 beta
+nuget FSharp.Control.Reactive
+nuget VideoLAN.LibVLC.Windows
+nuget LibVLCSharp.WPF

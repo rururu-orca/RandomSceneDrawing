@@ -1,0 +1,56 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:uc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF" Title="MainWindow">
+    <DockPanel Margin="8"  LastChildFill="False" ClipToBounds="false">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" DockPanel.Dock="Top" >
+            <TextBlock Margin="10">
+                <Run FontSize="24" Foreground="gray" Text="Random Pause"/>
+                <LineBreak/>
+                <Run Text="動画のシーンがランダムで表示されます."/>
+            </TextBlock>
+            <TextBlock Foreground="DarkBlue" FontSize="30" HorizontalAlignment="Left"
+                       VerticalAlignment="Center" Margin="100,0,0,0" 
+                       Text="{Binding CurrentFrames}" Visibility="{Binding DrawingServiceVisibility}"/>
+            <TextBlock Foreground="DarkBlue" FontSize="30" HorizontalAlignment="Left" 
+                       VerticalAlignment="Center" Margin="50,0,0,0" 
+                       Text="{Binding CurrentDuration}" Visibility="{Binding DrawingServiceVisibility}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" DockPanel.Dock="Top">
+            <Button Margin="5,5,50,5" HorizontalAlignment="Right" Content="Start Drawing"/>
+            <StackPanel HorizontalAlignment="Stretch">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                    <TextBlock Margin="5" VerticalAlignment="Center">
+                        <Run Text="Frames"/>
+                    </TextBlock>
+                    <TextBox Width="50" Margin="5" VerticalAlignment="Center" 
+                             Text="{Binding Frames}"/>
+                    <Button Width="25" Margin="5" Content="+"/>
+                    <Button Width="25" Margin="5" Content="-"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                <TextBlock Margin="5" VerticalAlignment="Center">
+                    <Run Text="Duration per frame:"/>
+                </TextBlock>
+                <TextBox Width="50" Margin="5" VerticalAlignment="Center"
+                         Text="{Binding Duration}"/>
+                <Button Width="25" Margin="5" Content="+"/>
+                <Button Width="25" Margin="5" Content="-"/>
+            </StackPanel>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" DockPanel.Dock="Top">
+            <Button Content="Play" Command="{Binding Play}" MaxWidth="240" Margin="5"/>
+            <Button Content="Pause" Command="{Binding Pause}" MaxWidth="240" Margin="5"/>
+            <Button Content="Stop" Command="{Binding Pause}" MaxWidth="240" Margin="5"/>
+            <Button Content="Show Random" Command="{Binding Randomize}" MaxWidth="240" Margin="30,5,5,5"/>
+            <TextBlock Margin="5" VerticalAlignment="Center" Text="{Binding SourceName}"/>
+            <TextBlock Margin="5" Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding Position}"/>
+            <TextBlock Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding ScenePosition}"/>
+            <TextBlock Text="/" VerticalAlignment="Center"
+                       Visibility="{Binding DrawingServiceVisibility}"/>
+            <TextBlock Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding SourceDuration}"/>
+            <TextBlock Margin="5" VerticalAlignment="Center"/>
+        </StackPanel>
+        <uc:VideoView MediaPlayer="{Binding MediaPlayer}" Margin="5,5,5,5" DockPanel.Dock="Top"/>
+    </DockPanel>
+</Window>

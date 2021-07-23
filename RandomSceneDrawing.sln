@@ -3,6 +3,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing", "src\RandomSceneDrawing\RandomSceneDrawing.fsproj", "{B54C652F-9BFB-4759-9542-E43B09792634}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -10,5 +14,14 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B54C652F-9BFB-4759-9542-E43B09792634}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B54C652F-9BFB-4759-9542-E43B09792634}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B54C652F-9BFB-4759-9542-E43B09792634}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B54C652F-9BFB-4759-9542-E43B09792634}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B54C652F-9BFB-4759-9542-E43B09792634} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
 	EndGlobalSection
 EndGlobal

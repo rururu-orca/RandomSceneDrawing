@@ -1,0 +1,20 @@
+STORAGE: NONE
+RESTRICTION: == net5.0-windows7.0
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    Elmish (3.1)
+      FSharp.Core (>= 4.6.2)
+    Elmish.WPF (4.0.0-beta-41)
+      Elmish (>= 3.1 <= 3.99)
+      FSharp.Core (>= 4.6.2)
+      Microsoft.Extensions.Logging.Abstractions (>= 3.1.6)
+    FSharp.Control.Reactive (5.0.2)
+      FSharp.Core (>= 4.7.2)
+      System.Reactive (>= 5.0)
+    FSharp.Core (5.0.2)
+    LibVLCSharp (3.5.1)
+    LibVLCSharp.WPF (3.5.1)
+      LibVLCSharp (>= 3.5.1)
+    Microsoft.Extensions.Logging.Abstractions (5.0)
+    System.Reactive (5.0)
+    VideoLAN.LibVLC.Windows (3.0.16)
