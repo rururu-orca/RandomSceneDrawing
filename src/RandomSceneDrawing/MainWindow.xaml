@@ -41,7 +41,7 @@
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" DockPanel.Dock="Top">
             <Button Content="Play" Command="{Binding Play}" MaxWidth="240" Margin="5"/>
             <Button Content="Pause" Command="{Binding Pause}" MaxWidth="240" Margin="5"/>
-            <Button Content="Stop" Command="{Binding Pause}" MaxWidth="240" Margin="5"/>
+            <Button Content="Stop" Command="{Binding Stop}" MaxWidth="240" Margin="5"/>
             <Button Content="Show Random" Command="{Binding Randomize}" MaxWidth="240" Margin="30,5,5,5"/>
             <TextBlock Margin="5" VerticalAlignment="Center" Text="{Binding SourceName}"/>
             <TextBlock Margin="5" Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding Position}"/>
@@ -51,6 +51,6 @@
             <TextBlock Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding SourceDuration}"/>
             <TextBlock Margin="5" VerticalAlignment="Center"/>
         </StackPanel>
-        <uc:VideoView MediaPlayer="{Binding MediaPlayer}" Margin="5,5,5,5" DockPanel.Dock="Top"/>
+        <uc:VideoView MediaPlayer="{Binding MediaPlayer}" Margin="5,5,5,5" DockPanel.Dock="Top" Panel.ZIndex="1"/>
     </DockPanel>
 </Window>
