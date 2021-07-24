@@ -16,5 +16,6 @@ NUGET
     LibVLCSharp.WPF (3.5.1)
       LibVLCSharp (>= 3.5.1)
     Microsoft.Extensions.Logging.Abstractions (5.0)
+    Microsoft.Xaml.Behaviors.Wpf (1.1.31)
     System.Reactive (5.0)
     VideoLAN.LibVLC.Windows (3.0.16)

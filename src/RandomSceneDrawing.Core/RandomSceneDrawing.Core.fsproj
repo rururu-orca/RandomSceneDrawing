@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net5.0-windows</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PlayerLib.fs" />
