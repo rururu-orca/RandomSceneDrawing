@@ -26,14 +26,18 @@ type Model =
       CurrentFrames: int }
 
 let init () =
-
-
+    Core.Initialize()
+#if DEBUG
+    let libvlc = new LibVLC("--verbose=2")
+#else
+    let libvlc = new LibVLC(false)
+#endif
     { Frames = 0
       Duration = TimeSpan.Zero
       Interval = 0
       DrawingServiceVisibility = Visibility.Collapsed
-      Libvlc = PlayerLib.libvlc
-      Player = PlayerLib.mediaPlayer
+      Libvlc = libvlc
+      Player = new MediaPlayer(libvlc)
       VideoSeze = Size()
       MediaDuration = TimeSpan.Zero
       MediaPosition = 0.0
@@ -51,36 +55,30 @@ type Msg =
     | SetFrames of int
     | VideoViewLoaded of VideoView
 
-let getVideoSize (media: Media) =
-    let videoTracks =
-        query {
-            for track in media.Tracks do
-                where (track.TrackType = TrackType.Video)
-        }
-
-    let height =
-        query {
-            for videoTrack in videoTracks do
-                maxBy (float videoTrack.Data.Video.Height)
-        }
-
-    let width =
-        query {
-            for videoTrack in videoTracks do
-                maxBy (float videoTrack.Data.Video.Width)
-        }
-
-    Size(width, height)
 
 let update (msg: Msg) (model: Model) : Model =
     match msg with
     | Play ->
-        use media = PlayerLib.getMediaFromlocal "file://nasne-df3531/share1/VIDEO/%E3%83%95%E3%82%A9%E3%83%88%E3%82%B9%E3%82%BF%E3%82%B8%E3%82%AA/Screen_Recording_20210604-125335.mp4" model.Libvlc
-
-        model.Player.Play media |> ignore
+        match model.Player.State with
+        | VLCState.NothingSpecial
+        | VLCState.Stopped
+        | VLCState.Ended
+        | VLCState.Error ->
+            model.Libvlc
+            |> PlayerLib.getMediaFromUri
+                "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+            |> model.Player.Play
+            |> ignore
+        | VLCState.Paused -> model.Player.Pause()
+        | VLCState.Opening
+        | VLCState.Buffering
+        | VLCState.Playing
+        | _ -> ()
 
         { model with
-              MediaDuration = float media.Duration |> TimeSpan.FromMilliseconds }
+              MediaDuration =
+                  float model.Player.Media.Duration
+                  |> TimeSpan.FromMilliseconds }
     | Pause ->
         model.Player.Pause()
         model
