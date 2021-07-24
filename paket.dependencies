@@ -1,9 +1,10 @@
 source https://api.nuget.org/v3/index.json
 
 storage: none
-framework: net5.0-windows
+framework: auto-detect
 
 nuget Elmish.WPF >= 4.0.0 beta
 nuget FSharp.Control.Reactive
+nuget Microsoft.Xaml.Behaviors.Wpf
 nuget VideoLAN.LibVLC.Windows
 nuget LibVLCSharp.WPF
