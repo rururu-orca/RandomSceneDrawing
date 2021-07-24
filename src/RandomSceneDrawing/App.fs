@@ -2,6 +2,7 @@
 module RandomSceneDrawing.App
 
 open System
+open System.Reflection
 open System.Windows
 open FSharp.Control.Reactive
 
@@ -13,8 +14,7 @@ let main argv =
         <| Uri("App.xaml", UriKind.Relative)
         :?> Application
 
-    Microsoft.Xaml.Behaviors.EventTrigger |> ignore
-
+    Assembly.Load "Microsoft.Xaml.Behaviors" |> ignore
 
     Observable.first application.Activated
     |> Observable.add (fun _ -> Program.main application.MainWindow)
