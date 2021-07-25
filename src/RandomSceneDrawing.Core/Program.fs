@@ -1,10 +1,12 @@
 ﻿module RandomSceneDrawing.Program
 
+open System
+open System.Windows
+open Serilog
+open Serilog.Extensions.Logging
 open Elmish.WPF
 open LibVLCSharp.Shared
 open LibVLCSharp.WPF
-open System
-open System.Windows
 
 type State =
     | Stop
@@ -121,8 +123,18 @@ let bindings () : Binding<Model, Msg> list =
       "VideoViewLoaded"
       |> Binding.cmdParam paramToVideoView ]
 
-let designVm = ViewModel.designInstance (init ()) (bindings ())
+let designVm =
+    ViewModel.designInstance (init ()) (bindings ())
 
 let main window =
+    let logger =
+        LoggerConfiguration()
+            .MinimumLevel.Override("Elmish.WPF.Update", Events.LogEventLevel.Verbose)
+            .MinimumLevel.Override("Elmish.WPF.Bindings", Events.LogEventLevel.Verbose)
+            .MinimumLevel.Override("Elmish.WPF.Performance", Events.LogEventLevel.Verbose)
+            .WriteTo.Console()
+            .CreateLogger()
+
     WpfProgram.mkSimple init update bindings
+    |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.startElmishLoop window

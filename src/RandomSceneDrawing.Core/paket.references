@@ -1,3 +1,5 @@
 Elmish.WPF
 VideoLAN.LibVLC.Windows
 LibVLCSharp.WPF
+Serilog.Extensions.Logging
+Serilog.Sinks.Console
