@@ -1,11 +1,21 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
-    xmlns:uc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
-        Title="MainWindow">
+    xmlns:vm="clr-namespace:RandomSceneDrawing;assembly=RandomSceneDrawing.Core"
+    xmlns:uc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF" 
+    mc:Ignorable="d"
+    d:DataContext="{x:Static vm:Program.designVm}"
+    Title="MainWindow">
     <DockPanel x:Name="dockPanel" Margin="8" ClipToBounds="false">
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" DockPanel.Dock="Top" >
-            <TextBlock Margin="10"><Run FontSize="24" Foreground="gray" Text="Random Pause"/><LineBreak/><Run Text="動画のシーンがランダムで表示されます."/></TextBlock>
+            <TextBlock Margin="10">
+                <Run FontSize="24" Foreground="gray" Text="Random Pause"/>
+                <LineBreak/>
+                <Run Text="動画のシーンがランダムで表示されます."/>
+            </TextBlock>
             <TextBlock Foreground="DarkBlue" FontSize="30" HorizontalAlignment="Left"
                        VerticalAlignment="Center" Margin="100,0,0,0" 
                        Text="{Binding CurrentFrames}" Visibility="{Binding DrawingServiceVisibility}"/>
@@ -25,7 +35,9 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
-                <TextBlock Margin="5" VerticalAlignment="Center"><Run Text="Duration per frame:"/></TextBlock>
+                <TextBlock Margin="5" VerticalAlignment="Center">
+                    <Run Text="Duration per frame:"/>
+                </TextBlock>
                 <TextBox Width="50" Margin="5" VerticalAlignment="Center"
                          Text="{Binding Duration}"/>
                 <Button Width="25" Margin="5" Content="+"/>
