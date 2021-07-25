@@ -121,6 +121,8 @@ let bindings () : Binding<Model, Msg> list =
       "VideoViewLoaded"
       |> Binding.cmdParam paramToVideoView ]
 
+let designVm = ViewModel.designInstance (init ()) (bindings ())
+
 let main window =
     WpfProgram.mkSimple init update bindings
     |> WpfProgram.startElmishLoop window
