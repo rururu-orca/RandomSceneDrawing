@@ -6,7 +6,6 @@ open Serilog
 open Serilog.Extensions.Logging
 open Elmish.WPF
 open LibVLCSharp.Shared
-open LibVLCSharp.WPF
 
 type State =
     | Stop
@@ -55,7 +54,6 @@ type Msg =
     | Randomize
     | SetDuration of TimeSpan
     | SetFrames of int
-    | VideoViewLoaded of VideoView
 
 
 let update (msg: Msg) (model: Model) : Model =
@@ -90,13 +88,7 @@ let update (msg: Msg) (model: Model) : Model =
     | Randomize -> model
     | SetDuration x -> { model with Duration = x }
     | SetFrames x -> { model with Frames = x }
-    | VideoViewLoaded v ->
-        v.MediaPlayer <- model.Player
-        model
 
-let paramToVideoView (p: obj) =
-    let args = p :?> RoutedEventArgs
-    args.Source :?> VideoView |> VideoViewLoaded
 
 let bindings () : Binding<Model, Msg> list =
     [ "Pause" |> Binding.cmd Pause
@@ -120,8 +112,8 @@ let bindings () : Binding<Model, Msg> list =
       "SourceName" |> Binding.oneWay (fun m -> m.Title)
       "DrawingServiceVisibility"
       |> Binding.oneWay (fun m -> m.DrawingServiceVisibility)
-      "VideoViewLoaded"
-      |> Binding.cmdParam paramToVideoView ]
+      "MediaPlayer"
+      |> Binding.oneWay (fun m -> m.Player) ]
 
 let designVm =
     ViewModel.designInstance (init ()) (bindings ())
