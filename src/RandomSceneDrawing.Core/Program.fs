@@ -108,9 +108,9 @@ let bindings () : Binding<Model, Msg> list =
       "CurrentFrames"
       |> Binding.oneWay (fun m -> m.CurrentFrames)
       "Duration"
-      |> Binding.twoWay ((fun m -> string m.Duration), (TimeSpan.Parse >> SetDuration))
+      |> Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
       "Frames"
-      |> Binding.twoWay ((fun m -> float m.Frames), (int >> SetFrames))
+      |> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
       "Position"
       |> Binding.oneWay (fun m -> m.Player.Time)
       "ScenePosition"
