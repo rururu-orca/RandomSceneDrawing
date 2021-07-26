@@ -122,8 +122,11 @@ let main window =
             .MinimumLevel.Override("Elmish.WPF.Update", Events.LogEventLevel.Verbose)
             .MinimumLevel.Override("Elmish.WPF.Bindings", Events.LogEventLevel.Verbose)
             .MinimumLevel.Override("Elmish.WPF.Performance", Events.LogEventLevel.Verbose)
+#if DEBUG
             .WriteTo.Console()
+#endif
             .CreateLogger()
+            
 
     WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
