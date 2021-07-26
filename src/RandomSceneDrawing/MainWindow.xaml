@@ -60,7 +60,7 @@
         <uc:VideoView HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="Loaded">
-                    <i:InvokeCommandAction Command="{Binding VideoViewLoaded}" PassEventArgsToCommand="True"/>
+                    <i:ChangePropertyAction PropertyName="MediaPlayer" Value="{Binding MediaPlayer}"/>
                 </i:EventTrigger>
             </i:Interaction.Triggers>
         </uc:VideoView>
