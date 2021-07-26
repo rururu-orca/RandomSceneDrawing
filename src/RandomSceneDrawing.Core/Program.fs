@@ -4,103 +4,74 @@ open System
 open System.Windows
 open Serilog
 open Serilog.Extensions.Logging
+open Elmish
 open Elmish.WPF
-open LibVLCSharp.Shared
+open Types
 
-type State =
-    | Stop
-    | Running
-
-type Model =
-    { Frames: int
-      Duration: TimeSpan
-      Interval: int
-      DrawingServiceVisibility: Visibility
-      Libvlc: LibVLC
-      Player: MediaPlayer
-      VideoSeze: Size
-      MediaDuration: TimeSpan
-      MediaPosition: float
-      Title: string
-      State: State
-      CurrentDuration: TimeSpan
-      CurrentFrames: int }
 
 let init () =
-    Core.Initialize()
-#if DEBUG
-    let libvlc = new LibVLC("--verbose=2")
-#else
-    let libvlc = new LibVLC(false)
-#endif
     { Frames = 0
       Duration = TimeSpan.Zero
       Interval = 0
       DrawingServiceVisibility = Visibility.Collapsed
-      Libvlc = libvlc
-      Player = new MediaPlayer(libvlc)
-      VideoSeze = Size()
+      Player = PlayerLib.player
       MediaDuration = TimeSpan.Zero
       MediaPosition = 0.0
       Title = ""
-      State = Stop
+      State = State.Stop
       CurrentDuration = TimeSpan.Zero
-      CurrentFrames = 0 }
+      CurrentFrames = 0 },
+    []
 
-type Msg =
-    | Play
-    | Pause
-    | Stop
-    | Randomize
-    | SetDuration of TimeSpan
-    | SetFrames of int
-
-
-let update (msg: Msg) (model: Model) : Model =
+let update msg m =
     match msg with
-    | Play ->
-        match model.Player.State with
-        | VLCState.NothingSpecial
-        | VLCState.Stopped
-        | VLCState.Ended
-        | VLCState.Error ->
-            model.Libvlc
-            |> PlayerLib.getMediaFromUri
-                "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-            |> model.Player.Play
-            |> ignore
-        | VLCState.Paused -> model.Player.Pause()
-        | VLCState.Opening
-        | VLCState.Buffering
-        | VLCState.Playing
-        | _ -> ()
+    | RequestPlay -> m, [ Play ]
+    | PlaySuccess mediaInfo ->
+        { m with
+              MediaDuration = mediaInfo.Duration },
+        []
+    | PlayFailed _ -> failwith "Not Implemented"
+    | RequestPause -> m, [ Pause ]
+    | PauseSuccess -> m, []
+    | PauseFailed _ -> failwith "Not Implemented"
+    | RequestStop -> m, [ Stop ]
+    | StopSuccess -> m, []
+    | StopFailed _ -> failwith "Not Implemented"
+    | RequestRandomize -> m, []
+    | SetFrames x -> { m with Frames = x }, []
+    | IncrementFrames -> { m with Frames = m.Frames + 1 }, []
+    | DecrementFrames -> { m with Frames = m.Frames - 1 }, []
+    | SetDuration x -> { m with Duration = x }, []
+    | IncrementDuration ->
+        { m with
+              Duration = m.Duration.Add <| TimeSpan.FromSeconds 10.0 },
+        []
+    | DecrementDuration ->
+        { m with
+              Duration = m.Duration.Add <| TimeSpan.FromSeconds -10.0 },
+        []
+    | RandomizeSuccess (_) -> failwith "Not Implemented"
+    | RandomizeFailed (_) -> failwith "Not Implemented"
 
-        { model with
-              MediaDuration =
-                  float model.Player.Media.Duration
-                  |> TimeSpan.FromMilliseconds }
-    | Pause ->
-        model.Player.Pause()
-        model
-    | Stop ->
-        model.Player.Stop()
-        model
-    | Randomize -> model
-    | SetDuration x -> { model with Duration = x }
-    | SetFrames x -> { model with Frames = x }
 
 
 let bindings () : Binding<Model, Msg> list =
-    [ "Pause" |> Binding.cmd Pause
-      "Play" |> Binding.cmd Play
-      "Stop" |> Binding.cmd Stop
-      "Randomize" |> Binding.cmd Randomize
+    [ "Pause" |> Binding.cmd RequestPause
+      "Play" |> Binding.cmd RequestPlay
+      "Stop" |> Binding.cmd RequestStop
+      "Randomize" |> Binding.cmd RequestRandomize
       "CurrentDuration"
       |> Binding.oneWay (fun m -> m.CurrentDuration)
       "CurrentFrames"
       |> Binding.oneWay (fun m -> m.CurrentFrames)
+      "IncrementFrames" |> Binding.cmd IncrementFrames
+      "DecrementFrames" |> Binding.cmd DecrementFrames
       "Duration"
       |> Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
+      "IncrementDuration"
+      |> Binding.cmd IncrementDuration
+      "DecrementDuration"
+      |> Binding.cmd DecrementDuration
       "Frames"
       |> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
       "Position"
@@ -115,8 +86,18 @@ let bindings () : Binding<Model, Msg> list =
       "MediaPlayer"
       |> Binding.oneWay (fun m -> m.Player) ]
 
+let toCmd =
+    function
+    | Play ->
+        PlayerLib.play "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        |> Cmd.OfAsync.result
+    | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
+    | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
+    | Randomize -> failwith "Not Implemented"
+    | StartDrawing -> failwith "Not Implemented"
+
 let designVm =
-    ViewModel.designInstance (init ()) (bindings ())
+    ViewModel.designInstance (init () |> fst) (bindings ())
 
 let main window =
     let logger =
@@ -127,6 +108,6 @@ let main window =
             .WriteTo.Console()
             .CreateLogger()
 
-    WpfProgram.mkSimple init update bindings
+    WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.startElmishLoop window

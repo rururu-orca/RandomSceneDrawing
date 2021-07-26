@@ -12,6 +12,8 @@ NUGET
       FSharp.Core (>= 4.7.2)
       System.Reactive (>= 5.0)
     FSharp.Core (5.0.2)
+    FsToolkit.ErrorHandling (2.6)
+      FSharp.Core (>= 4.6.2)
     LibVLCSharp (3.5.1)
     LibVLCSharp.WPF (3.5.1)
       LibVLCSharp (>= 3.5.1)
