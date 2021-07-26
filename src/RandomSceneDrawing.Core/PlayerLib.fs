@@ -4,7 +4,6 @@ open System
 open LibVLCSharp.Shared
 open FsToolkit.ErrorHandling
 open Types
-open LibVLCSharp.Shared
 
 do Core.Initialize()
 
