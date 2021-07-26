@@ -5,6 +5,7 @@ framework: auto-detect
 
 nuget Elmish.WPF >= 4.0.0 beta
 nuget FSharp.Control.Reactive
+nuget FsToolkit.ErrorHandling
 nuget Microsoft.Xaml.Behaviors.Wpf
 nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console
