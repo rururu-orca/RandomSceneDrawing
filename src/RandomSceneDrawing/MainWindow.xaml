@@ -29,7 +29,7 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
                     <TextBlock Margin="5" VerticalAlignment="Center"><Run Text="Frames"/></TextBlock>
                     <TextBox Width="50" Margin="5" VerticalAlignment="Center" 
-                             Text="{Binding Frames}"/>
+                             Text="{Binding Frames}" TextAlignment="Center"/>
                     <Button Width="25" Margin="5" Content="+" Command="{Binding IncrementFrames}"/>
                     <Button Width="25" Margin="5" Content="-" Command="{Binding DecrementFrames}"/>
                 </StackPanel>
@@ -39,7 +39,7 @@
                     <Run Text="Duration per frame:"/>
                 </TextBlock>
                 <TextBox Width="50" Margin="5" VerticalAlignment="Center"
-                         Text="{Binding Duration}"/>
+                         Text="{Binding Duration}" TextAlignment="Center"/>
                 <Button Width="25" Margin="5" Content="+" Command="{Binding IncrementDuration}"/>
                 <Button Width="25" Margin="5" Content="-" Command="{Binding DecrementDuration}"/>
             </StackPanel>
