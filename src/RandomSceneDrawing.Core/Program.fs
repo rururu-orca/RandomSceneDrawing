@@ -8,7 +8,6 @@ open Elmish
 open Elmish.WPF
 open Types
 
-
 let init () =
     { Frames = 0
       Duration = TimeSpan.Zero
@@ -25,6 +24,7 @@ let init () =
 
 let update msg m =
     match msg with
+    // Player
     | RequestPlay -> m, [ Play ]
     | PlaySuccess mediaInfo ->
         { m with
@@ -37,7 +37,8 @@ let update msg m =
     | RequestStop -> m, [ Stop ]
     | StopSuccess -> m, []
     | StopFailed _ -> failwith "Not Implemented"
-    | RequestRandomize -> m, []
+
+    // Random Drawing Setting
     | SetFrames x -> { m with Frames = x }, []
     | IncrementFrames -> { m with Frames = m.Frames + 1 }, []
     | DecrementFrames -> { m with Frames = m.Frames - 1 }, []
@@ -50,49 +51,65 @@ let update msg m =
         { m with
               Duration = m.Duration.Add <| TimeSpan.FromSeconds -10.0 },
         []
+
+    // Random Drawing
+    | RequestRandomize (_) -> failwith "Not Implemented"
     | RandomizeSuccess (_) -> failwith "Not Implemented"
     | RandomizeFailed (_) -> failwith "Not Implemented"
 
 
 
 let bindings () : Binding<Model, Msg> list =
-    [ "Pause" |> Binding.cmd RequestPause
+    [
+      // Player
+      "MediaPlayer"
+      |> Binding.oneWay (fun m -> m.Player)
+      "ScenePosition"
+      |> Binding.oneWay (fun m -> m.MediaPosition)
+      "SourceDuration"
+      |> Binding.oneWay (fun m -> m.MediaDuration)
+      "SourceName" |> Binding.oneWay (fun m -> m.Title)
+
+      "Pause" |> Binding.cmd RequestPause
       "Play" |> Binding.cmd RequestPlay
       "Stop" |> Binding.cmd RequestStop
-      "Randomize" |> Binding.cmd RequestRandomize
-      "CurrentDuration"
-      |> Binding.oneWay (fun m -> m.CurrentDuration)
-      "CurrentFrames"
-      |> Binding.oneWay (fun m -> m.CurrentFrames)
+
+      // Random Drawing Setting
+      "Frames"
+      |> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
       "IncrementFrames" |> Binding.cmd IncrementFrames
       "DecrementFrames" |> Binding.cmd DecrementFrames
+
       "Duration"
       |> Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
       "IncrementDuration"
       |> Binding.cmd IncrementDuration
       "DecrementDuration"
       |> Binding.cmd DecrementDuration
-      "Frames"
-      |> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
+
+      // Random Drawing
+      "Randomize" |> Binding.cmd RequestRandomize
+      "CurrentDuration"
+      |> Binding.oneWay (fun m -> m.CurrentDuration)
+      "CurrentFrames"
+      |> Binding.oneWay (fun m -> m.CurrentFrames)
       "Position"
       |> Binding.oneWay (fun m -> m.Player.Time)
-      "ScenePosition"
-      |> Binding.oneWay (fun m -> m.MediaDuration)
-      "SourceDuration"
-      |> Binding.oneWay (fun m -> m.MediaDuration)
-      "SourceName" |> Binding.oneWay (fun m -> m.Title)
+
       "DrawingServiceVisibility"
       |> Binding.oneWay (fun m -> m.DrawingServiceVisibility)
-      "MediaPlayer"
-      |> Binding.oneWay (fun m -> m.Player) ]
+
+      ]
 
 let toCmd =
     function
+    // Player
     | Play ->
         PlayerLib.play "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
         |> Cmd.OfAsync.result
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
+    // Random Drawing
     | Randomize -> failwith "Not Implemented"
     | StartDrawing -> failwith "Not Implemented"
 
