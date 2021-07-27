@@ -3,14 +3,13 @@ module RandomSceneDrawing.Types
 open System
 open System.Windows
 open LibVLCSharp.Shared
+open System.Windows.Input
 
 type State =
     | Stop
     | Running
 
-type MediaIndo = {
-    Duration : TimeSpan
-}
+type MediaIndo = { Duration: TimeSpan }
 
 type Model =
     { Frames: int
@@ -51,3 +50,23 @@ type Msg =
     | SetDuration of TimeSpan
     | IncrementDuration
     | DecrementDuration
+
+type AppViewModel =
+    { MediaPlayer: MediaPlayer
+      ScenePosition: float
+      SourceDuration: float
+      SourceName: string
+      Play: ICommand
+      Pause: ICommand
+      Stop: ICommand
+      FramesText: string
+      IncrementFrames: ICommand
+      DecrementFrames: ICommand
+      DurationText: string
+      IncrementDuration: ICommand
+      DecrementDuration: ICommand
+      Randomize: ICommand
+      CurrentDuration: string
+      CurrentFrames: int
+      Position: int
+      DrawingServiceVisibility: Visibility }
