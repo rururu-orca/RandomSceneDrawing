@@ -1,0 +1,65 @@
+#!markdown
+
+# 予定
+
+- [] タイマーカウンター
+- [] ~~バインドを良い感じに~~
+  - 先にタイマーを何とかする
+
+#!markdown
+
+# タイマー
+
+- `MailBoxProcessor`で独立化する方針でいく
+- サブモデル化…「不必要な複雑化」を避けるための経験値が足りない
+  - 慣れてきたら検討することにする
+- App側で持つべき動作はこれぐらいか
+  - 初期設定
+  - スタート
+  - 「このシーンをスキップ」
+  - 中止
+- ドローイング関連のモデル
+  - レコード化して保持するが、`Binding.oneWay`で完結させて、サブモデル化は極力避ける
+
+#!markdown
+
+# ViewModelのあり方
+
+- どのようにバインドされるかは知らないべき
+- データ型はそのまま、コマンドは`ICommand`か
+- `ICommand`は何もしないダミーインスタンスがあると便利か
+- 探せばありそう
+
+#!fsharp
+
+type FizzBuzzBuilder() =
+  [<CustomOperation("fizz")>]
+  member __.Fizz (_, x) = x,0
+  [<CustomOperation("buzz")>]
+  member __.Buzz ((x,_), y) = x,y
+  [<CustomOperation("execute")>]
+  member __.Execute ((a,b),source) =
+    if a = 0 then invalidArg "fizz" "ゼロだめ"
+    if b = 0 then invalidArg "buzz" "ゼロだめ"
+    let fzbz x = 
+        (x%a,x%b) |> function
+        |0,0 -> "FizzBuzz"
+        |0,_ -> "Fizz" 
+        |_,0 -> "Buzz"
+        | _ -> string x
+    source |> Seq.map fzbz   
+  member __.Yield (x) = x 
+
+let fizzbuzz = FizzBuzzBuilder() 
+
+fizzbuzz {
+    fizz 3
+    buzz 2
+    execute [1..40]
+}
+
+#!fsharp
+
+#r "nuget: Elmish"
+
+open Elmish
