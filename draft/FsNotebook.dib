@@ -60,6 +60,24 @@ fizzbuzz {
 
 #!fsharp
 
+type YieldBuilder() =
+    member __.Yield (x) = [x + 2]
+    member this.Combine (a,b) =
+        List.concat [a;b]
+    member this.Delay(f) =
+        printfn "Delay"
+        f()
+
+
+let yi = YieldBuilder()
+
+yi {
+    yield  3
+    yield  3
+}
+
+#!fsharp
+
 #r "nuget: Elmish"
 
 open Elmish
