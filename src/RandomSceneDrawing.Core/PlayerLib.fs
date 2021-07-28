@@ -19,7 +19,7 @@ let getMediaFromUri source = new Media(libVLC, (Uri source))
 let player = new MediaPlayer(libVLC)
 
 let play source =
-    async{
+    async {
         match player.State with
         | VLCState.NothingSpecial
         | VLCState.Stopped
@@ -27,26 +27,42 @@ let play source =
         | VLCState.Error ->
             use media = getMediaFromUri source
             player.Play media |> ignore
-            
+
             let! e = media.DurationChanged |> Async.AwaitEvent
-            return PlaySuccess {Duration = float e.Duration |> TimeSpan.FromMilliseconds}
-            
+
+            return
+                PlaySuccess
+                    { Title = media.Meta MetadataType.Title
+                      Duration = float e.Duration |> TimeSpan.FromMilliseconds }
+
         | VLCState.Paused ->
             player.Pause() |> ignore
-            return PlaySuccess {Duration = float player.Media.Duration |> TimeSpan.FromMilliseconds}
+
+            return
+                PlaySuccess
+                    { Title = player.Media.Meta MetadataType.Title
+                      Duration =
+                          float player.Media.Duration
+                          |> TimeSpan.FromMilliseconds }
         | VLCState.Opening
         | VLCState.Buffering
         | VLCState.Playing
         | _ -> return PlayFailed player.State
     }
 
-let pause () = async{
-    player.Pause()
-    return PauseSuccess
-}
-let stop () = async {
-    player.Stop()
-    player.Media.DurationChanged |> Async.AwaitEvent |> ignore
-    return StopSuccess
-}
+let pause () =
+    async {
+        player.Pause()
+        return PauseSuccess
+    }
 
+let stop () =
+    async {
+        player.Stop()
+
+        player.Media.DurationChanged
+        |> Async.AwaitEvent
+        |> ignore
+
+        return StopSuccess
+    }

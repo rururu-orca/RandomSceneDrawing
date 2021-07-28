@@ -28,6 +28,7 @@ let update msg m =
     | RequestPlay -> m, [ Play ]
     | PlaySuccess mediaInfo ->
         { m with
+              Title = mediaInfo.Title
               MediaDuration = mediaInfo.Duration },
         []
     | PlayFailed _ -> failwith "Not Implemented"
@@ -126,7 +127,7 @@ let main window =
             .WriteTo.Console()
 #endif
             .CreateLogger()
-            
+
 
     WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))

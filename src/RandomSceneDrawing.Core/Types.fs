@@ -9,7 +9,9 @@ type State =
     | Stop
     | Running
 
-type MediaIndo = { Duration: TimeSpan }
+type MediaInfo = {
+    Title: string
+    Duration: TimeSpan }
 
 type Model =
     { Frames: int
@@ -33,7 +35,7 @@ type CmdMsg =
 
 type Msg =
     | RequestPlay
-    | PlaySuccess of MediaIndo
+    | PlaySuccess of MediaInfo
     | PlayFailed of VLCState
     | RequestPause
     | PauseSuccess
