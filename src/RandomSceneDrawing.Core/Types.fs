@@ -61,10 +61,10 @@ type AppViewModel =
       Play: ICommand
       Pause: ICommand
       Stop: ICommand
-      FramesText: string
+      mutable FramesText: string
       IncrementFrames: ICommand
       DecrementFrames: ICommand
-      DurationText: string
+      mutable DurationText: string
       IncrementDuration: ICommand
       DecrementDuration: ICommand
       Randomize: ICommand

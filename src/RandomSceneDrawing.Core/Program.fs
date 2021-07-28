@@ -7,6 +7,7 @@ open Serilog.Extensions.Logging
 open Elmish
 open Elmish.WPF
 open Types
+open RandomSceneDrawing
 
 let init () =
     { Frames = 0
@@ -76,12 +77,12 @@ let bindings () : Binding<Model, Msg> list =
       "Stop" |> Binding.cmd RequestStop
 
       // Random Drawing Setting
-      "Frames"
+      "FramesText"
       |> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
       "IncrementFrames" |> Binding.cmd IncrementFrames
       "DecrementFrames" |> Binding.cmd DecrementFrames
 
-      "Duration"
+      "DurationText"
       |> Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
       "IncrementDuration"
       |> Binding.cmd IncrementDuration
@@ -115,7 +116,26 @@ let toCmd =
     | StartDrawing -> failwith "Not Implemented"
 
 let designVm =
-    ViewModel.designInstance (init () |> fst) (bindings ())
+    {
+        MediaPlayer = PlayerLib.player
+        ScenePosition = 0.0
+        SourceDuration = 0.0
+        SourceName = ""
+        Play = WpfHelper.emptyCommand
+        Pause = WpfHelper.emptyCommand
+        Stop = WpfHelper.emptyCommand
+        FramesText = "0"
+        IncrementFrames = WpfHelper.emptyCommand
+        DecrementFrames = WpfHelper.emptyCommand
+        DurationText = "00:00"
+        IncrementDuration = WpfHelper.emptyCommand
+        DecrementDuration = WpfHelper.emptyCommand
+        Randomize = WpfHelper.emptyCommand
+        CurrentDuration = ""
+        CurrentFrames = 0
+        Position = 0
+        DrawingServiceVisibility = Visibility.Collapsed
+    }
 
 let main window =
     let logger =
