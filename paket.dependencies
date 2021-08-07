@@ -11,3 +11,10 @@ nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console
 nuget VideoLAN.LibVLC.Windows
 nuget LibVLCSharp.WPF
+
+nuget Expecto
+nuget Expecto.BenchmarkDotNet
+nuget Expecto.FsCheck
+nuget Expecto.Hopac
+nuget YoloDev.Expecto.TestSdk
+nuget Microsoft.NET.Test.Sdk
