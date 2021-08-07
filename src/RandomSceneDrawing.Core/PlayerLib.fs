@@ -14,7 +14,7 @@ let libVLC =
     new LibVLC(false)
 #endif
 
-let getMediaFromUri source = new Media(libVLC, (Uri source))
+let getMediaFromUri source = new Media(libVLC, uri = source)
 
 let player = new MediaPlayer(libVLC)
 

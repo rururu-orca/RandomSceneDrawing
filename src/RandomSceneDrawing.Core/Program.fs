@@ -61,7 +61,7 @@ let update msg m =
 
 
 
-let bindings () : Binding<Model, Msg> list =
+let bindings () =
     [
       // Player
       "MediaPlayer"
@@ -107,7 +107,8 @@ let toCmd =
     function
     // Player
     | Play ->
-        PlayerLib.play "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        Uri "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        |> PlayerLib.play
         |> Cmd.OfAsync.result
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
