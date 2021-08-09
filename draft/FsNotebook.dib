@@ -94,3 +94,71 @@ type Logger(name) =
 
     static member CreateLogger name =
         new Logger(name)
+
+#!markdown
+
+# Timer(async workflows)
+
+#!fsharp
+
+open System
+
+let sleepWorkflow  = async{
+    Seq.init 3 id
+    |> Seq.iter(fun i ->
+        Async.Sleep 2000 |> Async.RunSynchronously
+        printfn "Starting sleep workflow at %O" DateTime.Now.TimeOfDay
+    )
+
+    }
+
+Async.Start sleepWorkflow
+Async.RunSynchronously sleepWorkflow
+
+#!fsharp
+
+open System
+
+module CmdArgs =    
+    type AddTask = {        
+         Id : int        
+         Name : string        
+         DueDate : DateTime option    
+    }     
+    type RemoveTask = {        
+         Id : int
+    }     
+    type CompleteTask = {        
+         Id : int    
+    }     
+    type ChangeTaskDueDate = {        
+         Id : int        
+         DueDate : DateTime option    
+    }
+
+type Command =     
+    | AddTask of CmdArgs.AddTask    
+    | RemoveTask of CmdArgs.RemoveTask    
+    | ClearAllTasks    
+    | CompleteTask of CmdArgs.CompleteTask    
+    | ChangeTaskDueDate of CmdArgs.ChangeTaskDueDate
+
+
+type Event =    
+    | TaskAdded of CmdArgs.AddTask    
+    | TaskRemoved of CmdArgs.RemoveTask    
+    | AllTasksCleared    
+    | TaskCompleted of CmdArgs.CompleteTask    
+    | TaskDueDateChanged of CmdArgs.ChangeTaskDueDate
+
+
+type Task = {    
+    Id : int    
+    Name : string    
+    DueDate : DateTime option    
+    IsComplete : bool
+} 
+type State = {    
+    Tasks : Task list
+}
+    with static member Init = { Tasks = [] }
