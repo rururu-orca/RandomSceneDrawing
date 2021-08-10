@@ -11,37 +11,47 @@ open System.Windows
 let timerModelTests =
     let createTimerModel timerOn count step : CountDownTimer.Model =
         { TimerOn = timerOn
-          Step = TimeSpan.ofSec count
+          Period = TimeSpan.ofSec count
           Count = TimeSpan.ofSec step }
 
     testList
         "Timer"
         [ test "Toggling On Should Trigger Timer Tick " {
+            let expectedReturn =
+                id<CountDownTimer.Model>
+                    { TimerOn = true
+                      Count = timespan 5.0 Seconds
+                      Period = timespan 1.0 Seconds },
+                [ CountDownTimer.TimerTick(timespan 1.0 Seconds) ]
 
-              let expectedReturn =
-                  createTimerModel true 1.0<sec> 0.0<sec>, [ CountDownTimer.TimerTick ]
+            let acturalReturn =
+                (CountDownTimer.init >> fst) ()
+                |> CountDownTimer.update (CountDownTimer.TimerToggled true)
 
-              let acturalReturn =
-                  createTimerModel false 1.0<sec> 0.0<sec>
-                  |> CountDownTimer.update (CountDownTimer.TimerToggled true)
-
-              "Toggling On Should TimerOn"
-              |> Expect.equal acturalReturn expectedReturn
+            "Toggling On Should TimerOn"
+            |> Expect.equal acturalReturn expectedReturn
           }
 
           test "On timeup" {
               let expectedReturn =
-                  createTimerModel false 1.0<sec> 0.0<sec>, [ ]
+                  id<CountDownTimer.Model>
+                      { TimerOn = false
+                        Count = TimeSpan.Zero
+                        Period = timespan 1.0 Seconds },
+                  []
 
               let acturalReturn =
-                  createTimerModel true 1.0<sec> 1.0<sec>
+                  id<CountDownTimer.Model>
+                      { TimerOn = true
+                        Count = timespan 1.0 Seconds
+                        Period = timespan 1.0 Seconds }
                   |> CountDownTimer.update (CountDownTimer.TimedTick)
 
               "Toggling Off Should TimerOn"
               |> Expect.equal acturalReturn expectedReturn
           }
 
-         ]
+          ]
 
 
 [<Tests>]

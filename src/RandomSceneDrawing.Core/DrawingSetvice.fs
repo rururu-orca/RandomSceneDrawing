@@ -6,36 +6,55 @@ open FSharp.Control
 open Elmish
 open System.Windows
 
+type TimeMeasure =
+    | Seconds
+    | Minutes
+    | Hours
+
+let timespan value measure =
+    match measure with
+    | Seconds -> TimeSpan.FromSeconds(value)
+    | Minutes -> TimeSpan.FromMinutes(value)
+    | Hours -> TimeSpan.FromHours(value)
+
 module CountDownTimer =
     type Model =
         { TimerOn: bool
           Count: TimeSpan
-          Step: TimeSpan }
+          Period: TimeSpan }
 
     type Msg =
         | TimedTick
         | TimerToggled of bool
 
-    type CmdMsg = | TimerTick
+    type CmdMsg = TimerTick of TimeSpan
 
     let init () =
         { TimerOn = false
-          Count = TimeSpan()
-          Step = TimeSpan(0, 0, 1) },
-        Cmd.Empty // An empty list means no action
+          Count = timespan 5.0 Seconds
+          Period = timespan 1.0 Seconds },
+        []
 
     let update msg model =
         match msg with
-        | TimerToggled on -> { model with TimerOn = on }, [ if on then yield TimerTick ]
+        | TimerToggled on -> { model with TimerOn = on }, [ if on then yield TimerTick model.Period ]
         | TimedTick ->
             match model with
             | { TimerOn = false } -> model, []
-            | { Count = ct; Step = stp } when ct - stp > TimeSpan.Zero -> { model with Count = ct - stp }, [ TimerTick ]
+            | { Count = ct; Period = stp } when ct > stp -> { model with Count = ct - stp }, [ TimerTick model.Period ]
             | _ ->
                 { model with
                       TimerOn = false
                       Count = TimeSpan.Zero },
                 []
+
+    let timerCmd (period: TimeSpan) =
+        async {
+            do! Async.Sleep period
+            return TimedTick
+        }
+        |> Cmd.OfAsync.result
+
 
 [<Measure>]
 type sec
