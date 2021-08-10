@@ -60,10 +60,24 @@ let update msg m =
     | RandomizeFailed (_) -> failwith "Not Implemented"
     | RequestStartDrawing (_) -> m, [ StartDrawing ]
     | RequestStopDrawing (_) -> m, [ StopDrawing ]
-    | StartDrawingSuccess (_) -> { m with State = Running }, []
+    | StartDrawingSuccess (_) ->
+        { m with
+              CurrentDuration = m.Duration
+              State = Running },
+        []
     | StartDrawingFailed (_) -> failwith "Not Implemented"
-    | StopDrawingSuccess -> { m with State = State.Stop },[]
-    | Tick -> { m with Frames = m.Frames + 1 }, []
+    | StopDrawingSuccess -> { m with State = State.Stop }, []
+    | Tick ->
+        let nextDuration = m.CurrentDuration - TimeSpan(0, 0, 1)
+
+        if nextDuration > TimeSpan.Zero then
+            { m with
+                  CurrentDuration = m.CurrentDuration - TimeSpan(0, 0, 1) },
+            []
+        else
+            { m with
+                  CurrentDuration = TimeSpan.Zero },
+            [ StopDrawing ]
 
 
 
@@ -105,8 +119,8 @@ let bindings () =
       |> Binding.oneWay (fun m -> m.Player.Time)
 
       "DrawingCommand"
-      |> Binding.cmd 
-          (fun (m:Model) ->
+      |> Binding.cmd
+          (fun (m: Model) ->
               match m.State with
               | State.Stop -> RequestStartDrawing
               | Running -> RequestStopDrawing)
