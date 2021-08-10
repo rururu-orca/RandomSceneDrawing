@@ -29,10 +29,10 @@ module CountDownTimer =
 
     type CmdMsg = TimerTick of TimeSpan
 
-    let init () =
+    let init count period =
         { TimerOn = false
-          Count = timespan 5.0 Seconds
-          Period = timespan 1.0 Seconds },
+          Count = count
+          Period = period },
         []
 
     let update msg model =

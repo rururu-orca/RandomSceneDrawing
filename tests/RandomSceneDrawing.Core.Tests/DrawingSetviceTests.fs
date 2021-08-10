@@ -25,7 +25,8 @@ let timerModelTests =
                 [ CountDownTimer.TimerTick(timespan 1.0 Seconds) ]
 
             let acturalReturn =
-                (CountDownTimer.init >> fst) ()
+                CountDownTimer.init (timespan 5.0 Seconds) (timespan 1.0 Seconds)
+                |> fst
                 |> CountDownTimer.update (CountDownTimer.TimerToggled true)
 
             "Toggling On Should TimerOn"
