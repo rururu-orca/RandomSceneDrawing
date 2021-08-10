@@ -1,4 +1,4 @@
-﻿module RandomSceneDrawing.Program
+module RandomSceneDrawing.Program
 
 open System
 open System.Windows
@@ -10,9 +10,8 @@ open Types
 open RandomSceneDrawing
 
 let init () =
-    { Frames = 0
-      Duration = TimeSpan.Zero
-      Interval = 0
+    { Frames = 1
+      Duration = TimeSpan(0, 0, 10)
       DrawingServiceVisibility = Visibility.Collapsed
       Player = PlayerLib.player
       MediaDuration = TimeSpan.Zero
@@ -22,6 +21,23 @@ let init () =
       CurrentDuration = TimeSpan.Zero
       CurrentFrames = 0 },
     []
+
+let requireGreaterThan1Frame input =
+    [ if input.Frames < 1 then
+          $"Frames must greater than 1" ]
+
+let requireDurationGreaterThan input =
+    let ts = TimeSpan(0, 0, 1)
+
+    [ if input.Duration < ts then
+          $"Frames must greater than {ts}" ]
+
+let mapCanExec =
+    function
+    | [] -> true
+    | _ -> false
+
+
 
 let update msg m =
     match msg with
@@ -99,15 +115,18 @@ let bindings () =
       // Random Drawing Setting
       "FramesText"
       |> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
+      |> Binding.withValidation requireGreaterThan1Frame
       "IncrementFrames" |> Binding.cmd IncrementFrames
-      "DecrementFrames" |> Binding.cmd DecrementFrames
+      "DecrementFrames"
+      |> Binding.cmdIf (DecrementFrames, (requireGreaterThan1Frame >> mapCanExec))
 
       "DurationText"
       |> Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
+      |> Binding.withValidation requireDurationGreaterThan
       "IncrementDuration"
       |> Binding.cmd IncrementDuration
       "DecrementDuration"
-      |> Binding.cmd DecrementDuration
+      |> Binding.cmdIf (DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
 
       // Random Drawing
       "Randomize" |> Binding.cmd RequestRandomize
