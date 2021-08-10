@@ -32,6 +32,7 @@ type CmdMsg =
     | Stop
     | Randomize
     | StartDrawing
+    | StopDrawing
 
 type Msg =
     | RequestPlay
@@ -44,8 +45,14 @@ type Msg =
     | StopSuccess
     | StopFailed of exn
     | RequestRandomize
-    | RandomizeSuccess of unit
+    | RandomizeSuccess
     | RandomizeFailed of exn
+    | RequestStartDrawing
+    | StartDrawingSuccess
+    | StartDrawingFailed of exn
+    | Tick
+    | RequestStopDrawing
+    | StopDrawingSuccess
     | SetFrames of int
     | IncrementFrames
     | DecrementFrames
@@ -68,6 +75,9 @@ type AppViewModel =
       IncrementDuration: ICommand
       DecrementDuration: ICommand
       Randomize: ICommand
+      DrawingCommand : ICommand
+      DrawingCommandText : String
+      State : State
       CurrentDuration: string
       CurrentFrames: int
       Position: int

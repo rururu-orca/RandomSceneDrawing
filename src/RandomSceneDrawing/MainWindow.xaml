@@ -24,7 +24,8 @@
                        Text="{Binding CurrentDuration}" Visibility="{Binding DrawingServiceVisibility}"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" DockPanel.Dock="Top">
-            <Button Margin="5,5,50,5" HorizontalAlignment="Right" Content="Start Drawing" Command="{Binding StartDrawing}" />
+            <Button Margin="5,5,50,5" HorizontalAlignment="Right" Content="{Binding DrawingCommandText}" Command="{Binding DrawingCommand}" >
+            </Button>
             <StackPanel HorizontalAlignment="Stretch">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
                     <TextBlock Margin="5" VerticalAlignment="Center"><Run Text="Frames"/></TextBlock>

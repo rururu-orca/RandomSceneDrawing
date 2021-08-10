@@ -58,6 +58,12 @@ let update msg m =
     | RequestRandomize (_) -> failwith "Not Implemented"
     | RandomizeSuccess (_) -> failwith "Not Implemented"
     | RandomizeFailed (_) -> failwith "Not Implemented"
+    | RequestStartDrawing (_) -> m, [ StartDrawing ]
+    | RequestStopDrawing (_) -> m, [ StopDrawing ]
+    | StartDrawingSuccess (_) -> { m with State = Running }, []
+    | StartDrawingFailed (_) -> failwith "Not Implemented"
+    | StopDrawingSuccess -> { m with State = State.Stop },[]
+    | Tick -> { m with Frames = m.Frames + 1 }, []
 
 
 
@@ -98,8 +104,26 @@ let bindings () =
       "Position"
       |> Binding.oneWay (fun m -> m.Player.Time)
 
+      "DrawingCommand"
+      |> Binding.cmd 
+          (fun (m:Model) ->
+              match m.State with
+              | State.Stop -> RequestStartDrawing
+              | Running -> RequestStopDrawing)
+      "DrawingCommandText"
+      |> Binding.oneWay
+          (fun m ->
+              match m.State with
+              | State.Stop -> "Start Drawing"
+              | Running -> "Stop Drawing")
+
+
       "DrawingServiceVisibility"
-      |> Binding.oneWay (fun m -> m.DrawingServiceVisibility)
+      |> Binding.oneWay
+          (fun m ->
+              match m.State with
+              | State.Stop -> Visibility.Collapsed
+              | Running -> Visibility.Visible)
 
       ]
 
@@ -114,29 +138,31 @@ let toCmd =
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
     // Random Drawing
     | Randomize -> failwith "Not Implemented"
-    | StartDrawing -> failwith "Not Implemented"
+    | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
+    | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
 
 let designVm =
-    {
-        MediaPlayer = PlayerLib.player
-        ScenePosition = 0.0
-        SourceDuration = 0.0
-        SourceName = ""
-        Play = WpfHelper.emptyCommand
-        Pause = WpfHelper.emptyCommand
-        Stop = WpfHelper.emptyCommand
-        FramesText = "0"
-        IncrementFrames = WpfHelper.emptyCommand
-        DecrementFrames = WpfHelper.emptyCommand
-        DurationText = "00:00"
-        IncrementDuration = WpfHelper.emptyCommand
-        DecrementDuration = WpfHelper.emptyCommand
-        Randomize = WpfHelper.emptyCommand
-        CurrentDuration = ""
-        CurrentFrames = 0
-        Position = 0
-        DrawingServiceVisibility = Visibility.Collapsed
-    }
+    { MediaPlayer = PlayerLib.player
+      ScenePosition = 0.0
+      SourceDuration = 0.0
+      SourceName = ""
+      Play = WpfHelper.emptyCommand
+      Pause = WpfHelper.emptyCommand
+      Stop = WpfHelper.emptyCommand
+      FramesText = "0"
+      IncrementFrames = WpfHelper.emptyCommand
+      DecrementFrames = WpfHelper.emptyCommand
+      DurationText = "00:00"
+      IncrementDuration = WpfHelper.emptyCommand
+      DecrementDuration = WpfHelper.emptyCommand
+      Randomize = WpfHelper.emptyCommand
+      DrawingCommand = WpfHelper.emptyCommand
+      DrawingCommandText = "Start Drawing"
+      State = State.Stop
+      CurrentDuration = ""
+      CurrentFrames = 0
+      Position = 0
+      DrawingServiceVisibility = Visibility.Collapsed }
 
 let main window =
     let logger =
@@ -145,11 +171,13 @@ let main window =
             .MinimumLevel.Override("Elmish.WPF.Bindings", Events.LogEventLevel.Verbose)
             .MinimumLevel.Override("Elmish.WPF.Performance", Events.LogEventLevel.Verbose)
 #if DEBUG
-            .WriteTo.Console()
+            .WriteTo
+            .Console()
 #endif
             .CreateLogger()
 
 
     WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
+    |> WpfProgram.withSubscription (fun _ -> Cmd.ofSub <| DrawingSetvice.setup Tick)
     |> WpfProgram.startElmishLoop window

@@ -20,6 +20,7 @@
   - 中止
 - ドローイング関連のモデル
   - レコード化して保持するが、`Binding.oneWay`で完結させて、サブモデル化は極力避ける
+- 
 
 #!markdown
 
@@ -103,17 +104,26 @@ type Logger(name) =
 
 open System
 
-let sleepWorkflow  = async{
-    Seq.init 3 id
-    |> Seq.iter(fun i ->
-        Async.Sleep 2000 |> Async.RunSynchronously
-        printfn "Starting sleep workflow at %O" DateTime.Now.TimeOfDay
+let sleepWorkflow count cmd  =
+    Seq.init count id
+    |> Seq.map(fun i ->
+        async {
+            do! Async.Sleep 2000
+            cmd()
+            return! Async.OnCancel(fun () -> printfn "Canceled.")
+        }
     )
+    |>Async.Sequential
+    |>Async.Ignore
 
-    }
+let print () = printfn "Starting sleep workflow at %O" DateTime.Now.TimeOfDay
 
-Async.Start sleepWorkflow
-Async.RunSynchronously sleepWorkflow
+sleepWorkflow 3 print
+|> Async.Start
+
+System.Threading.Thread.Sleep 6000
+
+Async.CancelDefaultToken
 
 #!fsharp
 
