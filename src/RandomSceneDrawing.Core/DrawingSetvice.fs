@@ -5,6 +5,7 @@ open System.Threading
 open FSharp.Control
 open Elmish
 open System.Windows
+open Types
 
 type TimeMeasure =
     | Seconds
@@ -16,6 +17,19 @@ let timespan value measure =
     | Seconds -> TimeSpan.FromSeconds(value)
     | Minutes -> TimeSpan.FromMinutes(value)
     | Hours -> TimeSpan.FromHours(value)
+
+let private timer = new System.Timers.Timer(1000.)
+
+let setup msg dispatch =
+    timer.Elapsed.Add(fun _ -> dispatch msg)
+
+let tickSub msg =
+    timer.Start()
+    msg
+
+let stop () =
+    timer.Stop()
+    StopDrawingSuccess
 
 module CountDownTimer =
     type Model =
@@ -54,6 +68,7 @@ module CountDownTimer =
             return TimedTick
         }
         |> Cmd.OfAsync.result
+
 
 
 [<Measure>]
