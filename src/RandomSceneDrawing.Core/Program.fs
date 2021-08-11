@@ -15,10 +15,11 @@ let init () =
       Interval = TimeSpan(0, 0, 3)
       DrawingServiceVisibility = Visibility.Collapsed
       Player = PlayerLib.player
+      PlayerState = PlayerState.Stopped
       MediaDuration = TimeSpan.Zero
-      MediaPosition = 0.0
+      MediaPosition = TimeSpan.Zero
       Title = ""
-      State = State.Stop
+      RamdomDrawingState = RamdomDrawingState.Stop
       CurrentDuration = TimeSpan.Zero
       CurrentFrames = 0 },
     []
@@ -47,6 +48,7 @@ let update msg m =
     | PlaySuccess mediaInfo ->
         { m with
               Title = mediaInfo.Title
+              PlayerState = Playing
               MediaDuration = mediaInfo.Duration },
         []
     | PlayFailed _ -> failwith "Not Implemented"
@@ -54,8 +56,9 @@ let update msg m =
     | PauseSuccess -> m, []
     | PauseFailed _ -> failwith "Not Implemented"
     | RequestStop -> m, [ Stop ]
-    | StopSuccess -> m, []
+    | StopSuccess -> { m with PlayerState = Stopped }, []
     | StopFailed _ -> failwith "Not Implemented"
+    | PlayerTimeChanged time -> { m with MediaPosition = time }, []
 
     // Random Drawing Setting
     | SetFrames x -> { m with Frames = x }, []
@@ -81,10 +84,13 @@ let update msg m =
         { m with
               CurrentFrames = 1
               CurrentDuration = m.Duration
-              State = Running },
+              RamdomDrawingState = Running },
         []
     | StartDrawingFailed (_) -> failwith "Not Implemented"
-    | StopDrawingSuccess -> { m with State = State.Stop }, []
+    | StopDrawingSuccess ->
+        { m with
+              RamdomDrawingState = RamdomDrawingState.Stop },
+        []
     | Tick ->
         let nextDuration = m.CurrentDuration - TimeSpan(0, 0, 1)
 
@@ -110,10 +116,17 @@ let bindings () =
       "MediaPlayer"
       |> Binding.oneWay (fun m -> m.Player)
       "ScenePosition"
-      |> Binding.oneWay (fun m -> m.MediaPosition)
+      |> Binding.oneWay (fun m -> m.MediaPosition.ToString @"hh\:mm\:ss")
       "SourceDuration"
-      |> Binding.oneWay (fun m -> m.MediaDuration)
+      |> Binding.oneWay (fun m -> m.MediaDuration.ToString @"hh\:mm\:ss")
       "SourceName" |> Binding.oneWay (fun m -> m.Title)
+      "MediaPlayerVisibility"
+      |> Binding.oneWay
+          (fun m ->
+              match m.PlayerState with
+              | Playing
+              | Paused -> Visibility.Visible
+              | Stopped -> Visibility.Collapsed)
 
       "Pause" |> Binding.cmd RequestPause
       "Play" |> Binding.cmd RequestPlay
@@ -141,21 +154,19 @@ let bindings () =
       |> Binding.oneWay (fun m -> m.CurrentDuration)
       "CurrentFrames"
       |> Binding.oneWay (fun m -> m.CurrentFrames)
-      "Position"
-      |> Binding.oneWay (fun m -> m.Player.Time)
 
       "DrawingCommand"
       |> Binding.cmd
           (fun (m: Model) ->
-              match m.State with
-              | State.Stop -> RequestStartDrawing
+              match m.RamdomDrawingState with
+              | RamdomDrawingState.Stop -> RequestStartDrawing
               | Running
               | Interval -> RequestStopDrawing)
       "DrawingCommandText"
       |> Binding.oneWay
           (fun m ->
-              match m.State with
-              | State.Stop -> "Start Drawing"
+              match m.RamdomDrawingState with
+              | RamdomDrawingState.Stop -> "Start Drawing"
               | Running
               | Interval -> "Stop Drawing")
 
@@ -163,8 +174,8 @@ let bindings () =
       "DrawingServiceVisibility"
       |> Binding.oneWay
           (fun m ->
-              match m.State with
-              | State.Stop -> Visibility.Collapsed
+              match m.RamdomDrawingState with
+              | RamdomDrawingState.Stop -> Visibility.Collapsed
               | Running
               | Interval -> Visibility.Visible) ]
 
@@ -201,7 +212,7 @@ let designVm =
       Randomize = WpfHelper.emptyCommand
       DrawingCommand = WpfHelper.emptyCommand
       DrawingCommandText = "Start Drawing"
-      State = State.Stop
+      State = RamdomDrawingState.Stop
       CurrentDuration = ""
       CurrentFrames = 0
       Position = 0
@@ -222,5 +233,8 @@ let main window =
 
     WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
-    |> WpfProgram.withSubscription (fun _ -> Cmd.ofSub <| DrawingSetvice.setup Tick)
+    |> WpfProgram.withSubscription
+        (fun _ ->
+            Cmd.batch [ Cmd.ofSub DrawingSetvice.setup
+                        Cmd.ofSub PlayerLib.timeChanged ])
     |> WpfProgram.startElmishLoop window

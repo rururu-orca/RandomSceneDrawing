@@ -5,10 +5,15 @@ open System.Windows
 open LibVLCSharp.Shared
 open System.Windows.Input
 
-type State =
+type RamdomDrawingState =
     | Stop
     | Running
     | Interval
+
+type PlayerState =
+    | Playing
+    | Paused
+    | Stopped
 
 type MediaInfo = {
     Title: string
@@ -20,10 +25,11 @@ type Model =
       Interval: TimeSpan
       DrawingServiceVisibility: Visibility
       Player: MediaPlayer
+      PlayerState : PlayerState
       MediaDuration: TimeSpan
-      MediaPosition: float
+      MediaPosition: TimeSpan
       Title: string
-      State: State
+      RamdomDrawingState: RamdomDrawingState
       CurrentDuration: TimeSpan
       CurrentFrames: int }
 
@@ -45,6 +51,7 @@ type Msg =
     | RequestStop
     | StopSuccess
     | StopFailed of exn
+    | PlayerTimeChanged of TimeSpan
     | RequestRandomize
     | RandomizeSuccess
     | RandomizeFailed of exn
@@ -78,7 +85,7 @@ type AppViewModel =
       Randomize: ICommand
       DrawingCommand : ICommand
       DrawingCommandText : String
-      State : State
+      State : RamdomDrawingState
       CurrentDuration: string
       CurrentFrames: int
       Position: int
