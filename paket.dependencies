@@ -4,7 +4,19 @@ storage: none
 framework: auto-detect
 
 nuget Elmish.WPF >= 4.0.0 beta
+nuget FSharp.Control.AsyncSeq
 nuget FSharp.Control.Reactive
+nuget FSharpPlus
+nuget FsToolkit.ErrorHandling
 nuget Microsoft.Xaml.Behaviors.Wpf
+nuget Serilog.Extensions.Logging
+nuget Serilog.Sinks.Console
 nuget VideoLAN.LibVLC.Windows
 nuget LibVLCSharp.WPF
+
+nuget Expecto
+nuget Expecto.BenchmarkDotNet
+nuget Expecto.FsCheck
+nuget Expecto.Hopac
+nuget YoloDev.Expecto.TestSdk
+nuget Microsoft.NET.Test.Sdk

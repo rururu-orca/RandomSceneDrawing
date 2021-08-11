@@ -1,126 +1,240 @@
 ﻿module RandomSceneDrawing.Program
 
-open Elmish.WPF
-open LibVLCSharp.Shared
-open LibVLCSharp.WPF
 open System
 open System.Windows
-
-type State =
-    | Stop
-    | Running
-
-type Model =
-    { Frames: int
-      Duration: TimeSpan
-      Interval: int
-      DrawingServiceVisibility: Visibility
-      Libvlc: LibVLC
-      Player: MediaPlayer
-      VideoSeze: Size
-      MediaDuration: TimeSpan
-      MediaPosition: float
-      Title: string
-      State: State
-      CurrentDuration: TimeSpan
-      CurrentFrames: int }
+open Serilog
+open Serilog.Extensions.Logging
+open Elmish
+open Elmish.WPF
+open Types
+open RandomSceneDrawing
 
 let init () =
-    Core.Initialize()
-#if DEBUG
-    let libvlc = new LibVLC("--verbose=2")
-#else
-    let libvlc = new LibVLC(false)
-#endif
-    { Frames = 0
-      Duration = TimeSpan.Zero
-      Interval = 0
+    { Frames = 1
+      Duration = TimeSpan(0, 0, 10)
+      Interval = TimeSpan(0, 0, 3)
       DrawingServiceVisibility = Visibility.Collapsed
-      Libvlc = libvlc
-      Player = new MediaPlayer(libvlc)
-      VideoSeze = Size()
+      Player = PlayerLib.player
+      PlayerState = PlayerState.Stopped
       MediaDuration = TimeSpan.Zero
-      MediaPosition = 0.0
+      MediaPosition = TimeSpan.Zero
       Title = ""
-      State = Stop
+      RamdomDrawingState = RamdomDrawingState.Stop
       CurrentDuration = TimeSpan.Zero
-      CurrentFrames = 0 }
+      CurrentFrames = 0 },
+    []
 
-type Msg =
-    | Play
-    | Pause
-    | Stop
-    | Randomize
-    | SetDuration of TimeSpan
-    | SetFrames of int
-    | VideoViewLoaded of VideoView
+let requireGreaterThan1Frame input =
+    [ if input.Frames < 1 then
+          $"Frames must greater than 1" ]
+
+let requireDurationGreaterThan input =
+    let ts = TimeSpan(0, 0, 1)
+
+    [ if input.Duration < ts then
+          $"Frames must greater than {ts}" ]
+
+let mapCanExec =
+    function
+    | [] -> true
+    | _ -> false
 
 
-let update (msg: Msg) (model: Model) : Model =
+
+let update msg m =
     match msg with
-    | Play ->
-        match model.Player.State with
-        | VLCState.NothingSpecial
-        | VLCState.Stopped
-        | VLCState.Ended
-        | VLCState.Error ->
-            model.Libvlc
-            |> PlayerLib.getMediaFromUri
-                "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-            |> model.Player.Play
-            |> ignore
-        | VLCState.Paused -> model.Player.Pause()
-        | VLCState.Opening
-        | VLCState.Buffering
-        | VLCState.Playing
-        | _ -> ()
+    // Player
+    | RequestPlay -> m, [ Play ]
+    | PlaySuccess mediaInfo ->
+        { m with
+              Title = mediaInfo.Title
+              PlayerState = Playing
+              MediaDuration = mediaInfo.Duration },
+        []
+    | PlayFailed _ -> failwith "Not Implemented"
+    | RequestPause -> m, [ Pause ]
+    | PauseSuccess -> m, []
+    | PauseFailed _ -> failwith "Not Implemented"
+    | RequestStop -> m, [ Stop ]
+    | StopSuccess -> { m with PlayerState = Stopped }, []
+    | StopFailed _ -> failwith "Not Implemented"
+    | PlayerTimeChanged time -> { m with MediaPosition = time }, []
 
-        { model with
-              MediaDuration =
-                  float model.Player.Media.Duration
-                  |> TimeSpan.FromMilliseconds }
-    | Pause ->
-        model.Player.Pause()
-        model
-    | Stop ->
-        model.Player.Stop()
-        model
-    | Randomize -> model
-    | SetDuration x -> { model with Duration = x }
-    | SetFrames x -> { model with Frames = x }
-    | VideoViewLoaded v ->
-        v.MediaPlayer <- model.Player
-        model
+    // Random Drawing Setting
+    | SetFrames x -> { m with Frames = x }, []
+    | IncrementFrames -> { m with Frames = m.Frames + 1 }, []
+    | DecrementFrames -> { m with Frames = m.Frames - 1 }, []
+    | SetDuration x -> { m with Duration = x }, []
+    | IncrementDuration ->
+        { m with
+              Duration = m.Duration.Add <| TimeSpan.FromSeconds 10.0 },
+        []
+    | DecrementDuration ->
+        { m with
+              Duration = m.Duration.Add <| TimeSpan.FromSeconds -10.0 },
+        []
 
-let paramToVideoView (p: obj) =
-    let args = p :?> RoutedEventArgs
-    args.Source :?> VideoView |> VideoViewLoaded
+    // Random Drawing
+    | RequestRandomize (_) -> failwith "Not Implemented"
+    | RandomizeSuccess (_) -> failwith "Not Implemented"
+    | RandomizeFailed (_) -> failwith "Not Implemented"
+    | RequestStartDrawing (_) -> m, [ StartDrawing ]
+    | RequestStopDrawing (_) -> m, [ StopDrawing ]
+    | StartDrawingSuccess (_) ->
+        { m with
+              CurrentFrames = 1
+              CurrentDuration = m.Duration
+              RamdomDrawingState = Running },
+        []
+    | StartDrawingFailed (_) -> failwith "Not Implemented"
+    | StopDrawingSuccess ->
+        { m with
+              RamdomDrawingState = RamdomDrawingState.Stop },
+        []
+    | Tick ->
+        let nextDuration = m.CurrentDuration - TimeSpan(0, 0, 1)
 
-let bindings () : Binding<Model, Msg> list =
-    [ "Pause" |> Binding.cmd Pause
-      "Play" |> Binding.cmd Play
-      "Stop" |> Binding.cmd Stop
-      "Randomize" |> Binding.cmd Randomize
+        if nextDuration > TimeSpan.Zero then
+            { m with
+                  CurrentDuration = m.CurrentDuration - TimeSpan(0, 0, 1) },
+            []
+        elif m.CurrentFrames < m.Frames then
+            { m with
+                  CurrentFrames = m.CurrentFrames + 1
+                  CurrentDuration = m.Duration },
+            []
+        else
+            { m with
+                  CurrentDuration = TimeSpan.Zero },
+            [ StopDrawing ]
+
+
+
+let bindings () =
+    [
+      // Player
+      "MediaPlayer"
+      |> Binding.oneWay (fun m -> m.Player)
+      "ScenePosition"
+      |> Binding.oneWay (fun m -> m.MediaPosition.ToString @"hh\:mm\:ss")
+      "SourceDuration"
+      |> Binding.oneWay (fun m -> m.MediaDuration.ToString @"hh\:mm\:ss")
+      "SourceName" |> Binding.oneWay (fun m -> m.Title)
+      "MediaPlayerVisibility"
+      |> Binding.oneWay
+          (fun m ->
+              match m.PlayerState with
+              | Playing
+              | Paused -> Visibility.Visible
+              | Stopped -> Visibility.Collapsed)
+
+      "Pause" |> Binding.cmd RequestPause
+      "Play" |> Binding.cmd RequestPlay
+      "Stop" |> Binding.cmd RequestStop
+
+      // Random Drawing Setting
+      "FramesText"
+      |> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
+      |> Binding.withValidation requireGreaterThan1Frame
+      "IncrementFrames" |> Binding.cmd IncrementFrames
+      "DecrementFrames"
+      |> Binding.cmdIf (DecrementFrames, (requireGreaterThan1Frame >> mapCanExec))
+
+      "DurationText"
+      |> Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
+      |> Binding.withValidation requireDurationGreaterThan
+      "IncrementDuration"
+      |> Binding.cmd IncrementDuration
+      "DecrementDuration"
+      |> Binding.cmdIf (DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
+
+      // Random Drawing
+      "Randomize" |> Binding.cmd RequestRandomize
       "CurrentDuration"
       |> Binding.oneWay (fun m -> m.CurrentDuration)
       "CurrentFrames"
       |> Binding.oneWay (fun m -> m.CurrentFrames)
-      "Duration"
-      |> Binding.twoWay ((fun m -> string m.Duration), (TimeSpan.Parse >> SetDuration))
-      "Frames"
-      |> Binding.twoWay ((fun m -> float m.Frames), (int >> SetFrames))
-      "Position"
-      |> Binding.oneWay (fun m -> m.Player.Time)
-      "ScenePosition"
-      |> Binding.oneWay (fun m -> m.MediaDuration)
-      "SourceDuration"
-      |> Binding.oneWay (fun m -> m.MediaDuration)
-      "SourceName" |> Binding.oneWay (fun m -> m.Title)
+
+      "DrawingCommand"
+      |> Binding.cmd
+          (fun (m: Model) ->
+              match m.RamdomDrawingState with
+              | RamdomDrawingState.Stop -> RequestStartDrawing
+              | Running
+              | Interval -> RequestStopDrawing)
+      "DrawingCommandText"
+      |> Binding.oneWay
+          (fun m ->
+              match m.RamdomDrawingState with
+              | RamdomDrawingState.Stop -> "Start Drawing"
+              | Running
+              | Interval -> "Stop Drawing")
+
+
       "DrawingServiceVisibility"
-      |> Binding.oneWay (fun m -> m.DrawingServiceVisibility)
-      "VideoViewLoaded"
-      |> Binding.cmdParam paramToVideoView ]
+      |> Binding.oneWay
+          (fun m ->
+              match m.RamdomDrawingState with
+              | RamdomDrawingState.Stop -> Visibility.Collapsed
+              | Running
+              | Interval -> Visibility.Visible) ]
+
+
+
+let toCmd =
+    function
+    // Player
+    | Play ->
+        Uri "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        |> PlayerLib.play
+        |> Cmd.OfAsync.result
+    | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
+    | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
+    // Random Drawing
+    | Randomize -> failwith "Not Implemented"
+    | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
+    | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
+
+let designVm =
+    { MediaPlayer = PlayerLib.player
+      ScenePosition = 0.0
+      SourceDuration = 0.0
+      SourceName = ""
+      Play = WpfHelper.emptyCommand
+      Pause = WpfHelper.emptyCommand
+      Stop = WpfHelper.emptyCommand
+      FramesText = "0"
+      IncrementFrames = WpfHelper.emptyCommand
+      DecrementFrames = WpfHelper.emptyCommand
+      DurationText = "00:00"
+      IncrementDuration = WpfHelper.emptyCommand
+      DecrementDuration = WpfHelper.emptyCommand
+      Randomize = WpfHelper.emptyCommand
+      DrawingCommand = WpfHelper.emptyCommand
+      DrawingCommandText = "Start Drawing"
+      State = RamdomDrawingState.Stop
+      CurrentDuration = ""
+      CurrentFrames = 0
+      Position = 0
+      DrawingServiceVisibility = Visibility.Collapsed }
 
 let main window =
-    WpfProgram.mkSimple init update bindings
+    let logger =
+        LoggerConfiguration()
+            .MinimumLevel.Override("Elmish.WPF.Update", Events.LogEventLevel.Verbose)
+            .MinimumLevel.Override("Elmish.WPF.Bindings", Events.LogEventLevel.Verbose)
+            .MinimumLevel.Override("Elmish.WPF.Performance", Events.LogEventLevel.Verbose)
+#if DEBUG
+            .WriteTo
+            .Console()
+#endif
+            .CreateLogger()
+
+
+    WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
+    |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
+    |> WpfProgram.withSubscription
+        (fun _ ->
+            Cmd.batch [ Cmd.ofSub DrawingSetvice.setup
+                        Cmd.ofSub PlayerLib.timeChanged ])
     |> WpfProgram.startElmishLoop window
