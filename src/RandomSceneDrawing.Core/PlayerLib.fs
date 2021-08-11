@@ -97,7 +97,7 @@ let stop () =
         return StopSuccess
     }
 
-let ramdomize (playList: Media) =
+let randomize (playList: Media) =
     player.Stop()
     let random = Random()
 

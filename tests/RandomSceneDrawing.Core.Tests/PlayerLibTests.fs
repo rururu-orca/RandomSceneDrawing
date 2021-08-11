@@ -33,8 +33,7 @@ let playerLibTests =
                  [| __SOURCE_DIRECTORY__
                     "TestPlayList.xspf" |]
                  |> Path.Combine
-             let! playList = loadPlayList (Uri path)
-             do ramdomize playList |> ignore
+             do randomize playList |> ignore
              
              let media:Media = player.Media
              Expect.notEqual media.Duration -1L ""

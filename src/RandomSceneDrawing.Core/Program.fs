@@ -19,7 +19,7 @@ let init () =
       MediaDuration = TimeSpan.Zero
       MediaPosition = TimeSpan.Zero
       Title = ""
-      RamdomDrawingState = RamdomDrawingState.Stop
+      RandomDrawingState = RandomDrawingState.Stop
       CurrentDuration = TimeSpan.Zero
       CurrentFrames = 0 },
     []
@@ -89,12 +89,12 @@ let update msg m =
         { m with
               CurrentFrames = 1
               CurrentDuration = m.Interval
-              RamdomDrawingState = Interval },
+              RandomDrawingState = Interval },
         [Randomize]
     | StartDrawingFailed (_) -> failwith "Not Implemented"
     | StopDrawingSuccess ->
         { m with
-              RamdomDrawingState = RamdomDrawingState.Stop },
+              RandomDrawingState = RandomDrawingState.Stop },
         []
     | Tick ->
         let nextDuration = m.CurrentDuration - TimeSpan(0, 0, 1)
@@ -103,14 +103,14 @@ let update msg m =
             { m with
                   CurrentDuration = m.CurrentDuration - TimeSpan(0, 0, 1) },
             []
-        elif m.RamdomDrawingState = Interval then
+        elif m.RandomDrawingState = Interval then
             { m with
-                  RamdomDrawingState = Running
+                  RandomDrawingState = Running
                   CurrentDuration = m.Duration },
             []
         elif m.CurrentFrames < m.Frames then
             { m with
-                  RamdomDrawingState = Interval
+                  RandomDrawingState = Interval
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
             [Randomize]
@@ -170,15 +170,15 @@ let bindings () =
       "DrawingCommand"
       |> Binding.cmd
           (fun (m: Model) ->
-              match m.RamdomDrawingState with
-              | RamdomDrawingState.Stop -> RequestStartDrawing
+              match m.RandomDrawingState with
+              | RandomDrawingState.Stop -> RequestStartDrawing
               | Running
               | Interval -> RequestStopDrawing)
       "DrawingCommandText"
       |> Binding.oneWay
           (fun m ->
-              match m.RamdomDrawingState with
-              | RamdomDrawingState.Stop -> "Start Drawing"
+              match m.RandomDrawingState with
+              | RandomDrawingState.Stop -> "Start Drawing"
               | Running
               | Interval -> "Stop Drawing")
 
@@ -186,8 +186,8 @@ let bindings () =
       "DrawingServiceVisibility"
       |> Binding.oneWay
           (fun m ->
-              match m.RamdomDrawingState with
-              | RamdomDrawingState.Stop -> Visibility.Collapsed
+              match m.RandomDrawingState with
+              | RandomDrawingState.Stop -> Visibility.Collapsed
               | Running
               | Interval -> Visibility.Visible) ]
 
@@ -208,7 +208,7 @@ let toCmd =
             Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"
             |> PlayerLib.loadPlayList
             |> Async.RunSynchronously
-        Cmd.OfFunc.either PlayerLib.ramdomize playList id RandomizeFailed
+        Cmd.OfFunc.either PlayerLib.randomize playList id RandomizeFailed
 
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
@@ -230,7 +230,7 @@ let designVm =
       Randomize = WpfHelper.emptyCommand
       DrawingCommand = WpfHelper.emptyCommand
       DrawingCommandText = "Start Drawing"
-      State = RamdomDrawingState.Stop
+      State = RandomDrawingState.Stop
       CurrentDuration = ""
       CurrentFrames = 0
       Position = 0
