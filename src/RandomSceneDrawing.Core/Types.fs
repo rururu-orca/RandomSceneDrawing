@@ -5,7 +5,7 @@ open System.Windows
 open LibVLCSharp.Shared
 open System.Windows.Input
 
-type RamdomDrawingState =
+type RandomDrawingState =
     | Stop
     | Running
     | Interval
@@ -30,7 +30,7 @@ type Model =
       MediaDuration: TimeSpan
       MediaPosition: TimeSpan
       Title: string
-      RamdomDrawingState: RamdomDrawingState
+      RandomDrawingState: RandomDrawingState
       CurrentDuration: TimeSpan
       CurrentFrames: int }
 
@@ -86,7 +86,7 @@ type AppViewModel =
       Randomize: ICommand
       DrawingCommand : ICommand
       DrawingCommandText : String
-      State : RamdomDrawingState
+      State : RandomDrawingState
       CurrentDuration: string
       CurrentFrames: int
       Position: int
