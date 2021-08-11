@@ -88,9 +88,9 @@ let update msg m =
     | StartDrawingSuccess (_) ->
         { m with
               CurrentFrames = 1
-              CurrentDuration = m.Duration
-              RamdomDrawingState = Running },
-        []
+              CurrentDuration = m.Interval
+              RamdomDrawingState = Interval },
+        [Randomize]
     | StartDrawingFailed (_) -> failwith "Not Implemented"
     | StopDrawingSuccess ->
         { m with
@@ -103,11 +103,17 @@ let update msg m =
             { m with
                   CurrentDuration = m.CurrentDuration - TimeSpan(0, 0, 1) },
             []
-        elif m.CurrentFrames < m.Frames then
+        elif m.RamdomDrawingState = Interval then
             { m with
-                  CurrentFrames = m.CurrentFrames + 1
+                  RamdomDrawingState = Running
                   CurrentDuration = m.Duration },
             []
+        elif m.CurrentFrames < m.Frames then
+            { m with
+                  RamdomDrawingState = Interval
+                  CurrentFrames = m.CurrentFrames + 1
+                  CurrentDuration = m.Interval },
+            [Randomize]
         else
             { m with
                   CurrentDuration = TimeSpan.Zero },
