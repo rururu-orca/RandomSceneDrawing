@@ -1,4 +1,4 @@
-module RandomSceneDrawing.Tests
+module RandomSceneDrawing.Tests.DrawingSetvice
 
 open System
 open Elmish

@@ -60,7 +60,8 @@
                        Visibility="{Binding MediaPlayerVisibility}"/>
             <TextBlock Margin="5" VerticalAlignment="Center"/>
         </StackPanel>
-        <uc:VideoView HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+        <uc:VideoView HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+            Visibility="{Binding MediaPlayerVisibility}" >
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="Loaded">
                     <i:ChangePropertyAction PropertyName="MediaPlayer" Value="{Binding MediaPlayer}"/>
