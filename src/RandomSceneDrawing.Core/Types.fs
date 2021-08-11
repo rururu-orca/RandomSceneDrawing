@@ -8,6 +8,7 @@ open System.Windows.Input
 type State =
     | Stop
     | Running
+    | Interval
 
 type MediaInfo = {
     Title: string
@@ -16,7 +17,7 @@ type MediaInfo = {
 type Model =
     { Frames: int
       Duration: TimeSpan
-      Interval: int
+      Interval: TimeSpan
       DrawingServiceVisibility: Visibility
       Player: MediaPlayer
       MediaDuration: TimeSpan

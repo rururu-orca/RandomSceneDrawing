@@ -1,4 +1,4 @@
-module RandomSceneDrawing.Program
+﻿module RandomSceneDrawing.Program
 
 open System
 open System.Windows
@@ -12,6 +12,7 @@ open RandomSceneDrawing
 let init () =
     { Frames = 1
       Duration = TimeSpan(0, 0, 10)
+      Interval = TimeSpan(0, 0, 3)
       DrawingServiceVisibility = Visibility.Collapsed
       Player = PlayerLib.player
       MediaDuration = TimeSpan.Zero
@@ -78,6 +79,7 @@ let update msg m =
     | RequestStopDrawing (_) -> m, [ StopDrawing ]
     | StartDrawingSuccess (_) ->
         { m with
+              CurrentFrames = 1
               CurrentDuration = m.Duration
               State = Running },
         []
@@ -89,6 +91,11 @@ let update msg m =
         if nextDuration > TimeSpan.Zero then
             { m with
                   CurrentDuration = m.CurrentDuration - TimeSpan(0, 0, 1) },
+            []
+        elif m.CurrentFrames < m.Frames then
+            { m with
+                  CurrentFrames = m.CurrentFrames + 1
+                  CurrentDuration = m.Duration },
             []
         else
             { m with
@@ -142,13 +149,15 @@ let bindings () =
           (fun (m: Model) ->
               match m.State with
               | State.Stop -> RequestStartDrawing
-              | Running -> RequestStopDrawing)
+              | Running
+              | Interval -> RequestStopDrawing)
       "DrawingCommandText"
       |> Binding.oneWay
           (fun m ->
               match m.State with
               | State.Stop -> "Start Drawing"
-              | Running -> "Stop Drawing")
+              | Running
+              | Interval -> "Stop Drawing")
 
 
       "DrawingServiceVisibility"
@@ -156,9 +165,10 @@ let bindings () =
           (fun m ->
               match m.State with
               | State.Stop -> Visibility.Collapsed
-              | Running -> Visibility.Visible)
+              | Running
+              | Interval -> Visibility.Visible) ]
 
-      ]
+
 
 let toCmd =
     function
