@@ -54,7 +54,7 @@
                        Visibility="{Binding MediaPlayerVisibility}"/>
             <TextBlock VerticalAlignment="Center" Text="{Binding ScenePosition}"
                        Visibility="{Binding MediaPlayerVisibility}"/>
-            <TextBlock Text="/" VerticalAlignment="Center"
+            <TextBlock Text=" / " VerticalAlignment="Center"
                        Visibility="{Binding MediaPlayerVisibility}"/>
             <TextBlock VerticalAlignment="Center" Text="{Binding SourceDuration}"
                        Visibility="{Binding MediaPlayerVisibility}"/>
