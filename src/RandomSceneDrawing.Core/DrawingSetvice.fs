@@ -20,8 +20,8 @@ let timespan value measure =
 
 let private timer = new System.Timers.Timer(1000.)
 
-let setup msg dispatch =
-    timer.Elapsed.Add(fun _ -> dispatch msg)
+let setup dispatch =
+    timer.Elapsed.Add(fun _ -> dispatch Tick)
 
 let tickSub msg =
     timer.Start()

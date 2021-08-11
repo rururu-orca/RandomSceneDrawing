@@ -50,12 +50,14 @@
             <Button Content="Pause" Command="{Binding Pause}" MaxWidth="240" Margin="5"/>
             <Button Content="Stop" Command="{Binding Stop}" MaxWidth="240" Margin="5"/>
             <Button Content="Show Random" Command="{Binding Randomize}" MaxWidth="240" Margin="30,5,5,5"/>
-            <TextBlock Margin="5" VerticalAlignment="Center" Text="{Binding SourceName}"/>
-            <TextBlock Margin="5" Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding Position}"/>
-            <TextBlock Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding ScenePosition}"/>
+            <TextBlock Margin="5" VerticalAlignment="Center" Text="{Binding SourceName}"
+                       Visibility="{Binding MediaPlayerVisibility}"/>
+            <TextBlock VerticalAlignment="Center" Text="{Binding ScenePosition}"
+                       Visibility="{Binding MediaPlayerVisibility}"/>
             <TextBlock Text="/" VerticalAlignment="Center"
-                       Visibility="{Binding DrawingServiceVisibility}"/>
-            <TextBlock Visibility="Collapsed" VerticalAlignment="Center" Text="{Binding SourceDuration}"/>
+                       Visibility="{Binding MediaPlayerVisibility}"/>
+            <TextBlock VerticalAlignment="Center" Text="{Binding SourceDuration}"
+                       Visibility="{Binding MediaPlayerVisibility}"/>
             <TextBlock Margin="5" VerticalAlignment="Center"/>
         </StackPanel>
         <uc:VideoView HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">

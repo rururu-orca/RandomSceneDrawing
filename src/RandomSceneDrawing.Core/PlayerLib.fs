@@ -4,6 +4,7 @@ open System
 open LibVLCSharp.Shared
 open FsToolkit.ErrorHandling
 open Types
+open FSharp.Control
 
 do Core.Initialize()
 
@@ -17,6 +18,21 @@ let libVLC =
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
 let player = new MediaPlayer(libVLC)
+
+let timeChanged dispatch =
+    player.TimeChanged
+    |> AsyncSeq.ofObservableBuffered
+    |> AsyncSeq.map (fun e -> e.Time / 1000L)
+    |> AsyncSeq.distinctUntilChanged
+    |> AsyncSeq.iter (
+        float
+        >> TimeSpan.FromSeconds
+        >> PlayerTimeChanged
+        >> dispatch
+    )
+    |> Async.Start
+
+
 
 let play source =
     async {
