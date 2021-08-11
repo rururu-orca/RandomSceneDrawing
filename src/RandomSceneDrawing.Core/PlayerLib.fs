@@ -119,7 +119,7 @@ let ramdomize (playList: Media) =
             waitPaused player.Time
 
     let rTime =
-        random.Next(100, int media.Duration) |> int64
+        random.Next(1000, int media.Duration - 3000) |> int64
 
     do player.Play media |> ignore
     while player.Time <= 0L do
