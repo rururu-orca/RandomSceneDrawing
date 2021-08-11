@@ -75,8 +75,13 @@ let update msg m =
         []
 
     // Random Drawing
-    | RequestRandomize (_) -> failwith "Not Implemented"
-    | RandomizeSuccess (_) -> failwith "Not Implemented"
+    | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize ]
+    | RandomizeSuccess (_) ->
+        { m with
+              Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
+              PlayerState = Playing
+              MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
+        [ ]
     | RandomizeFailed (_) -> failwith "Not Implemented"
     | RequestStartDrawing (_) -> m, [ StartDrawing ]
     | RequestStopDrawing (_) -> m, [ StopDrawing ]
@@ -126,6 +131,7 @@ let bindings () =
               match m.PlayerState with
               | Playing
               | Paused -> Visibility.Visible
+              | Randomizung
               | Stopped -> Visibility.Collapsed)
 
       "Pause" |> Binding.cmd RequestPause
@@ -191,7 +197,13 @@ let toCmd =
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
     // Random Drawing
-    | Randomize -> failwith "Not Implemented"
+    | Randomize ->
+        let playList =
+            Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"
+            |> PlayerLib.loadPlayList
+            |> Async.RunSynchronously
+        Cmd.OfFunc.either PlayerLib.ramdomize playList id RandomizeFailed
+
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
 

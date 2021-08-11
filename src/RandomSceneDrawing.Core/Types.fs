@@ -14,6 +14,7 @@ type PlayerState =
     | Playing
     | Paused
     | Stopped
+    | Randomizung
 
 type MediaInfo = {
     Title: string
