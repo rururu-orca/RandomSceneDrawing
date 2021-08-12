@@ -50,4 +50,30 @@ let playerLibTests =
              Expect.isGreaterThan PlayerLib.player.Time 0L ""
          }
 
+         testAsync "can take Snapshot" {
+             let path =
+                 Path.Combine [| __SOURCE_DIRECTORY__
+                                 "TestPlayList.xspf" |]
+
+             let snapShot =
+                 Path.Combine [| __SOURCE_DIRECTORY__
+                                 "test.png" |]
+
+
+             do!
+                 async {
+                     PlayerLib.randomize (Uri path) ignore
+
+                     do!
+                         PlayerLib.player.TimeChanged
+                         |> Async.AwaitEvent
+                         |> Async.Ignore
+
+                     Expect.isSome
+                     <| PlayerLib.takeSnapshot PlayerLib.getSize 0u snapShot
+                     <| ""                    
+                 }
+
+         }
+
          ]
