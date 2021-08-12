@@ -28,13 +28,13 @@ let playerLibTests =
              Expect.equal playList.Type MediaType.File ""
 
          }
-         testAsync "can randomize"  {
+         test "can randomize"  {
              let path =
                  [| __SOURCE_DIRECTORY__
                     "TestPlayList.xspf" |]
                  |> Path.Combine
-             let! playList = loadPlayList (Uri path)
-             do ramdomize playList |> ignore
+             let playList = loadPlayList (Uri path) |> Async.RunSynchronously
+             do randomize playList |> ignore
              
              let media:Media = player.Media
              Expect.notEqual media.Duration -1L ""
