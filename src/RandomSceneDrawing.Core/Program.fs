@@ -184,7 +184,13 @@ let bindings () =
               | RandomDrawingState.Stop -> "⏲ Start Drawing"
               | Running
               | Interval -> "Stop Drawing")
-
+      "DrawingSettingVisibility"
+      |> Binding.oneWay
+        (fun m ->
+            match m.RandomDrawingState with
+            | RandomDrawingState.Stop -> Visibility.Visible
+            | Running
+            | Interval -> Visibility.Collapsed) 
 
       "DrawingServiceVisibility"
       |> Binding.oneWay
