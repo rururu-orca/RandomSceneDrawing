@@ -6,6 +6,7 @@ open FsToolkit.ErrorHandling
 open Types
 open FSharp.Control
 open FSharpPlus
+open RandomSceneDrawing.DrawingSetvice
 
 do Core.Initialize()
 
@@ -43,7 +44,7 @@ let timeChanged dispatch =
         >> PlayerTimeChanged
         >> dispatch
     )
-    |> Async.Start
+    |> Async.StartImmediate
 
 
 
@@ -97,45 +98,61 @@ let stop () =
         return StopSuccess
     }
 
-let randomize (playList: Media) =
-    player.Stop()
-    let random = Random()
+let randomize (playListUri: Uri) dispatch =
+    let cts =
+        new Threading.CancellationTokenSource(TimeSpan.FromSeconds(5.0))
 
-    let media =
-        playList.SubItems
-        |> Seq.item (random.Next playList.SubItems.Count)
+    Async.StartImmediate(
 
-    async {
-        do!
-            media.Parse MediaParseOptions.ParseNetwork
-            |> Async.AwaitTask
-            |> Async.Ignore
-    }
-    |> Async.RunSynchronously
+        async {
+            use! cancel =
+                Async.OnCancel
+                <| fun () -> RandomizeFailed(TimeoutException()) |> dispatch
 
-    let rec waitPaused currentTime =
-        Threading.Thread.Yield() |> ignore
-        if currentTime <> player.Time then
+            player.Stop()
+            let random = Random()
+            let! playList = loadPlayList playListUri
+
+            let media =
+                playList.SubItems
+                |> Seq.item (random.Next playList.SubItems.Count)
+
+            do!
+                media.Parse MediaParseOptions.ParseNetwork
+                |> Async.AwaitTask
+                |> Async.Ignore
+
+            let rec waitPaused currentTime =
+                Threading.Thread.Yield() |> ignore
+
+                if currentTime <> player.Time then
+                    waitPaused player.Time
+
+            let rTime =
+                random.Next(1000, int media.Duration - 3000)
+                |> int64
+
+            do player.Play media |> ignore
+
+            while player.Time <= 0L do
+                Threading.Thread.Yield() |> ignore
+
+
+            player.Pause()
+            waitPaused player.Time
+            player.Time <- rTime
+
+            // Play
+            player.Pause()
+
+            while player.Time = rTime do
+                Threading.Thread.Yield() |> ignore
+
+            player.Pause()
             waitPaused player.Time
 
-    let rTime =
-        random.Next(1000, int media.Duration - 3000) |> int64
-
-    do player.Play media |> ignore
-    while player.Time <= 0L do
-        Threading.Thread.Yield() |> ignore
-
-
-    player.Pause()
-    waitPaused player.Time
-    player.Time <- rTime
-
-    // Play
-    player.Pause()
-    while player.Time = rTime do
-        Threading.Thread.Yield() |> ignore
-
-    player.Pause()
-    waitPaused player.Time
-
+            dispatch RandomizeSuccess
+        },
+        cts.Token
+    )
     RandomizeSuccess
