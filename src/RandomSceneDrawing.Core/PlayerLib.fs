@@ -155,4 +155,3 @@ let randomize (playListUri: Uri) dispatch =
         },
         cts.Token
     )
-    RandomizeSuccess
