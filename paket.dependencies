@@ -8,6 +8,7 @@ nuget FSharp.Control.AsyncSeq
 nuget FSharp.Control.Reactive
 nuget FSharpPlus
 nuget FsToolkit.ErrorHandling
+nuget MahApps.Metro
 nuget Microsoft.Xaml.Behaviors.Wpf
 nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console

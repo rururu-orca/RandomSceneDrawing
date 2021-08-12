@@ -181,7 +181,7 @@ let bindings () =
       |> Binding.oneWay
           (fun m ->
               match m.RandomDrawingState with
-              | RandomDrawingState.Stop -> "Start Drawing"
+              | RandomDrawingState.Stop -> "⏲ Start Drawing"
               | Running
               | Interval -> "Stop Drawing")
 
@@ -232,7 +232,8 @@ let designVm =
       CurrentDuration = ""
       CurrentFrames = 0
       Position = 0
-      DrawingServiceVisibility = Visibility.Collapsed }
+      DrawingServiceVisibility = Visibility.Collapsed
+      DrawingSettingVisibility = Visibility.Visible}
 
 let main window =
     let logger =

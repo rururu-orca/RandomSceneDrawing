@@ -90,4 +90,5 @@ type AppViewModel =
       CurrentDuration: string
       CurrentFrames: int
       Position: int
-      DrawingServiceVisibility: Visibility }
+      DrawingServiceVisibility: Visibility
+      DrawingSettingVisibility: Visibility }
