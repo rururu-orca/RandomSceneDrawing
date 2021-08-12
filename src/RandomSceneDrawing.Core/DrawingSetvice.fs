@@ -6,6 +6,7 @@ open FSharp.Control
 open Elmish
 open System.Windows
 open Types
+open System.Windows.Threading
 
 type TimeMeasure =
     | Seconds
@@ -18,10 +19,12 @@ let timespan value measure =
     | Minutes -> TimeSpan.FromMinutes(value)
     | Hours -> TimeSpan.FromHours(value)
 
-let private timer = new System.Timers.Timer(1000.)
+let private timer =
+    DispatcherTimer(DispatcherPriority.Render, Interval = TimeSpan.FromSeconds 1.0)
 
 let setup dispatch =
-    timer.Elapsed.Add(fun _ -> dispatch Tick)
+    timer.Tick
+    |> Observable.add(fun _ -> dispatch Tick)
 
 let tickSub msg =
     timer.Start()
