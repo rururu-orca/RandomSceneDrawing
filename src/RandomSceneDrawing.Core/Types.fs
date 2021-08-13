@@ -32,7 +32,8 @@ type Model =
       Title: string
       RandomDrawingState: RandomDrawingState
       CurrentDuration: TimeSpan
-      CurrentFrames: int }
+      CurrentFrames: int 
+      StatusMessage : string}
 
 type CmdMsg =
     | Play
@@ -68,6 +69,7 @@ type Msg =
     | SetDuration of TimeSpan
     | IncrementDuration
     | DecrementDuration
+    | LayoutUpdated of  string
 
 type AppViewModel =
     { MediaPlayer: MediaPlayer

@@ -21,7 +21,8 @@ let init () =
       Title = ""
       RandomDrawingState = RandomDrawingState.Stop
       CurrentDuration = TimeSpan.Zero
-      CurrentFrames = 0 },
+      CurrentFrames = 0
+      StatusMessage = "" },
     []
 
 let requireGreaterThan1Frame input =
@@ -81,8 +82,8 @@ let update msg m =
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
               PlayerState = Playing
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
-        [ ]
-    | RandomizeFailed (_) -> { m with PlayerState = Stopped },[Stop;Randomize]
+        []
+    | RandomizeFailed (_) -> { m with PlayerState = Stopped }, [ Stop; Randomize ]
     | RequestStartDrawing (_) -> m, [ StartDrawing ]
     | RequestStopDrawing (_) -> m, [ StopDrawing ]
     | StartDrawingSuccess (_) ->
@@ -91,7 +92,7 @@ let update msg m =
               CurrentDuration = m.Interval
               RandomDrawingState = Interval
               PlayerState = Randomizung },
-        [Randomize]
+        [ Randomize ]
     | StartDrawingFailed (_) -> failwith "Not Implemented"
     | StopDrawingSuccess ->
         { m with
@@ -115,11 +116,15 @@ let update msg m =
                   PlayerState = Randomizung
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
-            [Randomize]
+            [ Randomize ]
         else
             { m with
                   CurrentDuration = TimeSpan.Zero },
             [ StopDrawing ]
+    | LayoutUpdated p ->
+        { m with
+              StatusMessage = p },
+        []
 
 
 
@@ -137,11 +142,11 @@ let bindings () =
       |> Binding.oneWay
           (fun m ->
               match m with
-              | {RandomDrawingState = Interval}
-              | {PlayerState = Randomizung}
-              | {PlayerState = Stopped} -> Visibility.Collapsed
-              | {PlayerState = Playing}
-              | {PlayerState = Paused} -> Visibility.Visible)
+              | { RandomDrawingState = Interval }
+              | { PlayerState = Randomizung }
+              | { PlayerState = Stopped } -> Visibility.Collapsed
+              | { PlayerState = Playing }
+              | { PlayerState = Paused } -> Visibility.Visible)
 
       "Pause" |> Binding.cmd RequestPause
       "Play" |> Binding.cmd RequestPlay
@@ -164,7 +169,8 @@ let bindings () =
       |> Binding.cmdIf (DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
 
       // Random Drawing
-      "Randomize" |> Binding.cmdIf (RequestRandomize,(fun m -> m.PlayerState <> Randomizung))
+      "Randomize"
+      |> Binding.cmdIf (RequestRandomize, (fun m -> m.PlayerState <> Randomizung))
       "CurrentDuration"
       |> Binding.oneWay (fun m -> m.CurrentDuration)
       "CurrentFrames"
@@ -186,11 +192,11 @@ let bindings () =
               | Interval -> "Stop Drawing")
       "DrawingSettingVisibility"
       |> Binding.oneWay
-        (fun m ->
-            match m.RandomDrawingState with
-            | RandomDrawingState.Stop -> Visibility.Visible
-            | Running
-            | Interval -> Visibility.Collapsed) 
+          (fun m ->
+              match m.RandomDrawingState with
+              | RandomDrawingState.Stop -> Visibility.Visible
+              | Running
+              | Interval -> Visibility.Collapsed)
 
       "DrawingServiceVisibility"
       |> Binding.oneWay
@@ -198,7 +204,19 @@ let bindings () =
               match m.RandomDrawingState with
               | RandomDrawingState.Stop -> Visibility.Collapsed
               | Running
-              | Interval -> Visibility.Visible) ]
+              | Interval -> Visibility.Visible)
+      "StatusMessage"
+      |> Binding.oneWay (fun m -> m.StatusMessage)
+      "WindowTopUpdated"
+      |> Binding.cmdParam
+          (fun p ->
+              let args = p :?> float
+              LayoutUpdated $"WIndow Top:{args}")
+      "WindowLeftUpdated"
+      |> Binding.cmdParam
+          (fun p ->
+              let args = p :?> float
+              LayoutUpdated $"WIndow Left:{args}") ]
 
 
 
@@ -212,8 +230,7 @@ let toCmd =
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
     // Random Drawing
-    | Randomize ->
-        Cmd.ofSub (PlayerLib.randomize (Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"))
+    | Randomize -> Cmd.ofSub (PlayerLib.randomize (Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"))
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
 
@@ -239,7 +256,7 @@ let designVm =
       CurrentFrames = 0
       Position = 0
       DrawingServiceVisibility = Visibility.Collapsed
-      DrawingSettingVisibility = Visibility.Visible}
+      DrawingSettingVisibility = Visibility.Visible }
 
 let main window =
     let logger =
