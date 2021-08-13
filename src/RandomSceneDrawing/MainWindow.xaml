@@ -64,13 +64,13 @@
                                         <Label
                                               Content="Frames"/>
                                         <Label
-                                              FontSize="30"
+                                              FontSize="28"
                                               Width="100"
                                               Visibility="{Binding DrawingServiceVisibility}"
                                               Content="{Binding CurrentFrames}"/>
                                         <TextBox
                                               Width="50"
-                                              Margin="5"
+                                              Margin="4"
                                               Text="{Binding FramesText}"
                                               Visibility="{Binding DrawingSettingVisibility}"/>
                                         <Button
@@ -91,12 +91,12 @@
                                    <Label
                                          Content="Duration per frame:"/>
                                    <Label
-                                         FontSize="30"
+                                         FontSize="28"
                                          Content="{Binding CurrentDuration}"
                                          Visibility="{Binding DrawingServiceVisibility}"/>
                                    <TextBox
                                          Width="50"
-                                         Margin="5"
+                                         Margin="4"
                                          Text="{Binding DurationText}"
                                          Visibility="{Binding DrawingSettingVisibility}"
                                          TextAlignment="Center"/>
