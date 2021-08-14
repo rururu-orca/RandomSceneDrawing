@@ -24,11 +24,12 @@ type Model =
     { Frames: int
       Duration: TimeSpan
       Interval: TimeSpan
-      DrawingServiceVisibility: Visibility
       Player: MediaPlayer
       PlayerState : PlayerState
       MediaDuration: TimeSpan
       MediaPosition: TimeSpan
+      PlayListFilePath: string
+      SnapShotFolderPath: string
       Title: string
       RandomDrawingState: RandomDrawingState
       CurrentDuration: TimeSpan
@@ -42,6 +43,8 @@ type CmdMsg =
     | Randomize
     | StartDrawing
     | StopDrawing
+    | LoadPlayListFilePath
+    | LoadSnapShotFolderPath
 
 type Msg =
     | RequestPlay
@@ -70,6 +73,12 @@ type Msg =
     | IncrementDuration
     | DecrementDuration
     | LayoutUpdated of  string
+    | RequestLoadPlayListFilePath
+    | LoadPlayListFilePathSuccess of string
+    | LoadPlayListFilePathFailed
+    | RequestLoadSnapShotFolderPath
+    | LoadSnapShotFolderPathSuccess of string
+    | LoadSnapShotFolderPathFailed
 
 type AppViewModel =
     { MediaPlayer: MediaPlayer
@@ -85,6 +94,8 @@ type AppViewModel =
       mutable DurationText: string
       IncrementDuration: ICommand
       DecrementDuration: ICommand
+      PlayListFilePathText: string
+      SnapShotFolderPathText: string
       Randomize: ICommand
       DrawingCommand : ICommand
       DrawingCommandText : String
