@@ -155,3 +155,21 @@ let randomize (playListUri: Uri) dispatch =
         },
         cts.Token
     )
+
+let getSize num =
+    let mutable px, py = 0u, 0u
+
+    if player.Size(num, &px, &py) then
+        Some(px, py)
+    else
+        None
+
+let takeSnapshot sizefn num path =
+    monad {
+        let! px, py = sizefn num
+
+        if player.TakeSnapshot(num, path, px, py) then
+            return! Some path
+        else
+            return! None
+    }
