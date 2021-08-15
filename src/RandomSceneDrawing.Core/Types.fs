@@ -79,6 +79,8 @@ type Msg =
     | RequestLoadSnapShotFolderPath
     | LoadSnapShotFolderPathSuccess of string
     | LoadSnapShotFolderPathFailed
+    | WindowClosed
+    | ResetSettings
 
 type AppViewModel =
     { MediaPlayer: MediaPlayer
@@ -104,4 +106,5 @@ type AppViewModel =
       CurrentFrames: int
       Position: int
       DrawingServiceVisibility: Visibility
-      DrawingSettingVisibility: Visibility }
+      DrawingSettingVisibility: Visibility
+      WindowClosed: ICommand }
