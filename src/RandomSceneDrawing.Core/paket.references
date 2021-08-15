@@ -6,3 +6,4 @@ Serilog.Sinks.Console
 FsToolkit.ErrorHandling
 FSharp.Control.AsyncSeq
 FSharpPlus
+FSharp.Configuration

@@ -1,24 +1,37 @@
 ﻿module RandomSceneDrawing.Program
 
 open System
+open System.IO
 open System.Windows
 open Serilog
 open Serilog.Extensions.Logging
 open Elmish
 open Elmish.WPF
+open FSharp.Configuration
 open Types
 open RandomSceneDrawing
 
+type Config = YamlConfig<"Config.yaml">
+
+let changedConfigPath =
+    Path.Combine [| AppDomain.CurrentDomain.BaseDirectory
+                    "ChangedConfig.yaml" |]
+
+let config = Config()
+
 let init () =
-    { Frames = 1
-      Duration = TimeSpan(0, 0, 10)
-      Interval = TimeSpan(0, 0, 5)
+    if File.Exists changedConfigPath then
+        config.Load changedConfigPath
+
+    { Frames = config.Frames
+      Duration = config.Duration
+      Interval = config.Interval
       Player = PlayerLib.player
       PlayerState = PlayerState.Stopped
       MediaDuration = TimeSpan.Zero
       MediaPosition = TimeSpan.Zero
-      PlayListFilePath = ""
-      SnapShotFolderPath = ""
+      PlayListFilePath = config.PlayListFilePath
+      SnapShotFolderPath = config.SnapShotFolderPath
       Title = ""
       RandomDrawingState = RandomDrawingState.Stop
       CurrentDuration = TimeSpan.Zero
@@ -122,9 +135,24 @@ let update msg m =
             { m with
                   CurrentDuration = TimeSpan.Zero },
             [ StopDrawing ]
-    | LayoutUpdated p ->
+    | LayoutUpdated p -> { m with StatusMessage = p }, []
+    | WindowClosed ->
+        config.Duration <- m.Duration
+        config.Frames <- m.Frames
+        config.Interval <- m.Interval
+        config.PlayListFilePath <- m.PlayListFilePath
+        config.SnapShotFolderPath <- m.SnapShotFolderPath
+        config.Save changedConfigPath
+        m, []
+    | ResetSettings ->
+        let origin = Config()
+
         { m with
-              StatusMessage = p },
+              Duration = origin.Duration
+              Frames = origin.Frames
+              Interval = origin.Interval
+              PlayListFilePath = origin.PlayListFilePath
+              SnapShotFolderPath = origin.SnapShotFolderPath },
         []
 
 
@@ -217,7 +245,8 @@ let bindings () =
       |> Binding.cmdParam
           (fun p ->
               let args = p :?> float
-              LayoutUpdated $"WIndow Left:{args}") ]
+              LayoutUpdated $"WIndow Left:{args}")
+      "WindowClosed" |> Binding.cmd WindowClosed ]
 
 
 
@@ -259,7 +288,8 @@ let designVm =
       CurrentFrames = 0
       Position = 0
       DrawingServiceVisibility = Visibility.Collapsed
-      DrawingSettingVisibility = Visibility.Visible }
+      DrawingSettingVisibility = Visibility.Visible
+      WindowClosed = WpfHelper.emptyCommand }
 
 let main window =
     let logger =
