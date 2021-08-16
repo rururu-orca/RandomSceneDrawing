@@ -273,32 +273,44 @@ let bindings () =
 
 
 module DialogHelper =
-    open Microsoft.Win32
+    open Windows.Foundation
+    open Windows.Storage.Pickers
+    open WinRT.Interop
 
-    let showDialog onSuccess onFailed (dialog: OpenFileDialog) =
+    type AsyncBuilder with
+        member x.Bind(t: IAsyncOperation<'T>, f: 'T -> Async<'R>) : Async<'R> =
+            async.Bind(t.AsTask() |> Async.AwaitTask, f)
+
+
+    let selectPlayList hwnd =
         async {
-            let result = dialog.ShowDialog()
+            let picker =
+                FileOpenPicker(ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.MusicLibrary)
 
-            if result.HasValue && result.Value then
-                return onSuccess dialog.FileName
-            else
-                return onFailed
+            InitializeWithWindow.Initialize(picker, hwnd)
 
+            picker.FileTypeFilter.Add ".xspf"
+
+            match! picker.PickSingleFileAsync() with
+            | null -> return SelectSnapShotFolderPathCandeled
+            | file -> return SelectPlayListFilePathSuccess file.Path
         }
 
-    let selectPlayList () =
-        OpenFileDialog(Filter = "PLayList file (*.xspf)|*.xspf", DefaultExt = "xspf")
-        |> showDialog SelectPlayListFilePathSuccess SelectSnapShotFolderPathCandeled
+    let selectSnapShotFolder hwnd =
+        async {
+            let picker =
+                FolderPicker(ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.PicturesLibrary)
 
-    let selectSnapShotFolder () =
-        
-        OpenFileDialog(Filter = "Folder|.", CheckFileExists = false)
-        |> showDialog
-            (Path.GetDirectoryName
-             >> SelectSnapShotFolderPathSuccess)
-            SelectSnapShotFolderPathCandeled
+            InitializeWithWindow.Initialize(picker, hwnd)
 
-let toCmd =
+            picker.FileTypeFilter.Add "*"
+
+            match! picker.PickSingleFolderAsync() with
+            | null -> return SelectSnapShotFolderPathCandeled
+            | folder -> return SelectSnapShotFolderPathSuccess folder.Path
+        }
+
+let toCmd hwnd =
     function
     // Player
     | Play ->
@@ -308,8 +320,9 @@ let toCmd =
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
 
-    | SelectPlayListFilePath -> Cmd.OfAsync.either DialogHelper.selectPlayList () id SelectPlayListFilePathFailed
-    | SelectSnapShotFolderPath -> Cmd.OfAsync.either DialogHelper.selectSnapShotFolder () id SelectSnapShotFolderPathFailed
+    | SelectPlayListFilePath -> Cmd.OfAsync.either DialogHelper.selectPlayList hwnd id SelectPlayListFilePathFailed
+    | SelectSnapShotFolderPath ->
+        Cmd.OfAsync.either DialogHelper.selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
     | Randomize -> Cmd.ofSub (PlayerLib.randomize (Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"))
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
@@ -354,8 +367,11 @@ let main window =
 #endif
             .CreateLogger()
 
+    let cmds =
+        Interop.WindowInteropHelper(window).Handle
+        |> toCmd
 
-    WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
+    WpfProgram.mkProgramWithCmdMsg init update bindings cmds
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.withSubscription
         (fun _ ->

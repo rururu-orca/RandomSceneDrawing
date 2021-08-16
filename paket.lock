@@ -1,5 +1,5 @@
 STORAGE: NONE
-RESTRICTION: == net5.0-windows7.0
+RESTRICTION: == net5.0-windows10.0.19041.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     BenchmarkDotNet (0.13.1)
