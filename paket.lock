@@ -1,5 +1,5 @@
 STORAGE: NONE
-RESTRICTION: == net5.0-windows7.0
+RESTRICTION: == net5.0-windows10.0.19041.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     BenchmarkDotNet (0.13.1)
@@ -40,6 +40,8 @@ NUGET
       Hopac (>= 0.4.1)
     FsCheck (2.16)
       FSharp.Core (>= 4.2.3)
+    FSharp.Configuration (2.0)
+      FSharp.Core (>= 4.7)
     FSharp.Control.AsyncSeq (3.0.5)
       FSharp.Core (>= 4.3.2)
     FSharp.Control.Reactive (5.0.2)
@@ -142,7 +144,7 @@ NUGET
     System.Threading.Tasks.Extensions (4.5.4)
     System.ValueTuple (4.5)
     VideoLAN.LibVLC.Windows (3.0.16)
-    YoloDev.Expecto.TestSdk (0.12.6)
+    YoloDev.Expecto.TestSdk (0.12.8)
       Expecto (>= 9.0 < 10.0)
       FSharp.Core (>= 4.6)
       System.Collections.Immutable (>= 1.5 < 5.1)

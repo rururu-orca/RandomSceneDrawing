@@ -27,6 +27,9 @@
                 <Setter
                      Property="Height"
                      Value="24"/>
+               <Setter
+                     Property="Margin"
+                     Value="4"/>
                 <Setter
                      Property="HorizontalAlignment"
                      Value="Center"/>

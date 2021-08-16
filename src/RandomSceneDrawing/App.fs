@@ -9,12 +9,13 @@ open FSharp.Control.Reactive
 [<STAThread>]
 [<EntryPoint>]
 let main argv =
+    Assembly.Load "Microsoft.Xaml.Behaviors" |> ignore
+    
     let application =
         Application.LoadComponent
         <| Uri("App.xaml", UriKind.Relative)
         :?> Application
 
-    Assembly.Load "Microsoft.Xaml.Behaviors" |> ignore
 
     Observable.first application.Activated
     |> Observable.add (fun _ -> Program.main application.MainWindow)

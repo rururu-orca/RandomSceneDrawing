@@ -24,11 +24,12 @@ type Model =
     { Frames: int
       Duration: TimeSpan
       Interval: TimeSpan
-      DrawingServiceVisibility: Visibility
       Player: MediaPlayer
       PlayerState : PlayerState
       MediaDuration: TimeSpan
       MediaPosition: TimeSpan
+      PlayListFilePath: string
+      SnapShotFolderPath: string
       Title: string
       RandomDrawingState: RandomDrawingState
       CurrentDuration: TimeSpan
@@ -39,9 +40,11 @@ type CmdMsg =
     | Play
     | Pause
     | Stop
-    | Randomize
+    | Randomize of string
     | StartDrawing
     | StopDrawing
+    | SelectPlayListFilePath
+    | SelectSnapShotFolderPath
 
 type Msg =
     | RequestPlay
@@ -70,6 +73,18 @@ type Msg =
     | IncrementDuration
     | DecrementDuration
     | LayoutUpdated of  string
+    | SetPlayListFilePath of string
+    | RequestSelectPlayListFilePath
+    | SelectPlayListFilePathSuccess of string
+    | SelectPlayListFilePathCanceled
+    | SelectPlayListFilePathFailed of exn
+    | SetSnapShotFolderPath of string
+    | RequestSelectSnapShotFolderPath
+    | SelectSnapShotFolderPathSuccess of string
+    | SelectSnapShotFolderPathCandeled
+    | SelectSnapShotFolderPathFailed of exn
+    | WindowClosed
+    | ResetSettings
 
 type AppViewModel =
     { MediaPlayer: MediaPlayer
@@ -85,6 +100,8 @@ type AppViewModel =
       mutable DurationText: string
       IncrementDuration: ICommand
       DecrementDuration: ICommand
+      PlayListFilePathText: string
+      SnapShotFolderPathText: string
       Randomize: ICommand
       DrawingCommand : ICommand
       DrawingCommandText : String
@@ -93,4 +110,5 @@ type AppViewModel =
       CurrentFrames: int
       Position: int
       DrawingServiceVisibility: Visibility
-      DrawingSettingVisibility: Visibility }
+      DrawingSettingVisibility: Visibility
+      WindowClosed: ICommand }

@@ -1,23 +1,37 @@
 ﻿module RandomSceneDrawing.Program
 
 open System
+open System.IO
 open System.Windows
 open Serilog
 open Serilog.Extensions.Logging
 open Elmish
 open Elmish.WPF
+open FSharp.Configuration
 open Types
 open RandomSceneDrawing
 
+type Config = YamlConfig<"Config.yaml">
+
+let changedConfigPath =
+    Path.Combine [| AppDomain.CurrentDomain.BaseDirectory
+                    "ChangedConfig.yaml" |]
+
+let config = Config()
+
 let init () =
-    { Frames = 1
-      Duration = TimeSpan(0, 0, 10)
-      Interval = TimeSpan(0, 0, 5)
-      DrawingServiceVisibility = Visibility.Collapsed
+    if File.Exists changedConfigPath then
+        config.Load changedConfigPath
+
+    { Frames = config.Frames
+      Duration = config.Duration
+      Interval = config.Interval
       Player = PlayerLib.player
       PlayerState = PlayerState.Stopped
       MediaDuration = TimeSpan.Zero
       MediaPosition = TimeSpan.Zero
+      PlayListFilePath = config.PlayListFilePath
+      SnapShotFolderPath = config.SnapShotFolderPath
       Title = ""
       RandomDrawingState = RandomDrawingState.Stop
       CurrentDuration = TimeSpan.Zero
@@ -74,16 +88,27 @@ let update msg m =
         { m with
               Duration = m.Duration.Add <| TimeSpan.FromSeconds -10.0 },
         []
+    | SetPlayListFilePath path -> { m with PlayListFilePath = path }, []
+    | RequestSelectPlayListFilePath -> m, [ SelectPlayListFilePath ]
+    | SelectPlayListFilePathSuccess path -> { m with PlayListFilePath = path }, []
+    | SelectPlayListFilePathCanceled _ -> failwith "Not Implemented"
+    | SelectPlayListFilePathFailed ex -> failwith "Not Implemented"
+
+    | SetSnapShotFolderPath path -> { m with SnapShotFolderPath = path }, []
+    | RequestSelectSnapShotFolderPath -> m, [ SelectSnapShotFolderPath ]
+    | SelectSnapShotFolderPathSuccess path -> { m with SnapShotFolderPath = path }, []
+    | SelectSnapShotFolderPathCandeled -> failwith "Not Implemented"
+    | SelectSnapShotFolderPathFailed ex -> failwith "Not Implemented"
 
     // Random Drawing
-    | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize ]
+    | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize m.PlayListFilePath ]
     | RandomizeSuccess (_) ->
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
               PlayerState = Playing
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
         []
-    | RandomizeFailed (_) -> { m with PlayerState = Stopped }, [ Stop; Randomize ]
+    | RandomizeFailed (_) -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
     | RequestStartDrawing (_) -> m, [ StartDrawing ]
     | RequestStopDrawing (_) -> m, [ StopDrawing ]
     | StartDrawingSuccess (_) ->
@@ -92,7 +117,7 @@ let update msg m =
               CurrentDuration = m.Interval
               RandomDrawingState = Interval
               PlayerState = Randomizung },
-        [ Randomize ]
+        [ Randomize m.PlayListFilePath ]
     | StartDrawingFailed (_) -> failwith "Not Implemented"
     | StopDrawingSuccess ->
         { m with
@@ -116,14 +141,31 @@ let update msg m =
                   PlayerState = Randomizung
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
-            [ Randomize ]
+            [ Randomize m.PlayListFilePath ]
         else
             { m with
                   CurrentDuration = TimeSpan.Zero },
             [ StopDrawing ]
-    | LayoutUpdated p ->
+
+    // Util
+    | LayoutUpdated p -> { m with StatusMessage = p }, []
+    | WindowClosed ->
+        config.Duration <- m.Duration
+        config.Frames <- m.Frames
+        config.Interval <- m.Interval
+        config.PlayListFilePath <- m.PlayListFilePath
+        config.SnapShotFolderPath <- m.SnapShotFolderPath
+        config.Save changedConfigPath
+        m, []
+    | ResetSettings ->
+        let origin = Config()
+
         { m with
-              StatusMessage = p },
+              Duration = origin.Duration
+              Frames = origin.Frames
+              Interval = origin.Interval
+              PlayListFilePath = origin.PlayListFilePath
+              SnapShotFolderPath = origin.SnapShotFolderPath },
         []
 
 
@@ -167,6 +209,16 @@ let bindings () =
       |> Binding.cmd IncrementDuration
       "DecrementDuration"
       |> Binding.cmdIf (DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
+
+      "PlayListFilePathText"
+      |> Binding.twoWay ((fun m -> string m.PlayListFilePath), (string >> SetPlayListFilePath))
+      "SetPlayListFilePath"
+      |> Binding.cmd RequestSelectPlayListFilePath
+
+      "SnapShotFolderPathText"
+      |> Binding.twoWay ((fun m -> string m.SnapShotFolderPath), (string >> SetSnapShotFolderPath))
+      "SetSnapShotFolderPath"
+      |> Binding.cmd RequestSelectSnapShotFolderPath
 
       // Random Drawing
       "Randomize"
@@ -216,11 +268,49 @@ let bindings () =
       |> Binding.cmdParam
           (fun p ->
               let args = p :?> float
-              LayoutUpdated $"WIndow Left:{args}") ]
+              LayoutUpdated $"WIndow Left:{args}")
+      "WindowClosed" |> Binding.cmd WindowClosed ]
 
 
+module DialogHelper =
+    open Windows.Foundation
+    open Windows.Storage.Pickers
+    open WinRT.Interop
 
-let toCmd =
+    type AsyncBuilder with
+        member x.Bind(t: IAsyncOperation<'T>, f: 'T -> Async<'R>) : Async<'R> =
+            async.Bind(t.AsTask() |> Async.AwaitTask, f)
+
+
+    let selectPlayList hwnd =
+        async {
+            let picker =
+                FileOpenPicker(ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.MusicLibrary)
+
+            InitializeWithWindow.Initialize(picker, hwnd)
+
+            picker.FileTypeFilter.Add ".xspf"
+
+            match! picker.PickSingleFileAsync() with
+            | null -> return SelectSnapShotFolderPathCandeled
+            | file -> return SelectPlayListFilePathSuccess file.Path
+        }
+
+    let selectSnapShotFolder hwnd =
+        async {
+            let picker =
+                FolderPicker(ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.PicturesLibrary)
+
+            InitializeWithWindow.Initialize(picker, hwnd)
+
+            picker.FileTypeFilter.Add "*"
+
+            match! picker.PickSingleFolderAsync() with
+            | null -> return SelectSnapShotFolderPathCandeled
+            | folder -> return SelectSnapShotFolderPathSuccess folder.Path
+        }
+
+let toCmd hwnd =
     function
     // Player
     | Play ->
@@ -229,8 +319,12 @@ let toCmd =
         |> Cmd.OfAsync.result
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
+
+    | SelectPlayListFilePath -> Cmd.OfAsync.either DialogHelper.selectPlayList hwnd id SelectPlayListFilePathFailed
+    | SelectSnapShotFolderPath ->
+        Cmd.OfAsync.either DialogHelper.selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
-    | Randomize -> Cmd.ofSub (PlayerLib.randomize (Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"))
+    | Randomize pl -> Uri pl |> PlayerLib.randomize |> Cmd.ofSub
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
 
@@ -248,6 +342,8 @@ let designVm =
       DurationText = "00:00"
       IncrementDuration = WpfHelper.emptyCommand
       DecrementDuration = WpfHelper.emptyCommand
+      PlayListFilePathText = ""
+      SnapShotFolderPathText = ""
       Randomize = WpfHelper.emptyCommand
       DrawingCommand = WpfHelper.emptyCommand
       DrawingCommandText = "Start Drawing"
@@ -256,7 +352,8 @@ let designVm =
       CurrentFrames = 0
       Position = 0
       DrawingServiceVisibility = Visibility.Collapsed
-      DrawingSettingVisibility = Visibility.Visible }
+      DrawingSettingVisibility = Visibility.Visible
+      WindowClosed = WpfHelper.emptyCommand }
 
 let main window =
     let logger =
@@ -270,8 +367,11 @@ let main window =
 #endif
             .CreateLogger()
 
+    let cmds =
+        Interop.WindowInteropHelper(window).Handle
+        |> toCmd
 
-    WpfProgram.mkProgramWithCmdMsg init update bindings toCmd
+    WpfProgram.mkProgramWithCmdMsg init update bindings cmds
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.withSubscription
         (fun _ ->
