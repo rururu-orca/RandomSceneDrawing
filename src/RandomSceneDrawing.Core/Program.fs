@@ -101,14 +101,14 @@ let update msg m =
     | SelectSnapShotFolderPathFailed ex -> failwith "Not Implemented"
 
     // Random Drawing
-    | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize ]
+    | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize m.PlayListFilePath ]
     | RandomizeSuccess (_) ->
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
               PlayerState = Playing
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
         []
-    | RandomizeFailed (_) -> { m with PlayerState = Stopped }, [ Stop; Randomize ]
+    | RandomizeFailed (_) -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
     | RequestStartDrawing (_) -> m, [ StartDrawing ]
     | RequestStopDrawing (_) -> m, [ StopDrawing ]
     | StartDrawingSuccess (_) ->
@@ -117,7 +117,7 @@ let update msg m =
               CurrentDuration = m.Interval
               RandomDrawingState = Interval
               PlayerState = Randomizung },
-        [ Randomize ]
+        [ Randomize m.PlayListFilePath ]
     | StartDrawingFailed (_) -> failwith "Not Implemented"
     | StopDrawingSuccess ->
         { m with
@@ -141,7 +141,7 @@ let update msg m =
                   PlayerState = Randomizung
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
-            [ Randomize ]
+            [ Randomize m.PlayListFilePath ]
         else
             { m with
                   CurrentDuration = TimeSpan.Zero },
@@ -324,7 +324,7 @@ let toCmd hwnd =
     | SelectSnapShotFolderPath ->
         Cmd.OfAsync.either DialogHelper.selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
-    | Randomize -> Cmd.ofSub (PlayerLib.randomize (Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"))
+    | Randomize pl -> Uri pl |> PlayerLib.randomize |> Cmd.ofSub
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
 
