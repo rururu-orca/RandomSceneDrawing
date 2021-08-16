@@ -43,8 +43,8 @@ type CmdMsg =
     | Randomize
     | StartDrawing
     | StopDrawing
-    | LoadPlayListFilePath
-    | LoadSnapShotFolderPath
+    | SelectPlayListFilePath
+    | SelectSnapShotFolderPath
 
 type Msg =
     | RequestPlay
@@ -73,12 +73,16 @@ type Msg =
     | IncrementDuration
     | DecrementDuration
     | LayoutUpdated of  string
-    | RequestLoadPlayListFilePath
-    | LoadPlayListFilePathSuccess of string
-    | LoadPlayListFilePathFailed
-    | RequestLoadSnapShotFolderPath
-    | LoadSnapShotFolderPathSuccess of string
-    | LoadSnapShotFolderPathFailed
+    | SetPlayListFilePath of string
+    | RequestSelectPlayListFilePath
+    | SelectPlayListFilePathSuccess of string
+    | SelectPlayListFilePathCanceled
+    | SelectPlayListFilePathFailed of exn
+    | SetSnapShotFolderPath of string
+    | RequestSelectSnapShotFolderPath
+    | SelectSnapShotFolderPathSuccess of string
+    | SelectSnapShotFolderPathCandeled
+    | SelectSnapShotFolderPathFailed of exn
     | WindowClosed
     | ResetSettings
 
