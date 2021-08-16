@@ -88,6 +88,17 @@ let update msg m =
         { m with
               Duration = m.Duration.Add <| TimeSpan.FromSeconds -10.0 },
         []
+    | SetPlayListFilePath path -> { m with PlayListFilePath = path }, []
+    | RequestSelectPlayListFilePath -> m, [ SelectPlayListFilePath ]
+    | SelectPlayListFilePathSuccess path -> { m with PlayListFilePath = path }, []
+    | SelectPlayListFilePathCanceled _ -> failwith "Not Implemented"
+    | SelectPlayListFilePathFailed ex -> failwith "Not Implemented"
+
+    | SetSnapShotFolderPath path -> { m with SnapShotFolderPath = path }, []
+    | RequestSelectSnapShotFolderPath -> m, [ SelectSnapShotFolderPath ]
+    | SelectSnapShotFolderPathSuccess path -> { m with SnapShotFolderPath = path }, []
+    | SelectSnapShotFolderPathCandeled -> failwith "Not Implemented"
+    | SelectSnapShotFolderPathFailed ex -> failwith "Not Implemented"
 
     // Random Drawing
     | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize ]
@@ -135,6 +146,8 @@ let update msg m =
             { m with
                   CurrentDuration = TimeSpan.Zero },
             [ StopDrawing ]
+
+    // Util
     | LayoutUpdated p -> { m with StatusMessage = p }, []
     | WindowClosed ->
         config.Duration <- m.Duration
@@ -197,6 +210,16 @@ let bindings () =
       "DecrementDuration"
       |> Binding.cmdIf (DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
 
+      "PlayListFilePathText"
+      |> Binding.twoWay ((fun m -> string m.PlayListFilePath), (string >> SetPlayListFilePath))
+      "SetPlayListFilePath"
+      |> Binding.cmd RequestSelectPlayListFilePath
+
+      "SnapShotFolderPathText"
+      |> Binding.twoWay ((fun m -> string m.SnapShotFolderPath), (string >> SetSnapShotFolderPath))
+      "SetSnapShotFolderPath"
+      |> Binding.cmd RequestSelectSnapShotFolderPath
+
       // Random Drawing
       "Randomize"
       |> Binding.cmdIf (RequestRandomize, (fun m -> m.PlayerState <> Randomizung))
@@ -249,6 +272,31 @@ let bindings () =
       "WindowClosed" |> Binding.cmd WindowClosed ]
 
 
+module DialogHelper =
+    open Microsoft.Win32
+
+    let showDialog onSuccess onFailed (dialog: OpenFileDialog) =
+        async {
+            let result = dialog.ShowDialog()
+
+            if result.HasValue && result.Value then
+                return onSuccess dialog.FileName
+            else
+                return onFailed
+
+        }
+
+    let selectPlayList () =
+        OpenFileDialog(Filter = "PLayList file (*.xspf)|*.xspf", DefaultExt = "xspf")
+        |> showDialog SelectPlayListFilePathSuccess SelectSnapShotFolderPathCandeled
+
+    let selectSnapShotFolder () =
+        
+        OpenFileDialog(Filter = "Folder|.", CheckFileExists = false)
+        |> showDialog
+            (Path.GetDirectoryName
+             >> SelectSnapShotFolderPathSuccess)
+            SelectSnapShotFolderPathCandeled
 
 let toCmd =
     function
@@ -259,6 +307,9 @@ let toCmd =
         |> Cmd.OfAsync.result
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
+
+    | SelectPlayListFilePath -> Cmd.OfAsync.either DialogHelper.selectPlayList () id SelectPlayListFilePathFailed
+    | SelectSnapShotFolderPath -> Cmd.OfAsync.either DialogHelper.selectSnapShotFolder () id SelectSnapShotFolderPathFailed
     // Random Drawing
     | Randomize -> Cmd.ofSub (PlayerLib.randomize (Uri @"C:\repos\RandomSceneDrawing\tools\PlayList.xspf"))
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
