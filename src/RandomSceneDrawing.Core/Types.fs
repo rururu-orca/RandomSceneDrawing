@@ -40,7 +40,7 @@ type CmdMsg =
     | Play
     | Pause
     | Stop
-    | Randomize
+    | Randomize of string
     | StartDrawing
     | StopDrawing
     | SelectPlayListFilePath
