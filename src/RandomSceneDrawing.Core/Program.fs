@@ -33,6 +33,7 @@ let init () =
       MediaPosition = TimeSpan.Zero
       PlayListFilePath = config.PlayListFilePath
       SnapShotFolderPath = config.SnapShotFolderPath
+      SnapShotPath = ""
       Title = ""
       RandomDrawingState = RandomDrawingState.Stop
       CurrentDuration = TimeSpan.Zero
@@ -108,13 +109,22 @@ let update msg m =
     // Random Drawing
     | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize m.PlayListFilePath ]
     | RandomizeSuccess (_) ->
+
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
               PlayerState = Playing
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
-        []
+        [ if m.RandomDrawingState = Interval then
+              let path =
+                  Path.Combine [| m.SnapShotPath
+                                  $"%03i{m.CurrentFrames}.png" |]
+
+              TakeSnapshot path ]
     | RandomizeFailed (_) -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
-    | RequestStartDrawing (_) -> m, [ StartDrawing ]
+    | RequestStartDrawing (_) ->
+        m,
+        [ CreateCurrentSnapShotFolder m.SnapShotFolderPath
+          StartDrawing ]
     | RequestStopDrawing (_) -> m, [ StopDrawing ]
     | StartDrawingSuccess (_) ->
         { m with
@@ -123,6 +133,7 @@ let update msg m =
               RandomDrawingState = Interval
               PlayerState = Randomizung },
         [ Randomize m.PlayListFilePath ]
+    | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
     | StartDrawingFailed (_) -> failwith "Not Implemented"
     | StopDrawingSuccess ->
         { m with
@@ -139,7 +150,7 @@ let update msg m =
             { m with
                   RandomDrawingState = Running
                   CurrentDuration = m.Duration },
-            []
+            [ ]
         elif m.CurrentFrames < m.Frames then
             { m with
                   RandomDrawingState = Interval
@@ -151,7 +162,8 @@ let update msg m =
             { m with
                   CurrentDuration = TimeSpan.Zero },
             [ StopDrawing ]
-
+    | TakeSnapshotSuccess
+    | TakeSnapshotFailed -> m, []
     // Util
     | LayoutUpdated p -> { m with StatusMessage = p }, []
     | WindowClosed ->
@@ -277,7 +289,7 @@ let bindings () =
       "WindowClosed" |> Binding.cmd WindowClosed ]
 
 
-module DialogHelper =
+module Platform =
     open Windows.Foundation
     open Windows.UI.Popups
     open Windows.Storage.Pickers
@@ -288,6 +300,11 @@ module DialogHelper =
     type AsyncBuilder with
         member x.Bind(t: IAsyncOperation<'T>, f: 'T -> Async<'R>) : Async<'R> =
             async.Bind(t.AsTask() |> Async.AwaitTask, f)
+
+
+    let sprintfDateTime format (datetime: DateTime) = datetime.ToString(format = format)
+
+    let sprintfNow format = DateTime.Now |> sprintfDateTime format
 
     let playSelectedVideo hwnd =
         async {
@@ -347,22 +364,54 @@ module DialogHelper =
             | folder -> return SelectSnapShotFolderPathSuccess folder.Path
         }
 
+    let createCurrentSnapShotFolder root =
+        let unfolder state =
+            match state with
+            | -1 -> None
+            | _ ->
+                let path =
+                    [| root
+                       sprintfNow "yyyyMMdd"
+                       $"%03i{state}" |]
+                    |> Path.Combine
+
+                match Directory.Exists path with
+                | true -> Some(path, state + 1)
+                | false ->
+                    Directory.CreateDirectory path |> ignore
+                    Some(path, -1)
+
+        Seq.unfold unfolder 0
+        |> Seq.last
+        |> CreateCurrentSnapShotFolderSuccess
+
+
 let toCmd hwnd =
     function
     // Player
     | Play ->
-        DialogHelper.playSelectedVideo hwnd
+        Platform.playSelectedVideo hwnd
         |> Cmd.OfAsync.result
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
 
-    | SelectPlayListFilePath -> Cmd.OfAsync.either DialogHelper.selectPlayList hwnd id SelectPlayListFilePathFailed
+    | SelectPlayListFilePath -> Cmd.OfAsync.either Platform.selectPlayList hwnd id SelectPlayListFilePathFailed
     | SelectSnapShotFolderPath ->
-        Cmd.OfAsync.either DialogHelper.selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
+        Cmd.OfAsync.either Platform.selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
     | Randomize pl -> Uri pl |> PlayerLib.randomize |> Cmd.ofSub
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
+    | CreateCurrentSnapShotFolder root ->
+        Platform.createCurrentSnapShotFolder root
+        |> Cmd.ofMsg
+    | TakeSnapshot path ->
+        match PlayerLib.takeSnapshot PlayerLib.getSize 0u path with
+        | Some path -> TakeSnapshotSuccess
+        | None -> TakeSnapshotFailed
+        |> Cmd.ofMsg
+
+
 
 let designVm =
     { MediaPlayer = PlayerLib.player

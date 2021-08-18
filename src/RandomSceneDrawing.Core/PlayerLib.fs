@@ -172,7 +172,7 @@ let getSize num =
 
 let takeSnapshot sizefn num path =
     monad {
-        let! px, py = sizefn num
+        let! px, py = sizefn 0u
 
         if player.TakeSnapshot(num, path, px, py) then
             return! Some path

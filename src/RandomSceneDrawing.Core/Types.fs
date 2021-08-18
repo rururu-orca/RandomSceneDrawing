@@ -30,6 +30,7 @@ type Model =
       MediaPosition: TimeSpan
       PlayListFilePath: string
       SnapShotFolderPath: string
+      SnapShotPath: string
       Title: string
       RandomDrawingState: RandomDrawingState
       CurrentDuration: TimeSpan
@@ -41,6 +42,8 @@ type CmdMsg =
     | Pause
     | Stop
     | Randomize of string
+    | CreateCurrentSnapShotFolder of string
+    | TakeSnapshot of string
     | StartDrawing
     | StopDrawing
     | SelectPlayListFilePath
@@ -84,6 +87,9 @@ type Msg =
     | SelectSnapShotFolderPathSuccess of string
     | SelectSnapShotFolderPathCandeled
     | SelectSnapShotFolderPathFailed of exn
+    | CreateCurrentSnapShotFolderSuccess of string
+    | TakeSnapshotSuccess
+    | TakeSnapshotFailed
     | WindowClosed
     | ResetSettings
 
