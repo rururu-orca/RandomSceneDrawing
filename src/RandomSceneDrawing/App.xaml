@@ -63,6 +63,15 @@
                 <Setter
                      Property="Margin"
                      Value="4"/>
+                <Setter
+                     Property="Background"
+                     Value="#FF181818"/>
+                <Setter
+                     Property="BorderBrush"
+                     Value="#FFDDDDDD"/>
+                <Setter
+                     Property="Foreground"
+                     Value="#FFDDDDDD"/>
             </Style>
             <Style
                  BasedOn="{StaticResource {x:Type Button}}"
