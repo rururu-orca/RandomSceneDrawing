@@ -22,8 +22,16 @@ let libVLC =
     new LibVLC(false)
 #endif
 
+
 let player =
-    new MediaPlayer(libVLC, FileCaching = 500u, NetworkCaching = 500u, EnableHardwareDecoding = true, Mute = true)
+    new MediaPlayer(
+        libVLC,
+        FileCaching = 500u,
+        NetworkCaching = 500u,
+        EnableHardwareDecoding = true,
+        Mute = true,
+        Volume = 0
+    )
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
@@ -61,10 +69,12 @@ let play media =
         | VLCState.NothingSpecial
         | VLCState.Stopped
         | VLCState.Ended
+        | VLCState.Playing
         | VLCState.Error ->
             player.Play media |> ignore
 
             let! e = media.DurationChanged |> Async.AwaitEvent
+            player.SetAudioTrack -1 |> ignore
 
             return
                 PlaySuccess
@@ -82,7 +92,6 @@ let play media =
                           |> TimeSpan.FromMilliseconds }
         | VLCState.Opening
         | VLCState.Buffering
-        | VLCState.Playing
         | _ -> return PlayFailed player.State
     }
 
@@ -116,6 +125,8 @@ let randomize (playListUri: Uri) dispatch =
                 <| fun () -> RandomizeFailed(TimeoutException()) |> dispatch
 
             player.Stop()
+            player.Mute <- true
+            player.SetAudioTrack -1 |> ignore
             let random = Random()
             let! playList = loadPlayList playListUri
 
@@ -146,6 +157,8 @@ let randomize (playListUri: Uri) dispatch =
 
             player.Pause()
             waitPaused player.Time
+            player.Mute <- true
+            player.SetAudioTrack -1 |> ignore
             player.Time <- rTime
 
             // Play
