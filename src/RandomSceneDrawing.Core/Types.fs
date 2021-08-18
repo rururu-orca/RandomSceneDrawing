@@ -49,6 +49,7 @@ type CmdMsg =
 type Msg =
     | RequestPlay
     | PlaySuccess of MediaInfo
+    | PlayCandeled
     | PlayFailed of VLCState
     | RequestPause
     | PauseSuccess

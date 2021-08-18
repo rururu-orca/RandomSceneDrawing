@@ -10,6 +10,7 @@ open Elmish.WPF
 open FSharp.Configuration
 open Types
 open RandomSceneDrawing
+open FSharpPlus
 
 type Config = YamlConfig<"Config.yaml">
 
@@ -60,13 +61,17 @@ let update msg m =
     match msg with
     // Player
     | RequestPlay -> m, [ Play ]
+    | PlayCandeled -> m, []
     | PlaySuccess mediaInfo ->
         { m with
               Title = mediaInfo.Title
               PlayerState = Playing
               MediaDuration = mediaInfo.Duration },
         []
-    | PlayFailed _ -> failwith "Not Implemented"
+    | PlayFailed e ->
+        { m with
+              StatusMessage = sprintf "%A" e },
+        []
     | RequestPause -> m, [ Pause ]
     | PauseSuccess -> m, []
     | PauseFailed _ -> failwith "Not Implemented"
@@ -274,13 +279,45 @@ let bindings () =
 
 module DialogHelper =
     open Windows.Foundation
+    open Windows.UI.Popups
     open Windows.Storage.Pickers
     open WinRT.Interop
+    open FSharp.Control
+    open System.Collections.Generic
 
     type AsyncBuilder with
         member x.Bind(t: IAsyncOperation<'T>, f: 'T -> Async<'R>) : Async<'R> =
             async.Bind(t.AsTask() |> Async.AwaitTask, f)
 
+    let playSelectedVideo hwnd =
+        async {
+            let picker =
+                FileOpenPicker(ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.VideosLibrary)
+
+
+            InitializeWithWindow.Initialize(picker, hwnd)
+
+            [ ".mp4"; ".mkv" ]
+            |> List.iter picker.FileTypeFilter.Add
+
+            match! picker.PickSingleFileAsync() with
+            | null -> return PlayCandeled
+            | file when String.IsNullOrEmpty file.Path ->
+                let dlg =
+                    MessageDialog("メディアサーバーの動画を指定して再生することは出来ません。", CancelCommandIndex = 0u)
+
+                UICommand "Close" |> dlg.Commands.Add
+
+                InitializeWithWindow.Initialize(dlg, hwnd)
+                let! _ = dlg.ShowAsync()
+
+                return PlayCandeled
+
+            | file ->
+                return!
+                    PlayerLib.getMediaFromUri (Uri file.Path)
+                    |> PlayerLib.play
+        }
 
     let selectPlayList hwnd =
         async {
@@ -314,8 +351,7 @@ let toCmd hwnd =
     function
     // Player
     | Play ->
-        Uri "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-        |> PlayerLib.play
+        DialogHelper.playSelectedVideo hwnd
         |> Cmd.OfAsync.result
     | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
     | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed

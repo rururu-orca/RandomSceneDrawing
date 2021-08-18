@@ -7,6 +7,11 @@ open Types
 open FSharp.Control
 open FSharpPlus
 open RandomSceneDrawing.DrawingSetvice
+open System.Threading.Tasks
+
+type AsyncBuilder with
+    member x.Bind(t: Task<'T>, f: 'T -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
+    member x.Bind(t: Task, f: unit -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
 
 do Core.Initialize()
 
@@ -16,6 +21,9 @@ let libVLC =
 #else
     new LibVLC(false)
 #endif
+
+let player =
+    new MediaPlayer(libVLC, FileCaching = 500u, NetworkCaching = 500u, EnableHardwareDecoding = true)
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
@@ -31,7 +39,6 @@ let loadPlayList source =
         return playList
     }
 
-let player = new MediaPlayer(libVLC)
 
 let timeChanged dispatch =
     player.TimeChanged
@@ -48,14 +55,13 @@ let timeChanged dispatch =
 
 
 
-let play source =
+let play media =
     async {
         match player.State with
         | VLCState.NothingSpecial
         | VLCState.Stopped
         | VLCState.Ended
         | VLCState.Error ->
-            use media = getMediaFromUri source
             player.Play media |> ignore
 
             let! e = media.DurationChanged |> Async.AwaitEvent
