@@ -150,7 +150,7 @@ let update msg m =
             { m with
                   RandomDrawingState = Running
                   CurrentDuration = m.Duration },
-            [ ]
+            []
         elif m.CurrentFrames < m.Frames then
             { m with
                   RandomDrawingState = Interval
@@ -239,19 +239,31 @@ let bindings () =
 
       // Random Drawing
       "Randomize"
-      |> Binding.cmdIf (RequestRandomize, (fun m -> m.PlayerState <> Randomizung))
+      |> Binding.cmdIf (
+          RequestRandomize,
+          (fun m ->
+              m.PlayerState <> Randomizung
+              && not (String.IsNullOrEmpty m.PlayListFilePath))
+      )
       "CurrentDuration"
       |> Binding.oneWay (fun m -> m.CurrentDuration)
       "CurrentFrames"
       |> Binding.oneWay (fun m -> m.CurrentFrames)
 
       "DrawingCommand"
-      |> Binding.cmd
+      |> Binding.cmdIf
           (fun (m: Model) ->
-              match m.RandomDrawingState with
-              | RandomDrawingState.Stop -> RequestStartDrawing
-              | Running
-              | Interval -> RequestStopDrawing)
+              if
+                  not (String.IsNullOrEmpty m.PlayListFilePath)
+                  && not (String.IsNullOrEmpty m.SnapShotFolderPath)
+              then
+                  match m.RandomDrawingState with
+                  | RandomDrawingState.Stop -> Some RequestStartDrawing
+                  | Running
+                  | Interval -> Some RequestStopDrawing
+              else
+                  None)
+
       "DrawingCommandText"
       |> Binding.oneWay
           (fun m ->
