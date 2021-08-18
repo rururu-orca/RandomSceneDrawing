@@ -23,7 +23,7 @@ let libVLC =
 #endif
 
 let player =
-    new MediaPlayer(libVLC, FileCaching = 500u, NetworkCaching = 500u, EnableHardwareDecoding = true)
+    new MediaPlayer(libVLC, FileCaching = 500u, NetworkCaching = 500u, EnableHardwareDecoding = true, Mute = true)
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
