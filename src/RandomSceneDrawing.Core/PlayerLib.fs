@@ -39,10 +39,7 @@ let loadPlayList source =
     async {
         let playList = new Media(libVLC, uri = source)
 
-        do!
-            playList.Parse MediaParseOptions.ParseNetwork
-            |> Async.AwaitTask
-            |> Async.Ignore
+        do! playList.Parse MediaParseOptions.ParseNetwork
 
         return playList
     }
@@ -113,6 +110,8 @@ let stop () =
         return StopSuccess
     }
 
+exception PlayFailedException
+
 let randomize (playListUri: Uri) dispatch =
     let cts =
         new Threading.CancellationTokenSource(TimeSpan.FromSeconds(5.0))
@@ -124,9 +123,33 @@ let randomize (playListUri: Uri) dispatch =
                 Async.OnCancel
                 <| fun () -> RandomizeFailed(TimeoutException()) |> dispatch
 
-            player.Stop()
+            let play media =
+                let started = player.Playing |> Async.AwaitEvent
+
+                if not (player.Play media) then
+                    dispatch (RandomizeFailed PlayFailedException)
+
+                started |> Async.RunSynchronously
+
+            let pause () =
+                let paused = player.Paused |> Async.AwaitEvent
+                player.Pause()
+                paused |> Async.RunSynchronously
+
+            let stop () =
+                if player.IsPlaying then
+                    let stopped = player.Stopped |> Async.AwaitEvent
+                    player.Stop()
+                    stopped |> Async.RunSynchronously |> Some
+                else
+                    None
+
+            stop () |> ignore
+
+
             player.Mute <- true
             player.SetAudioTrack -1 |> ignore
+
             let random = Random()
             let! playList = loadPlayList playListUri
 
@@ -134,41 +157,21 @@ let randomize (playListUri: Uri) dispatch =
                 playList.SubItems
                 |> Seq.item (random.Next playList.SubItems.Count)
 
-            do!
-                media.Parse MediaParseOptions.ParseNetwork
-                |> Async.AwaitTask
-                |> Async.Ignore
-
-            let rec waitPaused currentTime =
-                Threading.Thread.Yield() |> ignore
-
-                if currentTime <> player.Time then
-                    waitPaused player.Time
+            do! media.Parse MediaParseOptions.ParseNetwork
 
             let rTime =
                 random.Next(1000, int media.Duration - 3000)
                 |> int64
 
-            do player.Play media |> ignore
+            play media |> ignore
 
-            while player.Time <= 0L do
-                Threading.Thread.Yield() |> ignore
+            pause () |> ignore
 
-
-            player.Pause()
-            waitPaused player.Time
             player.Mute <- true
             player.SetAudioTrack -1 |> ignore
             player.Time <- rTime
 
-            // Play
-            player.Pause()
-
-            while player.Time = rTime do
-                Threading.Thread.Yield() |> ignore
-
-            player.Pause()
-            waitPaused player.Time
+            player.NextFrame()
 
             dispatch RandomizeSuccess
         },

@@ -109,10 +109,10 @@ let update msg m =
     // Random Drawing
     | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize m.PlayListFilePath ]
     | RandomizeSuccess (_) ->
-
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
               PlayerState = Playing
+              MediaPosition = (float m.Player.Time |> TimeSpan.FromMilliseconds)
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
         [ if m.RandomDrawingState = Interval then
               let path =
