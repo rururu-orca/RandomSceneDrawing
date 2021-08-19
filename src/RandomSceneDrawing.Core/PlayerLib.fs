@@ -134,7 +134,7 @@ let randomize (playListUri: Uri) dispatch =
                 if not (player.Play media) then
                     dispatch (RandomizeFailed PlayFailedException)
 
-                started |> Async.RunSynchronously
+                Async.RunSynchronously(started, 1000)
 
             let pause () =
                 let paused = player.Paused |> Async.AwaitEvent
@@ -187,7 +187,6 @@ let randomize (playListUri: Uri) dispatch =
             |> TimeSpan.FromMilliseconds
             |> PlayerTimeChanged
             |> dispatch
-
 
             do! Async.Sleep 100 |> Async.Ignore
             dispatch RandomizeSuccess
