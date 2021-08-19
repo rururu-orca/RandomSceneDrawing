@@ -58,7 +58,12 @@ let timeChanged dispatch =
     )
     |> Async.StartImmediate
 
-
+let playerBuffering dispatch =
+    player.Buffering
+    |> AsyncSeq.ofObservableBuffered
+    |> AsyncSeq.map (fun e -> e.Cache)
+    |> AsyncSeq.iter (PlayerBuffering >> dispatch)
+    |> Async.StartImmediate
 
 let play media =
     async {
@@ -171,8 +176,20 @@ let randomize (playListUri: Uri) dispatch =
             player.SetAudioTrack -1 |> ignore
             player.Time <- rTime
 
-            player.NextFrame()
+            float player.Time
+            |> TimeSpan.FromMilliseconds
+            |> PlayerTimeChanged
+            |> dispatch
 
+            do! Async.Sleep 100 |> Async.Ignore
+
+            float player.Time
+            |> TimeSpan.FromMilliseconds
+            |> PlayerTimeChanged
+            |> dispatch
+
+
+            do! Async.Sleep 100 |> Async.Ignore
             dispatch RandomizeSuccess
         },
         cts.Token

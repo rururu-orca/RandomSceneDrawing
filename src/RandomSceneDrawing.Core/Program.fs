@@ -31,6 +31,8 @@ let init () =
       PlayerState = PlayerState.Stopped
       MediaDuration = TimeSpan.Zero
       MediaPosition = TimeSpan.Zero
+      PlayerBufferCache = 0.0f
+      RandomizeState = Waiting
       PlayListFilePath = config.PlayListFilePath
       SnapShotFolderPath = config.SnapShotFolderPath
       SnapShotPath = ""
@@ -80,6 +82,14 @@ let update msg m =
     | StopSuccess -> { m with PlayerState = Stopped }, []
     | StopFailed _ -> failwith "Not Implemented"
     | PlayerTimeChanged time -> { m with MediaPosition = time }, []
+    | PlayerBuffering cache ->
+        match cache with
+        | 100.0f when m.RandomizeState = WaitBuffering ->
+            { m with
+                  PlayerBufferCache = cache
+                  RandomizeState = Waiting },
+            []
+        | _ -> { m with PlayerBufferCache = cache }, []
 
     // Random Drawing Setting
     | SetFrames x -> { m with Frames = x }, []
@@ -107,11 +117,12 @@ let update msg m =
     | SelectSnapShotFolderPathFailed ex -> failwith "Not Implemented"
 
     // Random Drawing
-    | RequestRandomize (_) -> { m with PlayerState = Randomizung }, [ Randomize m.PlayListFilePath ]
+    | RequestRandomize (_) -> { m with RandomizeState = Running }, [ Randomize m.PlayListFilePath ]
     | RandomizeSuccess (_) ->
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
               PlayerState = Playing
+              RandomizeState = if m.PlayerBufferCache = 100.0f then Waiting else WaitBuffering
               MediaPosition = (float m.Player.Time |> TimeSpan.FromMilliseconds)
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
         [ if m.RandomDrawingState = Interval then
@@ -131,7 +142,7 @@ let update msg m =
               CurrentFrames = 1
               CurrentDuration = m.Interval
               RandomDrawingState = Interval
-              PlayerState = Randomizung },
+              RandomizeState = Running },
         [ Randomize m.PlayListFilePath ]
     | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
     | StartDrawingFailed (_) -> failwith "Not Implemented"
@@ -148,13 +159,13 @@ let update msg m =
             []
         elif m.RandomDrawingState = Interval then
             { m with
-                  RandomDrawingState = Running
+                  RandomDrawingState = RandomDrawingState.Running
                   CurrentDuration = m.Duration },
             []
         elif m.CurrentFrames < m.Frames then
             { m with
                   RandomDrawingState = Interval
-                  PlayerState = Randomizung
+                  RandomizeState = Running
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
             [ Randomize m.PlayListFilePath ]
@@ -202,7 +213,8 @@ let bindings () =
           (fun m ->
               match m with
               | { RandomDrawingState = Interval }
-              | { PlayerState = Randomizung }
+              | { RandomizeState = Running }
+              | { RandomizeState = WaitBuffering }
               | { PlayerState = Stopped } -> Visibility.Collapsed
               | { PlayerState = Playing }
               | { PlayerState = Paused } -> Visibility.Visible)
@@ -242,7 +254,7 @@ let bindings () =
       |> Binding.cmdIf (
           RequestRandomize,
           (fun m ->
-              m.PlayerState <> Randomizung
+              m.RandomizeState = Waiting
               && not (String.IsNullOrEmpty m.PlayListFilePath))
       )
       "CurrentDuration"
@@ -259,7 +271,7 @@ let bindings () =
               then
                   match m.RandomDrawingState with
                   | RandomDrawingState.Stop -> Some RequestStartDrawing
-                  | Running
+                  | RandomDrawingState.Running
                   | Interval -> Some RequestStopDrawing
               else
                   None)
@@ -269,14 +281,14 @@ let bindings () =
           (fun m ->
               match m.RandomDrawingState with
               | RandomDrawingState.Stop -> "⏲ Start Drawing"
-              | Running
+              | RandomDrawingState.Running
               | Interval -> "Stop Drawing")
       "DrawingSettingVisibility"
       |> Binding.oneWay
           (fun m ->
               match m.RandomDrawingState with
               | RandomDrawingState.Stop -> Visibility.Visible
-              | Running
+              | RandomDrawingState.Running
               | Interval -> Visibility.Collapsed)
 
       "DrawingServiceVisibility"
@@ -284,7 +296,7 @@ let bindings () =
           (fun m ->
               match m.RandomDrawingState with
               | RandomDrawingState.Stop -> Visibility.Collapsed
-              | Running
+              | RandomDrawingState.Running
               | Interval -> Visibility.Visible)
       "StatusMessage"
       |> Binding.oneWay (fun m -> m.StatusMessage)
@@ -473,5 +485,6 @@ let main window =
     |> WpfProgram.withSubscription
         (fun _ ->
             Cmd.batch [ Cmd.ofSub DrawingSetvice.setup
-                        Cmd.ofSub PlayerLib.timeChanged ])
+                        Cmd.ofSub PlayerLib.timeChanged
+                        Cmd.ofSub PlayerLib.playerBuffering ])
     |> WpfProgram.startElmishLoop window

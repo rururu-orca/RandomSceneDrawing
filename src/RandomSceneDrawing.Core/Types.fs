@@ -10,22 +10,26 @@ type RandomDrawingState =
     | Running
     | Interval
 
+type CommandState =
+    | Waiting
+    | Running
+    | WaitBuffering
+
 type PlayerState =
     | Playing
     | Paused
     | Stopped
-    | Randomizung
 
-type MediaInfo = {
-    Title: string
-    Duration: TimeSpan }
+type MediaInfo = { Title: string; Duration: TimeSpan }
 
 type Model =
     { Frames: int
       Duration: TimeSpan
       Interval: TimeSpan
       Player: MediaPlayer
-      PlayerState : PlayerState
+      PlayerState: PlayerState
+      PlayerBufferCache: float32
+      RandomizeState: CommandState
       MediaDuration: TimeSpan
       MediaPosition: TimeSpan
       PlayListFilePath: string
@@ -34,8 +38,8 @@ type Model =
       Title: string
       RandomDrawingState: RandomDrawingState
       CurrentDuration: TimeSpan
-      CurrentFrames: int 
-      StatusMessage : string}
+      CurrentFrames: int
+      StatusMessage: string }
 
 type CmdMsg =
     | Play
@@ -61,6 +65,7 @@ type Msg =
     | StopSuccess
     | StopFailed of exn
     | PlayerTimeChanged of TimeSpan
+    | PlayerBuffering of float32
     | RequestRandomize
     | RandomizeSuccess
     | RandomizeFailed of exn
@@ -76,7 +81,7 @@ type Msg =
     | SetDuration of TimeSpan
     | IncrementDuration
     | DecrementDuration
-    | LayoutUpdated of  string
+    | LayoutUpdated of string
     | SetPlayListFilePath of string
     | RequestSelectPlayListFilePath
     | SelectPlayListFilePathSuccess of string
@@ -110,9 +115,9 @@ type AppViewModel =
       PlayListFilePathText: string
       SnapShotFolderPathText: string
       Randomize: ICommand
-      DrawingCommand : ICommand
-      DrawingCommandText : String
-      State : RandomDrawingState
+      DrawingCommand: ICommand
+      DrawingCommandText: String
+      State: RandomDrawingState
       CurrentDuration: string
       CurrentFrames: int
       Position: int
