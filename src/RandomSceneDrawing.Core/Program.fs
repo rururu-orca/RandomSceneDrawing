@@ -71,16 +71,16 @@ let update msg m =
               PlayerState = Playing
               MediaDuration = mediaInfo.Duration },
         []
-    | PlayFailed e ->
-        { m with
-              StatusMessage = sprintf "%A" e },
-        []
+    | PlayFailed ex ->
+        match ex with
+        | PlayFailedException (str) -> m, [ ShowErrorInfomation str ]
+        | _ -> m, [ ShowErrorInfomation ex.Message ]
     | RequestPause -> m, [ Pause ]
     | PauseSuccess state -> { m with PlayerState = state }, []
-    | PauseFailed _ -> failwith "Not Implemented"
+    | PauseFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | RequestStop -> m, [ Stop ]
     | StopSuccess -> { m with PlayerState = Stopped }, []
-    | StopFailed _ -> failwith "Not Implemented"
+    | StopFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | PlayerTimeChanged time -> { m with MediaPosition = time }, []
     | PlayerBuffering cache ->
         match cache with
@@ -107,14 +107,14 @@ let update msg m =
     | SetPlayListFilePath path -> { m with PlayListFilePath = path }, []
     | RequestSelectPlayListFilePath -> m, [ SelectPlayListFilePath ]
     | SelectPlayListFilePathSuccess path -> { m with PlayListFilePath = path }, []
-    | SelectPlayListFilePathCanceled _ -> failwith "Not Implemented"
-    | SelectPlayListFilePathFailed ex -> failwith "Not Implemented"
+    | SelectPlayListFilePathCanceled _ -> m, []
+    | SelectPlayListFilePathFailed ex -> m, [ ShowErrorInfomation ex.Message ]
 
     | SetSnapShotFolderPath path -> { m with SnapShotFolderPath = path }, []
     | RequestSelectSnapShotFolderPath -> m, [ SelectSnapShotFolderPath ]
     | SelectSnapShotFolderPathSuccess path -> { m with SnapShotFolderPath = path }, []
-    | SelectSnapShotFolderPathCandeled -> failwith "Not Implemented"
-    | SelectSnapShotFolderPathFailed ex -> failwith "Not Implemented"
+    | SelectSnapShotFolderPathCandeled -> m, []
+    | SelectSnapShotFolderPathFailed ex -> m, [ ShowErrorInfomation ex.Message ]
 
     // Random Drawing
     | RequestRandomize (_) -> { m with RandomizeState = Running }, [ Randomize m.PlayListFilePath ]
@@ -137,8 +137,9 @@ let update msg m =
               TakeSnapshot path ]
     | RandomizeFailed ex ->
         match ex with
-        | :? PlayFailedException -> { m with RandomizeState = Waiting }, [ Stop ]
-        | _ -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
+        | :? TimeoutException -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
+        | PlayFailedException (str) -> { m with RandomizeState = Waiting }, [ ShowErrorInfomation str; Stop ]
+        | _ -> { m with RandomizeState = Waiting }, [ ShowErrorInfomation ex.Message; Stop ]
     | RequestStartDrawing (_) ->
         m,
         [ CreateCurrentSnapShotFolder m.SnapShotFolderPath
@@ -152,7 +153,7 @@ let update msg m =
               RandomizeState = Running },
         [ Randomize m.PlayListFilePath ]
     | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
-    | StartDrawingFailed (_) -> failwith "Not Implemented"
+    | StartDrawingFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | StopDrawingSuccess ->
         { m with
               RandomDrawingState = RandomDrawingState.Stop },
@@ -180,8 +181,11 @@ let update msg m =
             { m with
                   CurrentDuration = TimeSpan.Zero },
             [ StopDrawing ]
-    | TakeSnapshotSuccess
-    | TakeSnapshotFailed -> m, []
+    | TakeSnapshotSuccess -> m, []
+    | TakeSnapshotFailed ex ->
+        match ex with
+        | SnapShotFailedException (str) -> m, [ ShowErrorInfomation str ]
+        | _ -> m, [ ShowErrorInfomation ex.Message ]
     // Util
     | LayoutUpdated p -> { m with StatusMessage = p }, []
     | WindowClosed ->
@@ -202,7 +206,7 @@ let update msg m =
               PlayListFilePath = origin.PlayListFilePath
               SnapShotFolderPath = origin.SnapShotFolderPath },
         []
-
+    | ShowErrorInfomationSuccess -> m, []
 
 
 let bindings () =
@@ -328,7 +332,6 @@ module Platform =
     open Windows.Storage.Pickers
     open WinRT.Interop
     open FSharp.Control
-    open System.Collections.Generic
 
     type AsyncBuilder with
         member x.Bind(t: IAsyncOperation<'T>, f: 'T -> Async<'R>) : Async<'R> =
@@ -338,6 +341,19 @@ module Platform =
     let sprintfDateTime format (datetime: DateTime) = datetime.ToString(format = format)
 
     let sprintfNow format = DateTime.Now |> sprintfDateTime format
+
+    let ShowErrorDialog hwnd info msg =
+        async {
+            let dlg =
+                MessageDialog(info, CancelCommandIndex = 0u)
+
+            UICommand "Close" |> dlg.Commands.Add
+
+            InitializeWithWindow.Initialize(dlg, hwnd)
+            let! _ = dlg.ShowAsync()
+
+            return msg
+        }
 
     let playSelectedVideo hwnd =
         async {
@@ -353,15 +369,7 @@ module Platform =
             match! picker.PickSingleFileAsync() with
             | null -> return PlayCandeled
             | file when String.IsNullOrEmpty file.Path ->
-                let dlg =
-                    MessageDialog("メディアサーバーの動画を指定して再生することは出来ません。", CancelCommandIndex = 0u)
-
-                UICommand "Close" |> dlg.Commands.Add
-
-                InitializeWithWindow.Initialize(dlg, hwnd)
-                let! _ = dlg.ShowAsync()
-
-                return PlayCandeled
+                return PlayFailed(PlayFailedException "メディアサーバーの動画を指定して再生することは出来ません。")
 
             | file ->
                 let media =
@@ -429,9 +437,7 @@ module Platform =
 let toCmd hwnd =
     function
     // Player
-    | Play ->
-        Platform.playSelectedVideo hwnd
-        |> Cmd.OfAsyncImmediate.result
+    | Play -> Cmd.OfAsyncImmediate.either Platform.playSelectedVideo hwnd id PlayFailed
     | Pause -> Cmd.OfAsyncImmediate.either PlayerLib.togglePauseAsync (Playing, Paused) PauseSuccess PauseFailed
     | Stop -> Cmd.OfAsyncImmediate.either PlayerLib.stopAsync StopSuccess id StopFailed
 
@@ -448,8 +454,11 @@ let toCmd hwnd =
     | TakeSnapshot path ->
         match PlayerLib.takeSnapshot PlayerLib.getSize 0u path with
         | Some path -> TakeSnapshotSuccess
-        | None -> TakeSnapshotFailed
+        | None -> TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
         |> Cmd.ofMsg
+    | ShowErrorInfomation message ->
+        Platform.ShowErrorDialog hwnd message ShowErrorInfomationSuccess
+        |> Cmd.OfAsyncImmediate.result
 
 
 

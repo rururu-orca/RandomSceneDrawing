@@ -74,18 +74,20 @@ let pickMediaState chooser (media: Media) =
 
 let playAsync onSuccess (media: Media) =
     async {
+        let msg = $"{media.Mrl} の再生に失敗しました。"
+
         let result =
             media
             |> pickMediaState
                 (function
                 | VLCState.Playing as s -> Ok onSuccess |> Some
-                | VLCState.Error -> Error PlayFailedException |> Some
+                | VLCState.Error -> Error(PlayFailedException msg) |> Some
                 | _ -> None)
 
         if player.Play media then
             return! result
         else
-            return Error PlayFailedException
+            return Error(PlayFailedException msg)
     }
 
 let pauseAsync onSuccess =
@@ -157,19 +159,18 @@ let randomize (playListUri: Uri) =
             Async.StartChild(playAsync () media, 1000)
             |> Async.join
             with
-        | Ok e -> ()
-        | Error ex -> raise PlayFailedException
+        | Ok _ ->
+            player.Mute <- true
+            player.SetAudioTrack -1 |> ignore
 
-        player.Mute <- true
-        player.SetAudioTrack -1 |> ignore
+            do! pauseAsync ()
 
-        do! pauseAsync ()
+            player.Time <- rTime
 
-        player.Time <- rTime
+            do! Async.Sleep 100 |> Async.Ignore
 
-        do! Async.Sleep 100 |> Async.Ignore
-
-        return RandomizeSuccess
+            return RandomizeSuccess
+        | Error ex -> return RandomizeFailed ex
     }
 
 let getSize num =

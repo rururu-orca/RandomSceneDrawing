@@ -20,7 +20,8 @@ type PlayerState =
     | Paused
     | Stopped
 
-exception PlayFailedException
+exception PlayFailedException of string
+exception SnapShotFailedException of string
 
 type MediaInfo = { Title: string; Duration: TimeSpan }
 
@@ -54,6 +55,7 @@ type CmdMsg =
     | StopDrawing
     | SelectPlayListFilePath
     | SelectSnapShotFolderPath
+    | ShowErrorInfomation of string
 
 type Msg =
     | RequestPlay
@@ -96,9 +98,10 @@ type Msg =
     | SelectSnapShotFolderPathFailed of exn
     | CreateCurrentSnapShotFolderSuccess of string
     | TakeSnapshotSuccess
-    | TakeSnapshotFailed
+    | TakeSnapshotFailed of exn
     | WindowClosed
     | ResetSettings
+    | ShowErrorInfomationSuccess
 
 type AppViewModel =
     { MediaPlayer: MediaPlayer
