@@ -117,82 +117,107 @@ let stop () =
 
 exception PlayFailedException
 
-let randomize (playListUri: Uri) dispatch =
-    let cts =
-        new Threading.CancellationTokenSource(TimeSpan.FromSeconds(5.0))
+let pickMediaState chooser (media: Media) =
+    media.StateChanged
+    |> AsyncSeq.ofObservableBuffered
+    |> AsyncSeq.map (fun e -> e.State)
+    |> AsyncSeq.pick chooser
 
-    Async.StartImmediate(
+let playAsync (media: Media) =
+    async {
+        let result =
+            media
+            |> pickMediaState
+                (function
+                | VLCState.Playing as s -> Ok s |> Some
+                | VLCState.Error -> Error PlayFailedException |> Some
+                | _ -> None)
 
-        async {
-            use! cancel =
-                Async.OnCancel
-                <| fun () -> RandomizeFailed(TimeoutException()) |> dispatch
+        if player.Play media then
+            return! result
+        else
+            return Error PlayFailedException
+    }
 
-            let play media =
-                let started = player.Playing |> Async.AwaitEvent
+let pauseAsync () =
+    async {
+        let result =
+            player.Media
+            |> pickMediaState
+                (function
+                | VLCState.Paused as s -> Some s
+                | _ -> None)
+            |> Async.Ignore
 
-                if not (player.Play media) then
-                    dispatch (RandomizeFailed PlayFailedException)
+        player.SetPause true
+        return! result
+    }
 
-                Async.RunSynchronously(started, 1000)
+let resumeAsync () =
+    async {
+        let result =
+            player.Media
+            |> pickMediaState
+                (function
+                | VLCState.Playing as s -> Some s
+                | _ -> None)
+            |> Async.Ignore
 
-            let pause () =
-                let paused = player.Paused |> Async.AwaitEvent
-                player.Pause()
-                paused |> Async.RunSynchronously
+        player.SetPause false
+        return! result
+    }
 
-            let stop () =
-                if player.IsPlaying then
-                    let stopped = player.Stopped |> Async.AwaitEvent
-                    player.Stop()
-                    stopped |> Async.RunSynchronously |> Some
-                else
-                    None
+let stopAsync () =
+    async {
+        let result =
+            player.Media
+            |> pickMediaState
+                (function
+                | VLCState.Stopped as s -> Some s
+                | _ -> None)
+            |> Async.Ignore
 
-            stop () |> ignore
+        player.Stop()
+        return! result
+    }
 
+let randomize (playListUri: Uri) =
+    async {
+        if player.IsPlaying then
+            do! stopAsync ()
 
-            player.Mute <- true
-            player.SetAudioTrack -1 |> ignore
+        let random = Random()
 
-            let random = Random()
-            let! playList = loadPlayList playListUri
+        let! playList = loadPlayList playListUri
 
-            let media =
-                playList.SubItems
-                |> Seq.item (random.Next playList.SubItems.Count)
+        let media =
+            playList.SubItems
+            |> Seq.item (random.Next playList.SubItems.Count)
 
-            do! media.Parse MediaParseOptions.ParseNetwork
+        do! media.Parse MediaParseOptions.ParseNetwork
 
-            let rTime =
-                random.Next(1000, int media.Duration - 3000)
-                |> int64
+        let rTime =
+            random.Next(1000, int media.Duration - 3000)
+            |> int64
 
-            play media |> ignore
+        match!
+            Async.StartChild(playAsync media, 1000)
+            |> Async.join
+            with
+        | Ok e -> ()
+        | Error ex -> raise PlayFailedException
 
-            pause () |> ignore
+        player.Mute <- true
+        player.SetAudioTrack -1 |> ignore
 
-            player.Mute <- true
-            player.SetAudioTrack -1 |> ignore
-            player.Time <- rTime
+        do! pauseAsync ()
 
-            float player.Time
-            |> TimeSpan.FromMilliseconds
-            |> PlayerTimeChanged
-            |> dispatch
+        player.Time <- rTime
 
-            do! Async.Sleep 100 |> Async.Ignore
+        do! Async.Sleep 1 |> Async.Ignore
 
-            float player.Time
-            |> TimeSpan.FromMilliseconds
-            |> PlayerTimeChanged
-            |> dispatch
-
-            do! Async.Sleep 100 |> Async.Ignore
-            dispatch RandomizeSuccess
-        },
-        cts.Token
-    )
+        return RandomizeSuccess
+    }
 
 let getSize num =
     let mutable px, py = 0u, 0u

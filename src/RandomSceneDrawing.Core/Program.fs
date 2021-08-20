@@ -131,7 +131,10 @@ let update msg m =
                                   $"%03i{m.CurrentFrames}.png" |]
 
               TakeSnapshot path ]
-    | RandomizeFailed (_) -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
+    | RandomizeFailed ex ->
+        match ex with
+        | :? PlayerLib.PlayFailedException -> { m with RandomizeState = Waiting }, [ Stop ]
+        | _ -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
     | RequestStartDrawing (_) ->
         m,
         [ CreateCurrentSnapShotFolder m.SnapShotFolderPath
@@ -415,15 +418,16 @@ let toCmd hwnd =
     // Player
     | Play ->
         Platform.playSelectedVideo hwnd
-        |> Cmd.OfAsync.result
-    | Pause -> Cmd.OfAsync.either PlayerLib.pause () id PauseFailed
-    | Stop -> Cmd.OfAsync.either PlayerLib.stop () id StopFailed
+        |> Cmd.OfAsyncImmediate.result
+    | Pause -> Cmd.OfAsyncImmediate.either PlayerLib.pause () id PauseFailed
+    | Stop -> Cmd.OfAsyncImmediate.either PlayerLib.stop () id StopFailed
 
     | SelectPlayListFilePath -> Cmd.OfAsync.either Platform.selectPlayList hwnd id SelectPlayListFilePathFailed
     | SelectSnapShotFolderPath ->
         Cmd.OfAsync.either Platform.selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
-    | Randomize pl -> Uri pl |> PlayerLib.randomize |> Cmd.ofSub
+    | Randomize pl -> 
+        Cmd.OfAsyncImmediate.either PlayerLib.randomize (Uri pl) id RandomizeFailed
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
     | CreateCurrentSnapShotFolder root ->

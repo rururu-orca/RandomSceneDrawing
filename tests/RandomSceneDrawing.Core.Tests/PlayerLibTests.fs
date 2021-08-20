@@ -35,10 +35,10 @@ let playerLibTests =
                     "TestPlayList.xspf" |]
                  |> Path.Combine
 
-             PlayerLib.randomize (Uri path) ignore
 
              do!
                  async {
+                     do! PlayerLib.randomize (Uri path) |> Async.Ignore
                      do!
                          PlayerLib.player.TimeChanged
                          |> Async.AwaitEvent
@@ -62,7 +62,7 @@ let playerLibTests =
 
              do!
                  async {
-                     PlayerLib.randomize (Uri path) ignore
+                     do! PlayerLib.randomize (Uri path) |> Async.Ignore
 
                      do!
                          PlayerLib.player.TimeChanged
