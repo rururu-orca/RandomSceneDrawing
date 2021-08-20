@@ -72,6 +72,13 @@ let pickMediaState chooser (media: Media) =
     |> AsyncSeq.map (fun e -> e.State)
     |> AsyncSeq.pick chooser
 
+let (|AlreadyBufferingCompleted|_|) (m, msg) =
+    if m.RandomizeState = WaitBuffering
+       && m.Player.State <> VLCState.Buffering then
+        Some(m, msg)
+    else
+        None
+
 let playAsync onSuccess (media: Media) =
     async {
         let msg = $"{media.Mrl} の再生に失敗しました。"

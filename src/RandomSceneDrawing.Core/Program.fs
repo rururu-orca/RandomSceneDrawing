@@ -161,26 +161,40 @@ let update msg m =
     | Tick ->
         let nextDuration = m.CurrentDuration - TimeSpan(0, 0, 1)
 
-        if nextDuration > TimeSpan.Zero then
+        let (|RunningCountDown|IntervalFinished|CurrentFrameFinished|RandomDrawingFinished|) m =
+            if nextDuration > TimeSpan.Zero then
+                RunningCountDown
+            elif m.RandomDrawingState = Interval then
+                IntervalFinished
+            elif m.CurrentFrames < m.Frames then
+                CurrentFrameFinished
+            else
+                RandomDrawingFinished
+
+        match m with
+        | RunningCountDown ->
             { m with
-                  CurrentDuration = m.CurrentDuration - TimeSpan(0, 0, 1) },
+                  CurrentDuration = nextDuration },
             []
-        elif m.RandomDrawingState = Interval then
+        | IntervalFinished ->
             { m with
                   RandomDrawingState = RandomDrawingState.Running
                   CurrentDuration = m.Duration },
             []
-        elif m.CurrentFrames < m.Frames then
+        | CurrentFrameFinished ->
             { m with
                   RandomDrawingState = Interval
                   RandomizeState = Running
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
             [ Randomize m.PlayListFilePath ]
-        else
+        | RandomDrawingFinished ->
             { m with
                   CurrentDuration = TimeSpan.Zero },
             [ StopDrawing ]
+        |> (function
+        | PlayerLib.AlreadyBufferingCompleted (m', msg') -> { m' with RandomizeState = Waiting }, msg'
+        | next -> next)
     | TakeSnapshotSuccess -> m, []
     | TakeSnapshotFailed ex ->
         match ex with
