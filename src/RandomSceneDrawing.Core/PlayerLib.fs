@@ -13,6 +13,8 @@ type AsyncBuilder with
     member x.Bind(t: Task<'T>, f: 'T -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
     member x.Bind(t: Task, f: unit -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
 
+exception PlayFailedException
+
 do Core.Initialize()
 
 let libVLC =
@@ -65,57 +67,6 @@ let playerBuffering dispatch =
     |> AsyncSeq.iter (PlayerBuffering >> dispatch)
     |> Async.StartImmediate
 
-let play media =
-    async {
-        match player.State with
-        | VLCState.NothingSpecial
-        | VLCState.Stopped
-        | VLCState.Ended
-        | VLCState.Playing
-        | VLCState.Error ->
-            player.Play media |> ignore
-
-            let! e = media.DurationChanged |> Async.AwaitEvent
-            player.SetAudioTrack -1 |> ignore
-
-            return
-                PlaySuccess
-                    { Title = media.Meta MetadataType.Title
-                      Duration = float e.Duration |> TimeSpan.FromMilliseconds }
-
-        | VLCState.Paused ->
-            player.Pause() |> ignore
-
-            return
-                PlaySuccess
-                    { Title = player.Media.Meta MetadataType.Title
-                      Duration =
-                          float player.Media.Duration
-                          |> TimeSpan.FromMilliseconds }
-        | VLCState.Opening
-        | VLCState.Buffering
-        | _ -> return PlayFailed player.State
-    }
-
-let pause () =
-    async {
-        player.Pause()
-        do! player.Paused |> Async.AwaitEvent |> Async.Ignore
-        return PauseSuccess
-    }
-
-let stop () =
-    async {
-        player.Stop()
-
-        player.Media.DurationChanged
-        |> Async.AwaitEvent
-        |> ignore
-
-        return StopSuccess
-    }
-
-exception PlayFailedException
 
 let pickMediaState chooser (media: Media) =
     media.StateChanged
@@ -123,13 +74,13 @@ let pickMediaState chooser (media: Media) =
     |> AsyncSeq.map (fun e -> e.State)
     |> AsyncSeq.pick chooser
 
-let playAsync (media: Media) =
+let playAsync onSuccess (media: Media) =
     async {
         let result =
             media
             |> pickMediaState
                 (function
-                | VLCState.Playing as s -> Ok s |> Some
+                | VLCState.Playing as s -> Ok onSuccess |> Some
                 | VLCState.Error -> Error PlayFailedException |> Some
                 | _ -> None)
 
@@ -139,46 +90,50 @@ let playAsync (media: Media) =
             return Error PlayFailedException
     }
 
-let pauseAsync () =
+let pauseAsync onSuccess =
     async {
         let result =
             player.Media
             |> pickMediaState
                 (function
-                | VLCState.Paused as s -> Some s
+                | VLCState.Paused -> Some onSuccess
                 | _ -> None)
-            |> Async.Ignore
 
         player.SetPause true
         return! result
     }
 
-let resumeAsync () =
+let resumeAsync onSuccess =
     async {
         let result =
             player.Media
             |> pickMediaState
                 (function
-                | VLCState.Playing as s -> Some s
+                | VLCState.Playing -> Some onSuccess
                 | _ -> None)
-            |> Async.Ignore
 
         player.SetPause false
         return! result
     }
 
-let stopAsync () =
+let togglePauseAsync (onPlaying, onPaused) =
     async {
         let result =
             player.Media
             |> pickMediaState
                 (function
-                | VLCState.Stopped as s -> Some s
+                | VLCState.Playing -> Some onPlaying
+                | VLCState.Paused -> Some onPaused
                 | _ -> None)
-            |> Async.Ignore
 
-        player.Stop()
+        player.Pause()
         return! result
+    }
+
+let stopAsync onSuccess =
+    async {
+        player.Stop()
+        return onSuccess
     }
 
 let randomize (playListUri: Uri) =
@@ -201,7 +156,7 @@ let randomize (playListUri: Uri) =
             |> int64
 
         match!
-            Async.StartChild(playAsync media, 1000)
+            Async.StartChild(playAsync () media, 1000)
             |> Async.join
             with
         | Ok e -> ()

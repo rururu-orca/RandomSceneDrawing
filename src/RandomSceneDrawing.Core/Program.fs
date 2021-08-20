@@ -76,7 +76,7 @@ let update msg m =
               StatusMessage = sprintf "%A" e },
         []
     | RequestPause -> m, [ Pause ]
-    | PauseSuccess -> m, []
+    | PauseSuccess state -> { m with PlayerState = state }, []
     | PauseFailed _ -> failwith "Not Implemented"
     | RequestStop -> m, [ Stop ]
     | StopSuccess -> { m with PlayerState = Stopped }, []
@@ -122,7 +122,11 @@ let update msg m =
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
               PlayerState = Playing
-              RandomizeState = if m.PlayerBufferCache = 100.0f then Waiting else WaitBuffering
+              RandomizeState =
+                  if m.PlayerBufferCache = 100.0f then
+                      Waiting
+                  else
+                      WaitBuffering
               MediaPosition = (float m.Player.Time |> TimeSpan.FromMilliseconds)
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
         [ if m.RandomDrawingState = Interval then
@@ -222,9 +226,11 @@ let bindings () =
               | { PlayerState = Playing }
               | { PlayerState = Paused } -> Visibility.Visible)
 
-      "Pause" |> Binding.cmd RequestPause
       "Play" |> Binding.cmd RequestPlay
-      "Stop" |> Binding.cmd RequestStop
+      "Pause"
+      |> Binding.cmdIf (RequestPause, (fun m -> m.PlayerState <> Stopped))
+      "Stop"
+      |> Binding.cmdIf (RequestStop, (fun m -> m.PlayerState <> Stopped))
 
       // Random Drawing Setting
       "FramesText"
@@ -358,9 +364,16 @@ module Platform =
                 return PlayCandeled
 
             | file ->
-                return!
+                let media =
                     PlayerLib.getMediaFromUri (Uri file.Path)
-                    |> PlayerLib.play
+
+                match! PlayerLib.playAsync PlaySuccess media with
+                | Ok msg ->
+                    return
+                        msg
+                            { Title = media.Meta LibVLCSharp.Shared.MetadataType.Title
+                              Duration = float media.Duration |> TimeSpan.FromMilliseconds }
+                | Error e -> return PlayFailed e
         }
 
     let selectPlayList hwnd =
@@ -419,15 +432,14 @@ let toCmd hwnd =
     | Play ->
         Platform.playSelectedVideo hwnd
         |> Cmd.OfAsyncImmediate.result
-    | Pause -> Cmd.OfAsyncImmediate.either PlayerLib.pause () id PauseFailed
-    | Stop -> Cmd.OfAsyncImmediate.either PlayerLib.stop () id StopFailed
+    | Pause -> Cmd.OfAsyncImmediate.either PlayerLib.togglePauseAsync (Playing, Paused) PauseSuccess PauseFailed
+    | Stop -> Cmd.OfAsyncImmediate.either PlayerLib.stopAsync StopSuccess id StopFailed
 
     | SelectPlayListFilePath -> Cmd.OfAsync.either Platform.selectPlayList hwnd id SelectPlayListFilePathFailed
     | SelectSnapShotFolderPath ->
         Cmd.OfAsync.either Platform.selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
-    | Randomize pl -> 
-        Cmd.OfAsyncImmediate.either PlayerLib.randomize (Uri pl) id RandomizeFailed
+    | Randomize pl -> Cmd.OfAsyncImmediate.either PlayerLib.randomize (Uri pl) id RandomizeFailed
     | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
     | CreateCurrentSnapShotFolder root ->

@@ -57,9 +57,9 @@ type Msg =
     | RequestPlay
     | PlaySuccess of MediaInfo
     | PlayCandeled
-    | PlayFailed of VLCState
+    | PlayFailed of exn
     | RequestPause
-    | PauseSuccess
+    | PauseSuccess of PlayerState
     | PauseFailed of exn
     | RequestStop
     | StopSuccess
