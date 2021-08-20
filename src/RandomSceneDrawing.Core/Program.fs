@@ -137,7 +137,7 @@ let update msg m =
               TakeSnapshot path ]
     | RandomizeFailed ex ->
         match ex with
-        | :? PlayerLib.PlayFailedException -> { m with RandomizeState = Waiting }, [ Stop ]
+        | :? PlayFailedException -> { m with RandomizeState = Waiting }, [ Stop ]
         | _ -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
     | RequestStartDrawing (_) ->
         m,

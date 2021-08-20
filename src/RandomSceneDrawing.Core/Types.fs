@@ -20,6 +20,8 @@ type PlayerState =
     | Paused
     | Stopped
 
+exception PlayFailedException
+
 type MediaInfo = { Title: string; Duration: TimeSpan }
 
 type Model =
