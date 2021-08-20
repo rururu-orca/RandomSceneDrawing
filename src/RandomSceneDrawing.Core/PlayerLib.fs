@@ -169,7 +169,7 @@ let randomize (playListUri: Uri) =
 
         player.Time <- rTime
 
-        do! Async.Sleep 1 |> Async.Ignore
+        do! Async.Sleep 100 |> Async.Ignore
 
         return RandomizeSuccess
     }
