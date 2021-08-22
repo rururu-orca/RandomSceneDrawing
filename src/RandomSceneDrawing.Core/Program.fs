@@ -474,10 +474,12 @@ let toCmd hwnd =
         Platform.createCurrentSnapShotFolder root
         |> Cmd.ofMsg
     | TakeSnapshot path ->
-        match PlayerLib.takeSnapshot PlayerLib.getSize 0u path with
-        | Some path -> TakeSnapshotSuccess
-        | None -> TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
-        |> Cmd.ofMsg
+        async {
+            match PlayerLib.takeSnapshot PlayerLib.getSize 0u path with
+            | Some path -> return TakeSnapshotSuccess
+            | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
+        }
+        |> Cmd.OfAsyncImmediate.result
     | ShowErrorInfomation message ->
         Platform.ShowErrorDialog hwnd message ShowErrorInfomationSuccess
         |> Cmd.OfAsyncImmediate.result
