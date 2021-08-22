@@ -146,6 +146,7 @@ let stopAsync onSuccess =
 let randomize (playListUri: Uri) =
     async {
         if player.IsPlaying then
+            do! Async.Sleep 100 |> Async.Ignore
             do! stopAsync ()
 
         let random = Random()
@@ -173,9 +174,17 @@ let randomize (playListUri: Uri) =
             do! pauseAsync ()
 
             player.Time <- rTime
+            do! resumeAsync ()
 
             do! Async.Sleep 100 |> Async.Ignore
 
+            if player.State = VLCState.Buffering then
+                do!
+                    player.Media.StateChanged
+                    |> Async.AwaitEvent
+                    |> Async.Ignore
+
+            do! Async.Sleep 1500 |> Async.Ignore
             return RandomizeSuccess
         | Error ex -> return RandomizeFailed ex
     }

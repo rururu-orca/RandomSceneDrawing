@@ -58,7 +58,9 @@ let mapCanExec =
     | [] -> true
     | _ -> false
 
-
+let getSnapShotPath model =
+    Path.Combine [| model.SnapShotPath
+                    $"%03i{model.CurrentFrames}.png" |]
 
 let update msg m =
     match msg with
@@ -129,12 +131,7 @@ let update msg m =
                       WaitBuffering
               MediaPosition = (float m.Player.Time |> TimeSpan.FromMilliseconds)
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
-        [ if m.RandomDrawingState = Interval then
-              let path =
-                  Path.Combine [| m.SnapShotPath
-                                  $"%03i{m.CurrentFrames}.png" |]
-
-              TakeSnapshot path ]
+        [ Pause ]
     | RandomizeFailed ex ->
         match ex with
         | :? TimeoutException -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
@@ -187,11 +184,13 @@ let update msg m =
                   RandomizeState = Running
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
-            [ Randomize m.PlayListFilePath ]
+            [ getSnapShotPath m |> TakeSnapshot
+              Randomize m.PlayListFilePath ]
         | RandomDrawingFinished ->
             { m with
                   CurrentDuration = TimeSpan.Zero },
-            [ StopDrawing ]
+            [ getSnapShotPath m |> TakeSnapshot
+              StopDrawing ]
         |> (function
         | PlayerLib.AlreadyBufferingCompleted (m', msg') -> { m' with RandomizeState = Waiting }, msg'
         | next -> next)
@@ -243,7 +242,16 @@ let bindings () =
               | { PlayerState = Stopped } -> Visibility.Collapsed
               | { PlayerState = Playing }
               | { PlayerState = Paused } -> Visibility.Visible)
-
+      "MediaBlindVisibility"
+      |> Binding.oneWay
+          (fun m ->
+              match m with
+              | { RandomDrawingState = Interval }
+              | { RandomizeState = Running }
+              | { RandomizeState = WaitBuffering }
+              | { PlayerState = Stopped } -> Visibility.Visible
+              | { PlayerState = Playing }
+              | { PlayerState = Paused } -> Visibility.Collapsed)
       "Play" |> Binding.cmd RequestPlay
       "Pause"
       |> Binding.cmdIf (RequestPause, (fun m -> m.PlayerState <> Stopped))
