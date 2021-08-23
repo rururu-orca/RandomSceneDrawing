@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing", "src\RandomSceneDrawing\RandomSceneDrawing.fsproj", "{B54C652F-9BFB-4759-9542-E43B09792634}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Wpf", "src\RandomSceneDrawing.Wpf\RandomSceneDrawing.Wpf.fsproj", "{B54C652F-9BFB-4759-9542-E43B09792634}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Core", "src\RandomSceneDrawing.Core\RandomSceneDrawing.Core.fsproj", "{B77D8D04-6D66-4FE4-9049-F9D49784589E}"
 EndProject

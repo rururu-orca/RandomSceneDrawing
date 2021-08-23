@@ -20,7 +20,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/RandomSceneDrawing/bin/Debug/net5.0-windows10.0.19041.0/RandomSceneDrawing.dll",
+            "program": "${workspaceFolder}/src/RandomSceneDrawing.Wpf/bin/Debug/net5.0-windows10.0.19041.0/RandomSceneDrawing.Wpf.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
