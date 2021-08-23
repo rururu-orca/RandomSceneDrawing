@@ -512,28 +512,3 @@ let designVm =
       DrawingServiceVisibility = Visibility.Collapsed
       DrawingSettingVisibility = Visibility.Visible
       WindowClosed = WpfHelper.emptyCommand }
-
-let main window =
-    let logger =
-        LoggerConfiguration()
-            .MinimumLevel.Override("Elmish.WPF.Update", Events.LogEventLevel.Verbose)
-            .MinimumLevel.Override("Elmish.WPF.Bindings", Events.LogEventLevel.Verbose)
-            .MinimumLevel.Override("Elmish.WPF.Performance", Events.LogEventLevel.Verbose)
-#if DEBUG
-            .WriteTo
-            .Console()
-#endif
-            .CreateLogger()
-
-    let cmds =
-        Interop.WindowInteropHelper(window).Handle
-        |> toCmd
-
-    WpfProgram.mkProgramWithCmdMsg init update bindings cmds
-    |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
-    |> WpfProgram.withSubscription
-        (fun _ ->
-            Cmd.batch [ Cmd.ofSub DrawingSetvice.setup
-                        Cmd.ofSub PlayerLib.timeChanged
-                        Cmd.ofSub PlayerLib.playerBuffering ])
-    |> WpfProgram.startElmishLoop window
