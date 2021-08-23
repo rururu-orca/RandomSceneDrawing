@@ -10,7 +10,7 @@ module TestVm =
     open Elmish.WPF
 
     let testVm () =
-        {| TestText = VmBinding("Test", Binding.oneWay (fun m -> m.Title))|}
+        {| TestText = Vm("Test", Binding.oneWay (fun m -> m.Title)) |}
 
 [<Tests>]
 let bindingsTests =
@@ -18,9 +18,8 @@ let bindingsTests =
     testList "VmBinding"
     <| [ test "can map Binding<Model, Msg>" {
              let actual =
-                 TestVm.testVm ()
-                 |> Bindings.VmBindings.ToBindings
-             
+                 TestVm.testVm () |> Bindings.VmBindings.ToBindings
+
              let head = Seq.head actual
              Expect.equal head?Name "TestText" ""
 
