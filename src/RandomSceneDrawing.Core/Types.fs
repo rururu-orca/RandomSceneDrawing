@@ -1,9 +1,7 @@
 module RandomSceneDrawing.Types
 
 open System
-open System.Windows
 open LibVLCSharp.Shared
-open System.Windows.Input
 
 type RandomDrawingState =
     | Stop
@@ -102,30 +100,3 @@ type Msg =
     | WindowClosed
     | ResetSettings
     | ShowErrorInfomationSuccess
-
-type AppViewModel =
-    { MediaPlayer: MediaPlayer
-      ScenePosition: float
-      SourceDuration: float
-      SourceName: string
-      Play: ICommand
-      Pause: ICommand
-      Stop: ICommand
-      mutable FramesText: string
-      IncrementFrames: ICommand
-      DecrementFrames: ICommand
-      mutable DurationText: string
-      IncrementDuration: ICommand
-      DecrementDuration: ICommand
-      PlayListFilePathText: string
-      SnapShotFolderPathText: string
-      Randomize: ICommand
-      DrawingCommand: ICommand
-      DrawingCommandText: String
-      State: RandomDrawingState
-      CurrentDuration: string
-      CurrentFrames: int
-      Position: int
-      DrawingServiceVisibility: Visibility
-      DrawingSettingVisibility: Visibility
-      WindowClosed: ICommand }

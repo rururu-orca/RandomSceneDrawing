@@ -18,7 +18,7 @@ let bindingsTests =
     testList "VmBinding"
     <| [ test "can map Binding<Model, Msg>" {
              let actual =
-                 TestVm.testVm () |> Bindings.VmBindings.ToBindings
+                 TestVm.testVm () |> Bindings.VmBindings.toBindings
 
              let head = Seq.head actual
              Expect.equal head?Name "TestText" ""
@@ -28,7 +28,7 @@ let bindingsTests =
          test "can map DesignerInstance" {
              let actual =
                  TestVm.testVm ()
-                 |> Bindings.VmBindings.ToDesignerInstance
+                 |> Bindings.VmBindings.toDesignerInstance
 
              Expect.equal actual?TestText "Test" ""
          } ]

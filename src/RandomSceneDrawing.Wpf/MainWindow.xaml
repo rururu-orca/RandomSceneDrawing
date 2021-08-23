@@ -4,11 +4,11 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
-      xmlns:vm="clr-namespace:RandomSceneDrawing;assembly=RandomSceneDrawing.Core"
+      xmlns:vm="clr-namespace:RandomSceneDrawing;assembly=RandomSceneDrawing.Wpf"
       xmlns:uc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
       x:Name="window"
       mc:Ignorable="d"
-      d:DataContext="{x:Static vm:Program.designVm}"
+      d:DataContext="{x:Static vm:Bindings.designVm}"
       xmlns:ui="http://schemas.modernwpf.com/2019"
       Title="Random Pause  動画のシーンがランダムで表示されます"
       Background="#FF181818"
@@ -17,16 +17,16 @@
           <i:EventTrigger
                 EventName="LocationChanged">
                <i:InvokeCommandAction
-                     Command="{Binding WindowTopUpdated}"
+                     Command="{Binding WindowTopUpdatedCommand}"
                      CommandParameter="{Binding Top, ElementName=window, ValidatesOnNotifyDataErrors=True}"/>
                <i:InvokeCommandAction
-                     Command="{Binding WindowLeftUpdated}"
+                     Command="{Binding WindowLeftUpdatedCommand}"
                      CommandParameter="{Binding Left, ElementName=window, ValidatesOnNotifyDataErrors=True}"/>
           </i:EventTrigger>
           <i:EventTrigger
                 EventName="Closed">
                <i:InvokeCommandAction
-                     Command="{Binding WindowClosed}"/>
+                     Command="{Binding WindowClosedCommand}"/>
           </i:EventTrigger>
      </i:Interaction.Triggers>
      <DockPanel
@@ -59,12 +59,12 @@
                                Content="+"
                                Style="{StaticResource IconButton}"
                                Visibility="{Binding DrawingSettingVisibility}"
-                               Command="{Binding IncrementFrames}"/>
+                               Command="{Binding IncrementFramesCommand}"/>
                          <Button
                                Content="-"
                                Style="{StaticResource IconButton}"
                                Visibility="{Binding DrawingSettingVisibility}"
-                               Command="{Binding DecrementFrames}"/>
+                               Command="{Binding DecrementFramesCommand}"/>
                     </StackPanel>
                </StackPanel>
                <StackPanel
@@ -84,12 +84,12 @@
                           Content="+"
                           Style="{StaticResource IconButton}"
                           Visibility="{Binding DrawingSettingVisibility}"
-                          Command="{Binding IncrementDuration}"/>
+                          Command="{Binding IncrementDurationCommand}"/>
                     <Button
                           Content="-"
                           Style="{StaticResource IconButton}"
                           Visibility="{Binding DrawingSettingVisibility}"
-                          Command="{Binding DecrementDuration}"/>
+                          Command="{Binding DecrementDurationCommand}"/>
                </StackPanel>
                <Label
                      Content="{Binding SourceName}"
@@ -138,17 +138,17 @@
                                    <Button
                                          Width="128"
                                          Content="🔀 Show Random 🔀"
-                                         Command="{Binding Randomize}"/>
+                                         Command="{Binding RandomizeCommand}"/>
                                    <Button
-                                         Command="{Binding Play}"
+                                         Command="{Binding PlayCommand}"
                                          Style="{StaticResource IconButton}"
                                          Content="▶"/>
                                    <Button
-                                         Command="{Binding Pause}"
+                                         Command="{Binding PauseCommand}"
                                          Style="{StaticResource IconButton}"
                                          Content="⏸"/>
                                    <Button
-                                         Command="{Binding Stop}"
+                                         Command="{Binding StopCommand}"
                                          Style="{StaticResource IconButton}"
                                          Content="⏹"/>
                               </StackPanel>
@@ -158,7 +158,7 @@
                                          DockPanel.Dock="Left"
                                          Width="128"
                                          Content="PlayList"
-                                         Command="{Binding SetPlayListFilePath}"
+                                         Command="{Binding SetPlayListFilePathCommand}"
                                          Visibility="{Binding DrawingSettingVisibility}"/>
                                    <TextBox
                                          Text="{Binding PlayListFilePathText}"
@@ -171,7 +171,7 @@
                                          DockPanel.Dock="Left"
                                          Width="128"
                                          Content="SnapShotFolder"
-                                         Command="{Binding SetSnapShotFolderPath}"
+                                         Command="{Binding SetSnapShotFolderPathCommand}"
                                          Visibility="{Binding DrawingSettingVisibility}"/>
                                    <TextBox
                                          Text="{Binding SnapShotFolderPathText}"

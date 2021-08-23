@@ -25,7 +25,7 @@ let startMainLoop window =
         Interop.WindowInteropHelper(window).Handle
         |> Platform.toCmd
 
-    WpfProgram.mkProgramWithCmdMsg Program.init Program.update Program.bindings cmds
+    WpfProgram.mkProgramWithCmdMsg Program.init Program.update Bindings.bindings cmds
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.withSubscription
         (fun _ ->
