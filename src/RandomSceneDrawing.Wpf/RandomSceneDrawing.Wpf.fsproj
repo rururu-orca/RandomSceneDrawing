@@ -6,6 +6,7 @@
     <OutputType>WinExe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Platform.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -23,7 +23,7 @@ let startMainLoop window =
 
     let cmds =
         Interop.WindowInteropHelper(window).Handle
-        |> Program.toCmd
+        |> Platform.toCmd
 
     WpfProgram.mkProgramWithCmdMsg Program.init Program.update Program.bindings cmds
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
