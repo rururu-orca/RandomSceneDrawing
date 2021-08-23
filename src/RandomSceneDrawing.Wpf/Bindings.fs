@@ -4,16 +4,25 @@ open System
 open System.Dynamic
 open FSharp.Interop.Dynamic
 open System.Windows.Input
-open System.Runtime.CompilerServices
-open System.Runtime.InteropServices
 open Microsoft.FSharp.Reflection
-open Elmish
 open Elmish.WPF
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Program
 open System.Windows
 
 type VmBinding = Vm of obj * (string -> Binding<Model, Msg>)
+
+let createCommand action canExecute =
+    let event1 = Event<_, _>()
+
+    { new ICommand with
+        member this.CanExecute(obj) = canExecute (obj)
+        member this.Execute(obj) = action (obj)
+        member this.add_CanExecuteChanged(handler) = event1.Publish.AddHandler(handler)
+        member this.remove_CanExecuteChanged(handler) = event1.Publish.AddHandler(handler) }
+
+let emptyCommand =
+    createCommand (ignore) (fun _ -> true)
 
 type BindingLabel =
     | MediaPlayer
@@ -60,30 +69,30 @@ let designVm =
        SourceName = ""
        MediaPlayerVisibility = Visibility.Collapsed
        MediaBlindVisibility = Visibility.Collapsed
-       PlayCommand = WpfHelper.emptyCommand
-       PauseCommand = WpfHelper.emptyCommand
-       StopCommand = WpfHelper.emptyCommand
+       PlayCommand = emptyCommand
+       PauseCommand = emptyCommand
+       StopCommand = emptyCommand
        FramesText = 0
-       IncrementFramesCommand = WpfHelper.emptyCommand
-       DecrementFramesCommand = WpfHelper.emptyCommand
+       IncrementFramesCommand = emptyCommand
+       DecrementFramesCommand = emptyCommand
        DurationText = ""
-       IncrementDurationCommand = WpfHelper.emptyCommand
-       DecrementDurationCommand = WpfHelper.emptyCommand
+       IncrementDurationCommand = emptyCommand
+       DecrementDurationCommand = emptyCommand
        PlayListFilePathText = "C:/Path/To/PlayList"
-       SetPlayListFilePathCommand = WpfHelper.emptyCommand
+       SetPlayListFilePathCommand = emptyCommand
        SnapShotFolderPathText = "C:/Path/To/SnapShot"
-       SetSnapShotFolderPathCommand = WpfHelper.emptyCommand
-       RandomizeCommand = WpfHelper.emptyCommand
+       SetSnapShotFolderPathCommand = emptyCommand
+       RandomizeCommand = emptyCommand
        CurrentDuration = 0
        CurrentFrames = 0
-       DrawingCommand = WpfHelper.emptyCommand
+       DrawingCommand = emptyCommand
        DrawingCommandText = "⏲ Start Drawing"
        DrawingSettingVisibility = Visibility.Visible
        DrawingServiceVisibility = Visibility.Collapsed
        StatusMessage = "Status"
-       WindowTopUpdatedCommand = WpfHelper.emptyCommand
-       WindowLeftUpdatedCommand = WpfHelper.emptyCommand
-       WindowClosedCommand = WpfHelper.emptyCommand |}
+       WindowTopUpdatedCommand = emptyCommand
+       WindowLeftUpdatedCommand = emptyCommand
+       WindowClosedCommand = emptyCommand |}
 
 let bindingsMapper (name, label) =
     match label with

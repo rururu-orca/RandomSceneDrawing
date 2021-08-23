@@ -9,7 +9,6 @@
   <ItemGroup>
     <Compile Include="Types.fs" />
     <Compile Include="DrawingSetvice.fs" />
-    <Compile Include="WpfHelper.fs" />
     <Compile Include="PlayerLib.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

@@ -4,7 +4,6 @@ open System
 open System.Threading
 open FSharp.Control
 open Elmish
-open System.Windows
 open Types
 open System.Windows.Threading
 
