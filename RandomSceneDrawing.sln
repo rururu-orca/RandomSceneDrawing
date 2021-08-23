@@ -13,6 +13,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{46B76148
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Core.Tests", "tests\RandomSceneDrawing.Core.Tests\RandomSceneDrawing.Core.Tests.fsproj", "{F45D4173-B3C9-4507-B4EF-8E4AFF786974}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Wpf.Tests", "tests\RandomSceneDrawing.Wpf.Tests\RandomSceneDrawing.Wpf.Tests.fsproj", "{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,10 +36,15 @@ Global
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{B54C652F-9BFB-4759-9542-E43B09792634} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
 		{B77D8D04-6D66-4FE4-9049-F9D49784589E} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974} = {46B76148-8768-46F1-BC03-8B0CF4610F13}
+		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5} = {46B76148-8768-46F1-BC03-8B0CF4610F13}
 	EndGlobalSection
 EndGlobal

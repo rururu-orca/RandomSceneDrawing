@@ -7,6 +7,7 @@ nuget Elmish.WPF >= 4.0.0 beta
 nuget FSharp.Configuration
 nuget FSharp.Control.AsyncSeq
 nuget FSharp.Control.Reactive
+nuget FSharp.Interop.Dynamic
 nuget FSharpPlus
 nuget FsToolkit.ErrorHandling
 nuget Microsoft.Xaml.Behaviors.Wpf

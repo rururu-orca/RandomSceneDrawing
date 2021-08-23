@@ -16,6 +16,17 @@
             
             "console": "internalConsole"},
         {
+            "name": ".NET Core Test Wpf",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/tests/RandomSceneDrawing.Wpf.Tests/bin/Debug/net5.0-windows10.0.19041.0/RandomSceneDrawing.Wpf.Tests.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            
+            "console": "internalConsole"},
+        {
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
