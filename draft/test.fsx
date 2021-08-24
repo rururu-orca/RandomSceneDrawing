@@ -51,12 +51,23 @@ type TestCase =
     | Text3
     static member GetSeqValues() =
         // Get all cases of the union
-        let cases =
-            FSharpType.GetUnionCases(typeof<TestCase>)
+        FSharpType.GetUnionCases(typeof<TestCase>)
+        |> Seq.map (fun c -> FSharpValue.MakeUnion(c, [||]) :?> TestCase)
 
-        [ for c in cases do
-              // Create value for each case (assuming it has no arguments)
-              yield FSharpValue.MakeUnion(c, [||]) :?> TestCase ]
+    static member GetSeqLabels() =
+        FSharpType.GetUnionCases(typeof<TestCase>)
+        |> Seq.map (fun c -> c.Name)
+
+type TestRecord =
+    { Text1: string; Text2: string }
+    static member GetSeqLabels() =
+        FSharpType.GetRecordFields(typeof<TestRecord>)
+        |> Seq.map (fun c -> c.Name)
+
+
+
+TestCase.GetSeqLabels()
+TestRecord.GetSeqLabels()
 
 let mapCase =
     function

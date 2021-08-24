@@ -6,6 +6,7 @@ open FSharp.Interop.Dynamic
 open System.Windows.Input
 open Microsoft.FSharp.Reflection
 open Elmish.WPF
+open LibVLCSharp.Shared
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Program
 open System.Windows
@@ -61,9 +62,40 @@ type BindingLabel =
         |> Seq.map (fun c -> c.Name, FSharpValue.MakeUnion(c, [||]) :?> BindingLabel)
         |> Seq.toList
 
+type DesignVm =
+    {  MediaPlayer : MediaPlayer
+       ScenePosition : string
+       SourceDuration : string
+       SourceName : string
+       MediaPlayerVisibility : Visibility
+       MediaBlindVisibility : Visibility
+       PlayCommand : ICommand
+       PauseCommand : ICommand
+       StopCommand : ICommand
+       mutable FramesText :string
+       IncrementFramesCommand : ICommand
+       DecrementFramesCommand : ICommand
+       mutable DurationText : string
+       IncrementDurationCommand : ICommand
+       DecrementDurationCommand : ICommand
+       mutable PlayListFilePathText : string
+       SetPlayListFilePathCommand : ICommand
+       mutable SnapShotFolderPathText : string
+       SetSnapShotFolderPathCommand : ICommand
+       RandomizeCommand : ICommand
+       CurrentDuration : int
+       CurrentFrames : int
+       DrawingCommand : ICommand
+       DrawingCommandText : string
+       DrawingSettingVisibility : Visibility
+       DrawingServiceVisibility : Visibility
+       StatusMessage : string
+       WindowTopUpdatedCommand : ICommand
+       WindowLeftUpdatedCommand : ICommand
+       WindowClosedCommand : ICommand }
 
 let designVm =
-    {| MediaPlayer = PlayerLib.player
+    {  MediaPlayer = PlayerLib.player
        ScenePosition = "00:00:00"
        SourceDuration = "00:00:00"
        SourceName = ""
@@ -72,10 +104,10 @@ let designVm =
        PlayCommand = emptyCommand
        PauseCommand = emptyCommand
        StopCommand = emptyCommand
-       FramesText = 0
+       FramesText = "0"
        IncrementFramesCommand = emptyCommand
        DecrementFramesCommand = emptyCommand
-       DurationText = ""
+       DurationText = "00:00"
        IncrementDurationCommand = emptyCommand
        DecrementDurationCommand = emptyCommand
        PlayListFilePathText = "C:/Path/To/PlayList"
@@ -92,7 +124,7 @@ let designVm =
        StatusMessage = "Status"
        WindowTopUpdatedCommand = emptyCommand
        WindowLeftUpdatedCommand = emptyCommand
-       WindowClosedCommand = emptyCommand |}
+       WindowClosedCommand = emptyCommand }
 
 let bindingsMapper (name, label) =
     match label with
@@ -197,22 +229,3 @@ let bindingsMapper (name, label) =
 let bindings () =
     BindingLabel.GetLabelAndCaseSeq()
     |> List.map bindingsMapper
-
-module VmBindings =
-    let toBindings x =
-        [ for p in FSharpType.GetRecordFields(x.GetType()) -> p.Name, p.GetValue(x) :?> VmBinding ]
-        |> Seq.map (fun (name, Vm (_, binding)) -> name |> binding)
-        |> Seq.toList
-
-    let toDesignerInstance x =
-        let expando = ExpandoObject()
-
-        [ for p in FSharpType.GetRecordFields(x.GetType()) -> p.Name, p.GetValue(x) :?> VmBinding ]
-        |> Seq.map
-            (function
-            | (name, Vm (v, _)) -> name, v)
-        |> Seq.fold
-            (fun state (n, v) ->
-                Dyn.set n v state
-                state)
-            expando

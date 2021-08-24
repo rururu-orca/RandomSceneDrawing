@@ -3,6 +3,7 @@ module RandomSceneDrawing.Tests.Bindings
 open System
 open Expecto
 open RandomSceneDrawing
+open Microsoft.FSharp.Reflection
 open FSharp.Interop.Dynamic
 
 module TestVm =
@@ -16,19 +17,14 @@ module TestVm =
 let bindingsTests =
 
     testList "VmBinding"
-    <| [ test "can map Binding<Model, Msg>" {
-             let actual =
-                 TestVm.testVm () |> Bindings.VmBindings.toBindings
+    <| [ test "BindingLabel and DesignVm should be consistent." {
+             let labels =
+                 FSharpType.GetUnionCases(typeof<Bindings.BindingLabel>)
+                 |> Seq.map (fun c -> c.Name)
 
-             let head = Seq.head actual
-             Expect.equal head?Name "TestText" ""
+             let names =
+                 FSharpType.GetRecordFields(typeof<Bindings.DesignVm>)
+                 |> Seq.map (fun c -> c.Name)
 
-             Expect.equal (Seq.length actual) 1 ""
-         }
-         test "can map DesignerInstance" {
-             let actual =
-                 TestVm.testVm ()
-                 |> Bindings.VmBindings.toDesignerInstance
-
-             Expect.equal actual?TestText "Test" ""
+             Expect.sequenceEqual labels names "Case labels in BindingLabel and field names in DesignVm should match."
          } ]
