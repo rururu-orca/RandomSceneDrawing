@@ -122,8 +122,8 @@ let toCmd hwnd =
     | SelectSnapShotFolderPath -> Cmd.OfAsync.either selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
     | Randomize pl -> Cmd.OfAsyncImmediate.either PlayerLib.randomize (Uri pl) id RandomizeFailed
-    | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
-    | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
+    | StartDrawing -> Cmd.OfAsync.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
+    | StopDrawing -> Cmd.OfAsync.result <| DrawingSetvice.stop StopDrawingSuccess
     | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
     | TakeSnapshot path ->
         async {

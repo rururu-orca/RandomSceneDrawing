@@ -25,13 +25,17 @@ let setup dispatch =
     timer.Tick
     |> Observable.add(fun _ -> dispatch Tick)
 
-let tickSub msg =
-    timer.Start()
-    msg
+let tickSub onSuccess =
+    async{
+        timer.Start()
+        return onSuccess
+    }
 
-let stop () =
-    timer.Stop()
-    StopDrawingSuccess
+let stop onSuccess =
+    async {
+        timer.Stop()
+        return onSuccess
+    }
 
 module CountDownTimer =
     type Model =
