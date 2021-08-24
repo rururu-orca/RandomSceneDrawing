@@ -2,6 +2,7 @@ module RandomSceneDrawing.Platform
 
 open System
 open System.IO
+open System.Windows.Threading
 open FSharp.Control
 open Elmish
 open Windows.Foundation
@@ -14,6 +15,25 @@ open RandomSceneDrawing.Types
 type AsyncBuilder with
     member x.Bind(t: IAsyncOperation<'T>, f: 'T -> Async<'R>) : Async<'R> =
         async.Bind(t.AsTask() |> Async.AwaitTask, f)
+
+let private timer =
+    DispatcherTimer(DispatcherPriority.Render, Interval = TimeSpan.FromSeconds 1.0)
+
+let setupTimer dispatch =
+    timer.Tick
+    |> Observable.add(fun _ -> dispatch Tick)
+
+let startTimer onSuccess =
+    async{
+        timer.Start()
+        return onSuccess
+    }
+
+let stopTimer onSuccess =
+    async {
+        timer.Stop()
+        return onSuccess
+    }
 
 let sprintfDateTime format (datetime: DateTime) = datetime.ToString(format = format)
 
@@ -122,8 +142,8 @@ let toCmd hwnd =
     | SelectSnapShotFolderPath -> Cmd.OfAsync.either selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
     | Randomize pl -> Cmd.OfAsyncImmediate.either PlayerLib.randomize (Uri pl) id RandomizeFailed
-    | StartDrawing -> Cmd.OfFunc.either DrawingSetvice.tickSub StartDrawingSuccess id StartDrawingFailed
-    | StopDrawing -> Cmd.OfFunc.result <| DrawingSetvice.stop ()
+    | StartDrawing -> Cmd.OfAsync.either startTimer StartDrawingSuccess id StartDrawingFailed
+    | StopDrawing -> Cmd.OfAsync.result <| stopTimer StopDrawingSuccess
     | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
     | TakeSnapshot path ->
         async {

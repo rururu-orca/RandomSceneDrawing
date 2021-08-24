@@ -1,17 +1,8 @@
 module RandomSceneDrawing.Tests.Bindings
 
-open System
 open Expecto
 open RandomSceneDrawing
 open Microsoft.FSharp.Reflection
-open FSharp.Interop.Dynamic
-
-module TestVm =
-    open RandomSceneDrawing.Bindings
-    open Elmish.WPF
-
-    let testVm () =
-        {| TestText = Vm("Test", Binding.oneWay (fun m -> m.Title)) |}
 
 [<Tests>]
 let bindingsTests =

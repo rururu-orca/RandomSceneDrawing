@@ -29,7 +29,7 @@ let startMainLoop window =
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.withSubscription
         (fun _ ->
-            Cmd.batch [ Cmd.ofSub DrawingSetvice.setup
+            Cmd.batch [ Cmd.ofSub Platform.setupTimer
                         Cmd.ofSub PlayerLib.timeChanged
                         Cmd.ofSub PlayerLib.playerBuffering ])
     |> WpfProgram.startElmishLoop window
