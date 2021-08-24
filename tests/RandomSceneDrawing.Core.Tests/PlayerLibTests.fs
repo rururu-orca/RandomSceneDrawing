@@ -5,7 +5,6 @@ open Expecto
 open RandomSceneDrawing
 open System.IO
 open LibVLCSharp.Shared
-open Expecto
 
 [<Tests>]
 let playerLibTests =

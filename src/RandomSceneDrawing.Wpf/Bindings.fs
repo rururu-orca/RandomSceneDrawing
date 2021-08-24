@@ -1,8 +1,6 @@
 module RandomSceneDrawing.Bindings
 
 open System
-open System.Dynamic
-open FSharp.Interop.Dynamic
 open System.Windows.Input
 open Microsoft.FSharp.Reflection
 open Elmish.WPF
@@ -11,7 +9,6 @@ open RandomSceneDrawing.Types
 open RandomSceneDrawing.Program
 open System.Windows
 
-type VmBinding = Vm of obj * (string -> Binding<Model, Msg>)
 
 let createCommand action canExecute =
     let event1 = Event<_, _>()
