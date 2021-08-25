@@ -11,185 +11,195 @@
       d:DataContext="{x:Static vm:Bindings.designVm}"
       xmlns:ui="http://schemas.modernwpf.com/2019"
       Title="Random Pause  動画のシーンがランダムで表示されます"
+      Style="{StaticResource StandardStyle}"
       Background="#FF181818"
       Foreground="#FFD1D1D1">
-     <i:Interaction.Triggers>
-          <i:EventTrigger
+    <i:Interaction.Triggers>
+        <i:EventTrigger
                 EventName="LocationChanged">
-               <i:InvokeCommandAction
+            <i:InvokeCommandAction
                      Command="{Binding WindowTopUpdatedCommand}"
                      CommandParameter="{Binding Top, ElementName=window, ValidatesOnNotifyDataErrors=True}"/>
-               <i:InvokeCommandAction
+            <i:InvokeCommandAction
                      Command="{Binding WindowLeftUpdatedCommand}"
                      CommandParameter="{Binding Left, ElementName=window, ValidatesOnNotifyDataErrors=True}"/>
-          </i:EventTrigger>
-          <i:EventTrigger
+        </i:EventTrigger>
+        <i:EventTrigger
                 EventName="Closed">
-               <i:InvokeCommandAction
+            <i:InvokeCommandAction
                      Command="{Binding WindowClosedCommand}"/>
-          </i:EventTrigger>
-     </i:Interaction.Triggers>
-     <DockPanel
+        </i:EventTrigger>
+    </i:Interaction.Triggers>
+    <DockPanel
            x:Name="dockPanel"
            Margin="4">
-          <StackPanel
+        <StackPanel x:Name="menuPanel"
                 DockPanel.Dock="Top"
                 Orientation="Horizontal">
-               <Button
+            <Button
                      Width="128"
                      Content="{Binding DrawingCommandText}"
                      Command="{Binding DrawingCommand}"/>
-               <StackPanel
+            <StackPanel
                      HorizontalAlignment="Stretch">
-                    <StackPanel
+                <StackPanel
                           Orientation="Horizontal"
                           HorizontalAlignment="Stretch">
-                         <Label
+                    <Label
                                Content="Frames"/>
-                         <Label
+                    <Label
                                FontSize="24"
                                Width="100"
                                Visibility="{Binding DrawingServiceVisibility}"
                                Content="{Binding CurrentFrames}"/>
-                         <TextBox
+                    <TextBox
                                Width="50"
                                Text="{Binding FramesText}"
                                Visibility="{Binding DrawingSettingVisibility}"/>
-                         <Button
+                    <Button
                                Content="+"
                                Style="{StaticResource IconButton}"
                                Visibility="{Binding DrawingSettingVisibility}"
                                Command="{Binding IncrementFramesCommand}"/>
-                         <Button
+                    <Button
                                Content="-"
                                Style="{StaticResource IconButton}"
                                Visibility="{Binding DrawingSettingVisibility}"
                                Command="{Binding DecrementFramesCommand}"/>
-                    </StackPanel>
-               </StackPanel>
-               <StackPanel
+                </StackPanel>
+            </StackPanel>
+            <StackPanel
                      Orientation="Horizontal"
                      HorizontalAlignment="Stretch">
-                    <Label
+                <Label
                           Content="Duration per frame:"/>
-                    <Label
+                <Label
                           FontSize="24"
                           Content="{Binding CurrentDuration}"
                           Visibility="{Binding DrawingServiceVisibility}"/>
-                    <TextBox
+                <TextBox
                           Width="50"
                           Text="{Binding DurationText}"
                           Visibility="{Binding DrawingSettingVisibility}"/>
-                    <Button
+                <Button
                           Content="+"
                           Style="{StaticResource IconButton}"
                           Visibility="{Binding DrawingSettingVisibility}"
                           Command="{Binding IncrementDurationCommand}"/>
-                    <Button
+                <Button
                           Content="-"
                           Style="{StaticResource IconButton}"
                           Visibility="{Binding DrawingSettingVisibility}"
                           Command="{Binding DecrementDurationCommand}"/>
-               </StackPanel>
-               <Label
+            </StackPanel>
+            <Label
                      Content="{Binding SourceName}"
                      Visibility="{Binding MediaPlayerVisibility}"/>
-               <Label
+            <Label
                      Content="{Binding ScenePosition}"
                      Visibility="{Binding MediaPlayerVisibility}"/>
-               <Label
+            <Label
                      Content=" / "
                      Visibility="{Binding MediaPlayerVisibility}"/>
-               <Label
+            <Label
                      Content="{Binding SourceDuration}"
                      Visibility="{Binding MediaPlayerVisibility}"/>
-          </StackPanel>
-          <uc:VideoView
+        </StackPanel>
+        <uc:VideoView
+                x:Name="videoView"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 Visibility="{Binding MediaPlayerVisibility}"
-                Background="#FF181818">
-               <i:Interaction.Triggers>
-                    <i:EventTrigger
+                Background="#FF181818" RenderTransformOrigin="0.5,0.5">
+            <uc:VideoView.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform/>
+                    <SkewTransform/>
+                    <RotateTransform/>
+                    <TranslateTransform Y="{Binding ActualHeight, ElementName=menuPanel, Mode=OneWay}"/>
+                </TransformGroup>
+            </uc:VideoView.RenderTransform>
+            <i:Interaction.Triggers>
+                <i:EventTrigger
                           EventName="Loaded">
-                         <i:ChangePropertyAction
+                    <i:ChangePropertyAction
                                PropertyName="MediaPlayer"
                                Value="{Binding MediaPlayer}"/>
-                    </i:EventTrigger>
-               </i:Interaction.Triggers>
-               <Grid>
-                    <Rectangle
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <Grid>
+                <Rectangle
                           Fill="#FF181818"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
                           Visibility="{Binding MediaBlindVisibility}"/>
-                    <DockPanel
+                <DockPanel
                           x:Name="InnerDockPanel"
                           LastChildFill="False"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch">
-                         <StackPanel
+                    <StackPanel
                                DockPanel.Dock="Top"
                                HorizontalAlignment="Left"
                                Orientation="Vertical">
-                              <StackPanel
+                        <StackPanel
                                     Orientation="Horizontal"
                                     Visibility="{Binding DrawingSettingVisibility}">
-                                   <Button
+                            <Button
                                          Width="128"
                                          Content="🔀 Show Random 🔀"
                                          Command="{Binding RandomizeCommand}"/>
-                                   <Button
+                            <Button
                                          Command="{Binding PlayCommand}"
                                          Style="{StaticResource IconButton}"
                                          Content="▶"/>
-                                   <Button
+                            <Button
                                          Command="{Binding PauseCommand}"
                                          Style="{StaticResource IconButton}"
                                          Content="⏸"/>
-                                   <Button
+                            <Button
                                          Command="{Binding StopCommand}"
                                          Style="{StaticResource IconButton}"
                                          Content="⏹"/>
-                              </StackPanel>
-                              <DockPanel
+                        </StackPanel>
+                        <DockPanel
                                     Visibility="{Binding DrawingSettingVisibility}">
-                                   <Button
+                            <Button
                                          DockPanel.Dock="Left"
                                          Width="128"
                                          Content="PlayList"
                                          Command="{Binding SetPlayListFilePathCommand}"
                                          Visibility="{Binding DrawingSettingVisibility}"/>
-                                   <TextBox
+                            <TextBox
                                          Text="{Binding PlayListFilePathText}"
                                          Visibility="{Binding DrawingSettingVisibility}"
                                          HorizontalAlignment="Stretch"/>
-                              </DockPanel>
-                              <DockPanel
+                        </DockPanel>
+                        <DockPanel
                                     Visibility="{Binding DrawingSettingVisibility}">
-                                   <Button
+                            <Button
                                          DockPanel.Dock="Left"
                                          Width="128"
                                          Content="SnapShotFolder"
                                          Command="{Binding SetSnapShotFolderPathCommand}"
                                          Visibility="{Binding DrawingSettingVisibility}"/>
-                                   <TextBox
+                            <TextBox
                                          Text="{Binding SnapShotFolderPathText}"
                                          Visibility="{Binding DrawingSettingVisibility}"
                                          HorizontalAlignment="Stretch"/>
-                              </DockPanel>
-                         </StackPanel>
-                         <StackPanel
+                        </DockPanel>
+                    </StackPanel>
+                    <StackPanel
                                DockPanel.Dock="Bottom"
                                Height="28">
-                              <Label
+                        <Label
                                     Opacity="0"
                                     HorizontalAlignment="Left"
                                     Content="{Binding StatusMessage}"
                                     Foreground="#FF0C0C0C"/>
-                         </StackPanel>
-                    </DockPanel>
-               </Grid>
-          </uc:VideoView>
-     </DockPanel>
+                    </StackPanel>
+                </DockPanel>
+            </Grid>
+        </uc:VideoView>
+    </DockPanel>
 </Window>

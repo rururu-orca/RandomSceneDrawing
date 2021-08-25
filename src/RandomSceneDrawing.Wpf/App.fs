@@ -29,6 +29,7 @@ let startMainLoop window =
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.withSubscription
         (fun m ->
+            m.Player.Hwnd <- Interop.WindowInteropHelper(window).Handle
             Cmd.batch [ Cmd.ofSub Platform.setupTimer
                         Cmd.ofSub (PlayerLib.timeChanged m.Player)
                         Cmd.ofSub (PlayerLib.playerBuffering m.Player) ])
@@ -47,6 +48,8 @@ let main argv =
         :?> Application
 
     Observable.first application.Activated
-    |> Observable.add (fun _ -> startMainLoop application.MainWindow)
+    |> Observable.add
+        (fun _ ->
+            startMainLoop application.MainWindow)
 
     application.Run()

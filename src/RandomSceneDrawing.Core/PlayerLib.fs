@@ -7,6 +7,7 @@ open Types
 open FSharp.Control
 open FSharpPlus
 open System.Threading.Tasks
+open Windows.UI.Composition
 
 type AsyncBuilder with
     member x.Bind(t: Task<'T>, f: 'T -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
