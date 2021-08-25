@@ -8,8 +8,10 @@ open LibVLCSharp.Shared
 
 [<Tests>]
 let playerLibTests =
+    do PlayerLib.initialize ()
+
     testList "VlcLib"
-    <| [ test "can get MediaPlayer instance" { Expect.isNotNull PlayerLib.player "" }
+    <| [ test "can get MediaPlayer instance" { Expect.isNotNull (PlayerLib.initPlayer ()) "" }
          test "can get Media instance" {
              Expect.isNotNull
                  (Uri "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
@@ -34,19 +36,15 @@ let playerLibTests =
                     "TestPlayList.xspf" |]
                  |> Path.Combine
 
+             use player = PlayerLib.initPlayer ()
 
              do!
-                 async {
-                     do! PlayerLib.randomize (Uri path) |> Async.Ignore
-                     do!
-                         PlayerLib.player.TimeChanged
-                         |> Async.AwaitEvent
-                         |> Async.Ignore
-                 }
+                 PlayerLib.randomize player (Uri path)
+                 |> Async.Ignore
 
-             let media: Media = PlayerLib.player.Media
+             let media: Media = player.Media
              Expect.notEqual media.Duration -1L ""
-             Expect.isGreaterThan PlayerLib.player.Time 0L ""
+             Expect.isGreaterThan player.Time 0L ""
          }
 
          testAsync "can take Snapshot" {
@@ -58,20 +56,15 @@ let playerLibTests =
                  Path.Combine [| __SOURCE_DIRECTORY__
                                  "test.png" |]
 
+             use player = PlayerLib.initPlayer ()
 
              do!
-                 async {
-                     do! PlayerLib.randomize (Uri path) |> Async.Ignore
+                 PlayerLib.randomize player (Uri path)
+                 |> Async.Ignore
 
-                     do!
-                         PlayerLib.player.TimeChanged
-                         |> Async.AwaitEvent
-                         |> Async.Ignore
-
-                     Expect.isSome
-                     <| PlayerLib.takeSnapshot PlayerLib.getSize 0u snapShot
-                     <| ""                    
-                 }
+             Expect.isSome
+             <| PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u snapShot
+             <| ""
 
          }
 
