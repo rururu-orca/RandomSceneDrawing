@@ -43,12 +43,12 @@ type Model =
       StatusMessage: string }
 
 type CmdMsg =
-    | Play
-    | Pause
-    | Stop
-    | Randomize of string
+    | Play of MediaPlayer
+    | Pause of MediaPlayer
+    | Stop of MediaPlayer
+    | Randomize of MediaPlayer * string
     | CreateCurrentSnapShotFolder of string
-    | TakeSnapshot of string
+    | TakeSnapshot of MediaPlayer * string
     | StartDrawing
     | StopDrawing
     | SelectPlayListFilePath

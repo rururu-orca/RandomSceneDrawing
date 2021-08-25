@@ -21,10 +21,10 @@ let private timer =
 
 let setupTimer dispatch =
     timer.Tick
-    |> Observable.add(fun _ -> dispatch Tick)
+    |> Observable.add (fun _ -> dispatch Tick)
 
 let startTimer onSuccess =
-    async{
+    async {
         timer.Start()
         return onSuccess
     }
@@ -52,7 +52,7 @@ let ShowErrorDialog hwnd info msg =
         return msg
     }
 
-let playSelectedVideo hwnd =
+let playSelectedVideo player hwnd =
     async {
         let picker =
             FileOpenPicker(ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.VideosLibrary)
@@ -72,7 +72,7 @@ let playSelectedVideo hwnd =
             let media =
                 PlayerLib.getMediaFromUri (Uri file.Path)
 
-            match! PlayerLib.playAsync PlaySuccess media with
+            match! PlayerLib.playAsync player PlaySuccess media with
             | Ok msg ->
                 return
                     msg
@@ -134,20 +134,21 @@ let createCurrentSnapShotFolder root =
 let toCmd hwnd =
     function
     // Player
-    | Play -> Cmd.OfAsyncImmediate.either playSelectedVideo hwnd id PlayFailed
-    | Pause -> Cmd.OfAsyncImmediate.either PlayerLib.togglePauseAsync (Playing, Paused) PauseSuccess PauseFailed
-    | Stop -> Cmd.OfAsyncImmediate.either PlayerLib.stopAsync StopSuccess id StopFailed
+    | Play player -> Cmd.OfAsyncImmediate.either (playSelectedVideo player) hwnd id PlayFailed
+    | Pause player ->
+        Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
+    | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
 
     | SelectPlayListFilePath -> Cmd.OfAsync.either selectPlayList hwnd id SelectPlayListFilePathFailed
     | SelectSnapShotFolderPath -> Cmd.OfAsync.either selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
-    | Randomize pl -> Cmd.OfAsyncImmediate.either PlayerLib.randomize (Uri pl) id RandomizeFailed
+    | Randomize (player, pl) -> Cmd.OfAsyncImmediate.either (PlayerLib.randomize player) (Uri pl) id RandomizeFailed
     | StartDrawing -> Cmd.OfAsync.either startTimer StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfAsync.result <| stopTimer StopDrawingSuccess
     | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
-    | TakeSnapshot path ->
+    | TakeSnapshot (player, path) ->
         async {
-            match PlayerLib.takeSnapshot PlayerLib.getSize 0u path with
+            match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with
             | Some path -> return TakeSnapshotSuccess
             | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
         }

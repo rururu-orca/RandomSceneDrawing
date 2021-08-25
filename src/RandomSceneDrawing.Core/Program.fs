@@ -21,7 +21,7 @@ let init () =
     { Frames = config.Frames
       Duration = config.Duration
       Interval = config.Interval
-      Player = PlayerLib.player
+      Player = PlayerLib.initPlayer ()
       PlayerState = PlayerState.Stopped
       MediaDuration = TimeSpan.Zero
       MediaPosition = TimeSpan.Zero
@@ -59,7 +59,7 @@ let getSnapShotPath model =
 let update msg m =
     match msg with
     // Player
-    | RequestPlay -> m, [ Play ]
+    | RequestPlay -> m, [ Play m.Player ]
     | PlayCandeled -> m, []
     | PlaySuccess mediaInfo ->
         { m with
@@ -71,10 +71,10 @@ let update msg m =
         match ex with
         | PlayFailedException (str) -> m, [ ShowErrorInfomation str ]
         | _ -> m, [ ShowErrorInfomation ex.Message ]
-    | RequestPause -> m, [ Pause ]
+    | RequestPause -> m, [ Pause m.Player ]
     | PauseSuccess state -> { m with PlayerState = state }, []
     | PauseFailed ex -> m, [ ShowErrorInfomation ex.Message ]
-    | RequestStop -> m, [ Stop ]
+    | RequestStop -> m, [ Stop m.Player ]
     | StopSuccess -> { m with PlayerState = Stopped }, []
     | StopFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | PlayerTimeChanged time -> { m with MediaPosition = time }, []
@@ -113,7 +113,7 @@ let update msg m =
     | SelectSnapShotFolderPathFailed ex -> m, [ ShowErrorInfomation ex.Message ]
 
     // Random Drawing
-    | RequestRandomize (_) -> { m with RandomizeState = Running }, [ Randomize m.PlayListFilePath ]
+    | RequestRandomize (_) -> { m with RandomizeState = Running }, [ Randomize(m.Player, m.PlayListFilePath) ]
     | RandomizeSuccess (_) ->
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
@@ -125,12 +125,21 @@ let update msg m =
                       WaitBuffering
               MediaPosition = (float m.Player.Time |> TimeSpan.FromMilliseconds)
               MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
-        [ Pause ]
+        [ Pause m.Player ]
     | RandomizeFailed ex ->
         match ex with
-        | :? TimeoutException -> { m with PlayerState = Stopped }, [ Stop; Randomize m.PlayListFilePath ]
-        | PlayFailedException (str) -> { m with RandomizeState = Waiting }, [ ShowErrorInfomation str; Stop ]
-        | _ -> { m with RandomizeState = Waiting }, [ ShowErrorInfomation ex.Message; Stop ]
+        | :? TimeoutException ->
+            { m with PlayerState = Stopped },
+            [ Stop m.Player
+              Randomize(m.Player, m.PlayListFilePath) ]
+        | PlayFailedException (str) ->
+            { m with RandomizeState = Waiting },
+            [ ShowErrorInfomation str
+              Stop m.Player ]
+        | _ ->
+            { m with RandomizeState = Waiting },
+            [ ShowErrorInfomation ex.Message
+              Stop m.Player ]
     | RequestStartDrawing (_) ->
         m,
         [ CreateCurrentSnapShotFolder m.SnapShotFolderPath
@@ -142,7 +151,7 @@ let update msg m =
               CurrentDuration = m.Interval
               RandomDrawingState = Interval
               RandomizeState = Running },
-        [ Randomize m.PlayListFilePath ]
+        [ Randomize(m.Player, m.PlayListFilePath) ]
     | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
     | StartDrawingFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | StopDrawingSuccess ->
@@ -178,12 +187,12 @@ let update msg m =
                   RandomizeState = Running
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
-            [ getSnapShotPath m |> TakeSnapshot
-              Randomize m.PlayListFilePath ]
+            [ (m.Player, getSnapShotPath m) |> TakeSnapshot
+              Randomize(m.Player, m.PlayListFilePath) ]
         | RandomDrawingFinished ->
             { m with
                   CurrentDuration = TimeSpan.Zero },
-            [ getSnapShotPath m |> TakeSnapshot
+            [ (m.Player, getSnapShotPath m) |> TakeSnapshot
               StopDrawing ]
         |> (function
         | PlayerLib.AlreadyBufferingCompleted (m', msg') -> { m' with RandomizeState = Waiting }, msg'

@@ -12,7 +12,7 @@ type AsyncBuilder with
     member x.Bind(t: Task<'T>, f: 'T -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
     member x.Bind(t: Task, f: unit -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
 
-do Core.Initialize()
+let initialize () = Core.Initialize()
 
 let libVLC =
 #if DEBUG
@@ -21,8 +21,7 @@ let libVLC =
     new LibVLC(false)
 #endif
 
-
-let player =
+let initPlayer () =
     new MediaPlayer(
         libVLC,
         FileCaching = 500u,
@@ -44,7 +43,7 @@ let loadPlayList source =
     }
 
 
-let timeChanged dispatch =
+let timeChanged (player: MediaPlayer) dispatch =
     player.TimeChanged
     |> AsyncSeq.ofObservableBuffered
     |> AsyncSeq.map (fun e -> e.Time / 1000L)
@@ -57,7 +56,7 @@ let timeChanged dispatch =
     )
     |> Async.StartImmediate
 
-let playerBuffering dispatch =
+let playerBuffering (player: MediaPlayer) dispatch =
     player.Buffering
     |> AsyncSeq.ofObservableBuffered
     |> AsyncSeq.map (fun e -> e.Cache)
@@ -78,7 +77,7 @@ let (|AlreadyBufferingCompleted|_|) (m, msg) =
     else
         None
 
-let playAsync onSuccess (media: Media) =
+let playAsync (player: MediaPlayer) onSuccess (media: Media) =
     async {
         let msg = $"{media.Mrl} の再生に失敗しました。"
 
@@ -96,7 +95,7 @@ let playAsync onSuccess (media: Media) =
             return Error(PlayFailedException msg)
     }
 
-let pauseAsync onSuccess =
+let pauseAsync (player: MediaPlayer) onSuccess =
     async {
         let result =
             player.Media
@@ -109,7 +108,7 @@ let pauseAsync onSuccess =
         return! result
     }
 
-let resumeAsync onSuccess =
+let resumeAsync (player: MediaPlayer) onSuccess =
     async {
         let result =
             player.Media
@@ -122,7 +121,7 @@ let resumeAsync onSuccess =
         return! result
     }
 
-let togglePauseAsync (onPlaying, onPaused) =
+let togglePauseAsync (player: MediaPlayer) (onPlaying, onPaused) =
     async {
         let result =
             player.Media
@@ -136,17 +135,17 @@ let togglePauseAsync (onPlaying, onPaused) =
         return! result
     }
 
-let stopAsync onSuccess =
+let stopAsync (player: MediaPlayer) onSuccess =
     async {
         player.Stop()
         return onSuccess
     }
 
-let randomize (playListUri: Uri) =
+let randomize (player: MediaPlayer) (playListUri: Uri) =
     async {
         if player.IsPlaying then
             do! Async.Sleep 100 |> Async.Ignore
-            do! stopAsync ()
+            do! stopAsync player ()
 
         let random = Random()
 
@@ -163,17 +162,17 @@ let randomize (playListUri: Uri) =
             |> int64
 
         match!
-            Async.StartChild(playAsync () media, 1000)
+            Async.StartChild(playAsync player () media, 1000)
             |> Async.join
             with
         | Ok _ ->
             player.Mute <- true
             player.SetAudioTrack -1 |> ignore
 
-            do! pauseAsync ()
+            do! pauseAsync player ()
 
             player.Time <- rTime
-            do! resumeAsync ()
+            do! resumeAsync player ()
 
             do! Async.Sleep 100 |> Async.Ignore
 
@@ -188,17 +187,17 @@ let randomize (playListUri: Uri) =
         | Error ex -> return RandomizeFailed ex
     }
 
-let getSize num =
+let getSize (player: MediaPlayer) num =
     let mutable px, py = 0u, 0u
 
     if player.Size(num, &px, &py) then
-        Some(px, py)
+        Some(player, px, py)
     else
         None
 
 let takeSnapshot sizefn num path =
     monad {
-        let! px, py = sizefn 0u
+        let! (player: MediaPlayer), px, py = sizefn 0u
 
         if player.TakeSnapshot(num, path, px, py) then
             return! Some path

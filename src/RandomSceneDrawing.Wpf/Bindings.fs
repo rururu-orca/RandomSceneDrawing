@@ -19,8 +19,7 @@ let createCommand action canExecute =
         member this.add_CanExecuteChanged(handler) = event1.Publish.AddHandler(handler)
         member this.remove_CanExecuteChanged(handler) = event1.Publish.AddHandler(handler) }
 
-let emptyCommand =
-    createCommand (ignore) (fun _ -> true)
+let emptyCommand = createCommand (ignore) (fun _ -> true)
 
 type BindingLabel =
     | MediaPlayer
@@ -60,68 +59,70 @@ type BindingLabel =
         |> Seq.toList
 
 type DesignVm =
-    {  MediaPlayer : MediaPlayer
-       ScenePosition : string
-       SourceDuration : string
-       SourceName : string
-       MediaPlayerVisibility : Visibility
-       MediaBlindVisibility : Visibility
-       PlayCommand : ICommand
-       PauseCommand : ICommand
-       StopCommand : ICommand
-       mutable FramesText :string
-       IncrementFramesCommand : ICommand
-       DecrementFramesCommand : ICommand
-       mutable DurationText : string
-       IncrementDurationCommand : ICommand
-       DecrementDurationCommand : ICommand
-       mutable PlayListFilePathText : string
-       SetPlayListFilePathCommand : ICommand
-       mutable SnapShotFolderPathText : string
-       SetSnapShotFolderPathCommand : ICommand
-       RandomizeCommand : ICommand
-       CurrentDuration : int
-       CurrentFrames : int
-       DrawingCommand : ICommand
-       DrawingCommandText : string
-       DrawingSettingVisibility : Visibility
-       DrawingServiceVisibility : Visibility
-       StatusMessage : string
-       WindowTopUpdatedCommand : ICommand
-       WindowLeftUpdatedCommand : ICommand
-       WindowClosedCommand : ICommand }
+    { MediaPlayer: MediaPlayer
+      ScenePosition: string
+      SourceDuration: string
+      SourceName: string
+      MediaPlayerVisibility: Visibility
+      MediaBlindVisibility: Visibility
+      PlayCommand: ICommand
+      PauseCommand: ICommand
+      StopCommand: ICommand
+      mutable FramesText: string
+      IncrementFramesCommand: ICommand
+      DecrementFramesCommand: ICommand
+      mutable DurationText: string
+      IncrementDurationCommand: ICommand
+      DecrementDurationCommand: ICommand
+      mutable PlayListFilePathText: string
+      SetPlayListFilePathCommand: ICommand
+      mutable SnapShotFolderPathText: string
+      SetSnapShotFolderPathCommand: ICommand
+      RandomizeCommand: ICommand
+      CurrentDuration: int
+      CurrentFrames: int
+      DrawingCommand: ICommand
+      DrawingCommandText: string
+      DrawingSettingVisibility: Visibility
+      DrawingServiceVisibility: Visibility
+      StatusMessage: string
+      WindowTopUpdatedCommand: ICommand
+      WindowLeftUpdatedCommand: ICommand
+      WindowClosedCommand: ICommand }
 
 let designVm =
-    {  MediaPlayer = PlayerLib.player
-       ScenePosition = "00:00:00"
-       SourceDuration = "00:00:00"
-       SourceName = ""
-       MediaPlayerVisibility = Visibility.Collapsed
-       MediaBlindVisibility = Visibility.Collapsed
-       PlayCommand = emptyCommand
-       PauseCommand = emptyCommand
-       StopCommand = emptyCommand
-       FramesText = "0"
-       IncrementFramesCommand = emptyCommand
-       DecrementFramesCommand = emptyCommand
-       DurationText = "00:00"
-       IncrementDurationCommand = emptyCommand
-       DecrementDurationCommand = emptyCommand
-       PlayListFilePathText = "C:/Path/To/PlayList"
-       SetPlayListFilePathCommand = emptyCommand
-       SnapShotFolderPathText = "C:/Path/To/SnapShot"
-       SetSnapShotFolderPathCommand = emptyCommand
-       RandomizeCommand = emptyCommand
-       CurrentDuration = 0
-       CurrentFrames = 0
-       DrawingCommand = emptyCommand
-       DrawingCommandText = "⏲ Start Drawing"
-       DrawingSettingVisibility = Visibility.Visible
-       DrawingServiceVisibility = Visibility.Collapsed
-       StatusMessage = "Status"
-       WindowTopUpdatedCommand = emptyCommand
-       WindowLeftUpdatedCommand = emptyCommand
-       WindowClosedCommand = emptyCommand }
+    do PlayerLib.initialize ()
+
+    { MediaPlayer = PlayerLib.initPlayer ()
+      ScenePosition = "00:00:00"
+      SourceDuration = "00:00:00"
+      SourceName = ""
+      MediaPlayerVisibility = Visibility.Collapsed
+      MediaBlindVisibility = Visibility.Collapsed
+      PlayCommand = emptyCommand
+      PauseCommand = emptyCommand
+      StopCommand = emptyCommand
+      FramesText = "0"
+      IncrementFramesCommand = emptyCommand
+      DecrementFramesCommand = emptyCommand
+      DurationText = "00:00"
+      IncrementDurationCommand = emptyCommand
+      DecrementDurationCommand = emptyCommand
+      PlayListFilePathText = "C:/Path/To/PlayList"
+      SetPlayListFilePathCommand = emptyCommand
+      SnapShotFolderPathText = "C:/Path/To/SnapShot"
+      SetSnapShotFolderPathCommand = emptyCommand
+      RandomizeCommand = emptyCommand
+      CurrentDuration = 0
+      CurrentFrames = 0
+      DrawingCommand = emptyCommand
+      DrawingCommandText = "⏲ Start Drawing"
+      DrawingSettingVisibility = Visibility.Visible
+      DrawingServiceVisibility = Visibility.Collapsed
+      StatusMessage = "Status"
+      WindowTopUpdatedCommand = emptyCommand
+      WindowLeftUpdatedCommand = emptyCommand
+      WindowClosedCommand = emptyCommand }
 
 let bindingsMapper (name, label) =
     match label with
@@ -161,9 +162,8 @@ let bindingsMapper (name, label) =
     | IncrementDurationCommand -> Binding.cmd IncrementDuration
     | DecrementDurationCommand -> Binding.cmdIf (DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
     | PlayListFilePathText -> Binding.twoWay ((fun m -> string m.PlayListFilePath), (string >> SetPlayListFilePath))
-    | SetPlayListFilePathCommand ->
-        Binding.cmd RequestSelectPlayListFilePath
-    | SnapShotFolderPathText -> 
+    | SetPlayListFilePathCommand -> Binding.cmd RequestSelectPlayListFilePath
+    | SnapShotFolderPathText ->
         Binding.twoWay ((fun m -> string m.SnapShotFolderPath), (string >> SetSnapShotFolderPath))
     | SetSnapShotFolderPathCommand -> Binding.cmd RequestSelectSnapShotFolderPath
     | RandomizeCommand ->

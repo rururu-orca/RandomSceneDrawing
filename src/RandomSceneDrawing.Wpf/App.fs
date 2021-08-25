@@ -28,10 +28,10 @@ let startMainLoop window =
     WpfProgram.mkProgramWithCmdMsg Program.init Program.update Bindings.bindings cmds
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.withSubscription
-        (fun _ ->
+        (fun m ->
             Cmd.batch [ Cmd.ofSub Platform.setupTimer
-                        Cmd.ofSub PlayerLib.timeChanged
-                        Cmd.ofSub PlayerLib.playerBuffering ])
+                        Cmd.ofSub (PlayerLib.timeChanged m.Player)
+                        Cmd.ofSub (PlayerLib.playerBuffering m.Player) ])
     |> WpfProgram.startElmishLoop window
 
 [<STAThread>]
@@ -40,6 +40,8 @@ let main argv =
     Assembly.Load "Microsoft.Xaml.Behaviors" |> ignore
 
     let application =
+        PlayerLib.initialize ()
+
         Application.LoadComponent
         <| Uri("App.xaml", UriKind.Relative)
         :?> Application
