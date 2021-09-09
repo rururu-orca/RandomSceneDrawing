@@ -52,6 +52,7 @@ type BindingLabel =
     | WindowTopUpdatedCommand
     | WindowLeftUpdatedCommand
     | WindowClosedCommand
+
     static member GetLabelAndCaseSeq() =
         // Get all cases of the union
         FSharpType.GetUnionCases(typeof<BindingLabel>)

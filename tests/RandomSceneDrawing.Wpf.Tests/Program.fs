@@ -2,5 +2,4 @@ open Expecto
 
 
 [<EntryPoint>]
-let main args =
-  runTestsInAssemblyWithCLIArgs [] args
+let main args = runTestsInAssemblyWithCLIArgs [] args

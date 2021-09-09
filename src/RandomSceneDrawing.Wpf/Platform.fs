@@ -13,6 +13,7 @@ open RandomSceneDrawing.Types
 
 
 type AsyncBuilder with
+
     member x.Bind(t: IAsyncOperation<'T>, f: 'T -> Async<'R>) : Async<'R> =
         async.Bind(t.AsTask() |> Async.AwaitTask, f)
 

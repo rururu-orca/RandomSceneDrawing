@@ -9,6 +9,7 @@ open FSharpPlus
 open System.Threading.Tasks
 
 type AsyncBuilder with
+
     member x.Bind(t: Task<'T>, f: 'T -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
     member x.Bind(t: Task, f: unit -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
 
