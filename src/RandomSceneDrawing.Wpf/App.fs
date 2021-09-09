@@ -52,3 +52,4 @@ let main argv =
     |> Observable.add (fun _ -> startMainLoop application.MainWindow)
 
     application.Run()
+    application.Run()
