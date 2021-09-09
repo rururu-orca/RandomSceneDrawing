@@ -49,12 +49,16 @@ let playerLibTests =
 
          testAsync "can take Snapshot" {
              let path =
-                 Path.Combine [| __SOURCE_DIRECTORY__
-                                 "TestPlayList.xspf" |]
+                 Path.Combine [|
+                     __SOURCE_DIRECTORY__
+                     "TestPlayList.xspf"
+                 |]
 
              let snapShot =
-                 Path.Combine [| __SOURCE_DIRECTORY__
-                                 "test.png" |]
+                 Path.Combine [|
+                     __SOURCE_DIRECTORY__
+                     "test.png"
+                 |]
 
              use player = PlayerLib.initPlayer ()
 

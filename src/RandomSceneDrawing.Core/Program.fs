@@ -9,8 +9,10 @@ open RandomSceneDrawing
 type Config = YamlConfig<"Config.yaml">
 
 let changedConfigPath =
-    Path.Combine [| AppDomain.CurrentDomain.BaseDirectory
-                    "ChangedConfig.yaml" |]
+    Path.Combine [|
+        AppDomain.CurrentDomain.BaseDirectory
+        "ChangedConfig.yaml"
+    |]
 
 let config = Config()
 
@@ -53,8 +55,10 @@ let mapCanExec =
     | _ -> false
 
 let getSnapShotPath model =
-    Path.Combine [| model.SnapShotPath
-                    $"%03i{model.CurrentFrames}.png" |]
+    Path.Combine [|
+        model.SnapShotPath
+        $"%03i{model.CurrentFrames}.png"
+    |]
 
 let update msg m =
     match msg with

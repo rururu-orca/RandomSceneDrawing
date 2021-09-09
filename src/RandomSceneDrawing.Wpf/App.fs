@@ -29,9 +29,11 @@ let startMainLoop window =
     |> WpfProgram.withLogger (new SerilogLoggerFactory(logger))
     |> WpfProgram.withSubscription
         (fun m ->
-            Cmd.batch [ Cmd.ofSub Platform.setupTimer
-                        Cmd.ofSub (PlayerLib.timeChanged m.Player)
-                        Cmd.ofSub (PlayerLib.playerBuffering m.Player) ])
+            Cmd.batch [
+                Cmd.ofSub Platform.setupTimer
+                Cmd.ofSub (PlayerLib.timeChanged m.Player)
+                Cmd.ofSub (PlayerLib.playerBuffering m.Player)
+            ])
     |> WpfProgram.startElmishLoop window
 
 [<STAThread>]
@@ -49,4 +51,5 @@ let main argv =
     Observable.first application.Activated
     |> Observable.add (fun _ -> startMainLoop application.MainWindow)
 
+    application.Run()
     application.Run()
