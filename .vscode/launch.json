@@ -13,8 +13,8 @@
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
-            
-            "console": "internalConsole"},
+            "console": "internalConsole"
+        },
         {
             "name": ".NET Core Test Wpf",
             "type": "coreclr",
@@ -24,14 +24,25 @@
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
-            
-            "console": "internalConsole"},
+            "console": "internalConsole"
+        },
         {
-            "name": ".NET Core Launch (console)",
+            "name": "Wpf",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/src/RandomSceneDrawing.Wpf/bin/Debug/net5.0-windows10.0.19041.0/RandomSceneDrawing.Wpf.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": "FuncUI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/RandomSceneDrawing.Avalonia.FuncUI/bin/Debug/net5.0/RandomSceneDrawing.Avalonia.FuncUI.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
