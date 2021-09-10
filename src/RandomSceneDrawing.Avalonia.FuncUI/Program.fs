@@ -37,7 +37,7 @@ type MainWindow() as this =
         this.AttachDevTools()
 #endif
 
-        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view Platform.toCmd
+        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd this)
         |> Program.withHost this
         |> Program.withSubscription Platform.subs
         |> Program.withConsoleTrace
