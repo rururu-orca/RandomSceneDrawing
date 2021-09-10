@@ -12,14 +12,10 @@ open Elmish
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
-open Avalonia.FuncUI
 open Avalonia.FuncUI.Elmish
 open Avalonia.FuncUI.Components.Hosts
-open Avalonia.Media
-open RandomSceneDrawing.Types
 
-
-module ProgramUtil =
+module Program =
     let mkProgramWithCmdMsg
         (init: unit -> 'model * 'cmdMsg list)
         (update: 'msg -> 'model -> 'model * 'cmdMsg list)
@@ -31,59 +27,19 @@ module ProgramUtil =
 
         Program.mkProgram (init >> convert) (fun msg model -> update msg model |> convert) view
 
-
 type MainWindow() as this =
-    inherit HostWindow()
+    inherit HostWindow(Title = "Counter Example", Height = 400.0, Width = 400.0)
 
     do
-        base.Title <- "Counter Example"
-        base.Height <- 400.0
-        base.Width <- 400.0
-
         Core.Initialize()
-
-        let toCmd =
-            function
-            | Play player ->
-                async {
-                    let media =
-                        PlayerLib.getMediaFromUri (
-                            Uri "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-                        )
-
-                    match! PlayerLib.playAsync player PlaySuccess media with
-                    | Ok msg ->
-                        return
-                            msg
-                                { Title = media.Meta LibVLCSharp.Shared.MetadataType.Title
-                                  Duration = float media.Duration |> TimeSpan.FromMilliseconds }
-                    | Error e -> return PlayFailed e
-                }
-                |> Cmd.OfAsync.result
-            | Pause player ->
-                Cmd.OfAsyncImmediate.either
-                    (PlayerLib.togglePauseAsync player)
-                    (Playing, Paused)
-                    PauseSuccess
-                    PauseFailed
-            | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
-            | _ -> Cmd.none
-
 
 #if DEBUG
         this.AttachDevTools()
 #endif
 
-        // this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
-        //this.VisualRoot.VisualRoot.Renderer.DrawDirtyRects <- true
-        ProgramUtil.mkProgramWithCmdMsg Program.init Program.update MainView.view toCmd
+        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view Platform.toCmd
         |> Program.withHost this
-        |> Program.withSubscription
-            (fun m ->
-                Cmd.batch [
-                    Cmd.ofSub (PlayerLib.timeChanged m.Player)
-                    Cmd.ofSub (PlayerLib.playerBuffering m.Player)
-                ])
+        |> Program.withSubscription Platform.subs
         |> Program.withConsoleTrace
         |> Program.run
 
@@ -95,12 +51,10 @@ type App() =
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
-        | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime ->
-            let mainWindow = MainWindow()
-            desktopLifetime.MainWindow <- mainWindow
+        | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime -> desktopLifetime.MainWindow <- MainWindow()
         | _ -> ()
 
-module Program =
+module Main =
 
     [<EntryPoint>]
     let main (args: string []) =
