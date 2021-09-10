@@ -17,7 +17,6 @@ open Avalonia.FuncUI.Elmish
 open Avalonia.FuncUI.Components.Hosts
 open Avalonia.Media
 open RandomSceneDrawing.Types
-open RandomSceneDrawing.Program
 
 
 module ProgramUtil =
@@ -43,15 +42,48 @@ type MainWindow() as this =
 
         Core.Initialize()
 
-        let toCmd  =
+        let toCmd =
             function
-            | Play player -> Cmd.none 
+            | Play player ->
+                async {
+                    let media =
+                        PlayerLib.getMediaFromUri (
+                            Uri "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+                        )
+
+                    match! PlayerLib.playAsync player PlaySuccess media with
+                    | Ok msg ->
+                        return
+                            msg
+                                { Title = media.Meta LibVLCSharp.Shared.MetadataType.Title
+                                  Duration = float media.Duration |> TimeSpan.FromMilliseconds }
+                    | Error e -> return PlayFailed e
+                }
+                |> Cmd.OfAsync.result
+            | Pause player ->
+                Cmd.OfAsyncImmediate.either
+                    (PlayerLib.togglePauseAsync player)
+                    (Playing, Paused)
+                    PauseSuccess
+                    PauseFailed
+            | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
             | _ -> Cmd.none
 
-        //this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
+
+#if DEBUG
+        this.AttachDevTools()
+#endif
+
+        // this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
         //this.VisualRoot.VisualRoot.Renderer.DrawDirtyRects <- true
         ProgramUtil.mkProgramWithCmdMsg Program.init Program.update MainView.view toCmd
         |> Program.withHost this
+        |> Program.withSubscription
+            (fun m ->
+                Cmd.batch [
+                    Cmd.ofSub (PlayerLib.timeChanged m.Player)
+                    Cmd.ofSub (PlayerLib.playerBuffering m.Player)
+                ])
         |> Program.withConsoleTrace
         |> Program.run
 
