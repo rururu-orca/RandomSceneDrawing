@@ -14,6 +14,8 @@ open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Elmish
 open Avalonia.FuncUI.Components.Hosts
+open FluentAvalonia.Styling
+
 
 module Program =
     let mkProgramWithCmdMsg
@@ -28,15 +30,21 @@ module Program =
         Program.mkProgram (init >> convert) (fun msg model -> update msg model |> convert) view
 
 type MainWindow() as this =
-    inherit HostWindow(Title = "Counter Example", Height = 400.0, Width = 400.0)
+    inherit HostWindow(Title = "Random Pause  動画のシーンがランダムで表示されます", Height = 720.0, Width = 1280.0)
 
     do
+        // Setup LibVLC
         Core.Initialize()
+
+        // Apply FluentAvalonia Theme to the title bar
+        let thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()
+        thm.ForceNativeTitleBarToTheme this
 
 #if DEBUG
         this.AttachDevTools()
 #endif
 
+        // Start mainloop
         Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd this)
         |> Program.withHost this
         |> Program.withSubscription Platform.subs
@@ -47,7 +55,8 @@ type App() =
     inherit Application()
 
     override this.Initialize() =
-        this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
+        // Apply FluentAvalonia Theme
+        this.Styles.Add(FluentAvaloniaTheme(baseUri = null))
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
