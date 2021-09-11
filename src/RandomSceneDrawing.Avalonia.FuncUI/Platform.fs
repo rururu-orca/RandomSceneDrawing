@@ -179,9 +179,13 @@ let toCmd window cmdMsg =
         showErrorNotification notificationManager message ShowErrorInfomationSuccess
         |> Cmd.OfAsyncImmediate.result
 
+let onClosed (window: HostWindow) dispatch =
+    window.Closed
+    |> Observable.add (fun e -> dispatch WindowClosed)
 
-let subs model =
+let subs (window: HostWindow) model =
     Cmd.batch [
+        Cmd.ofSub (onClosed window)
         Cmd.ofSub (PlayerLib.timeChanged model.Player)
         Cmd.ofSub (PlayerLib.playerBuffering model.Player)
     ]

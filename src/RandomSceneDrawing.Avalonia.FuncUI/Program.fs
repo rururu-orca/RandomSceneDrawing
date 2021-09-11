@@ -44,7 +44,7 @@ type MainWindow() as this =
         // Start mainloop
         Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd this)
         |> Program.withHost this
-        |> Program.withSubscription Platform.subs
+        |> Program.withSubscription (Platform.subs this)
         |> Program.withConsoleTrace
         |> Program.run
 
