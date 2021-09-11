@@ -14,6 +14,25 @@ module MainView =
         DockPanel.create [
             DockPanel.margin 4.0
             DockPanel.children [
+                StackPanel.create [
+                    StackPanel.dock Dock.Top
+                    StackPanel.orientation Orientation.Horizontal
+                    StackPanel.children [
+                        Button.create [
+                            if model.RandomDrawingState = RandomDrawingState.Stop then
+                                Button.content "⏲ Start Drawing"
+                                Button.onClick (fun _ -> dispatch RequestStartDrawing)
+
+                                [ model.PlayListFilePath
+                                  model.SnapShotFolderPath ]
+                                |> List.forall (String.IsNullOrEmpty >> not)
+                                |> Button.isEnabled
+                            else
+                                Button.content "Stop Drawing"
+                                Button.onClick (fun _ -> dispatch RequestStopDrawing)
+                        ]
+                    ]
+                ]
                 VideoView.create [
                     VideoView.mediaPlayer model.Player
                     VideoView.content (
