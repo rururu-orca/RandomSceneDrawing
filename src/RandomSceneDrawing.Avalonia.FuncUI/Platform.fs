@@ -123,6 +123,8 @@ let toCmd window cmdMsg =
         Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
     | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
     | SelectPlayListFilePath -> Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id PlayFailed
+    // Random Drawing
+    | Randomize (player, pl) -> Cmd.OfAsyncImmediate.either (PlayerLib.randomize player) (Uri pl) id RandomizeFailed
     | _ -> Cmd.none
 
 
