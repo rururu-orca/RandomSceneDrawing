@@ -16,13 +16,13 @@ open FSharpPlus
 
 
 module MainView =
-
     let view (model: Model) (dispatch: Msg -> unit) =
         DockPanel.create [
             DockPanel.margin 4.0
             DockPanel.children [
                 StackPanel.create [
                     StackPanel.dock Dock.Top
+                    StackPanel.spacing 4.0
                     StackPanel.orientation Orientation.Horizontal
                     StackPanel.children [
                         Button.create [
@@ -56,12 +56,23 @@ module MainView =
                                         | t when TimeSpan(99, 99, 99) < t -> false
                                         | _ -> true)
                                     |> Option.iter (SetDuration >> dispatch))
+                            TextBox.onPointerWheelChanged
+                                (fun e ->
+                                    e.Delta.Y * 10.0
+                                    |> TimeSpan.FromSeconds
+                                    |> IncrementDuration
+                                    |> dispatch)
                         ]
-                        TextBox.create [
-                            TextBox.text (model.CurrentFrames.ToString())
+                        NumericUpDown.create [
+                            NumericUpDown.minimum 1.0
+                            NumericUpDown.value (double model.Frames)
+                            NumericUpDown.onValueChanged (int >> SetFrames >> dispatch)
                         ]
-                        TextBox.create [
-                            TextBox.text (model.CurrentDuration.ToString @"hh\:mm\:ss")
+                        TextBlock.create [
+                            TextBlock.text (model.CurrentFrames.ToString())
+                        ]
+                        TextBlock.create [
+                            TextBlock.text (model.CurrentDuration.ToString @"hh\:mm\:ss")
                         ]
                     ]
                 ]
@@ -69,9 +80,11 @@ module MainView =
                     VideoView.mediaPlayer model.Player
                     VideoView.content (
                         DockPanel.create [
+                            DockPanel.margin 4.0
                             DockPanel.children [
                                 StackPanel.create [
                                     StackPanel.dock Dock.Top
+                                    StackPanel.margin 4.0
                                     StackPanel.orientation Orientation.Horizontal
                                     StackPanel.verticalAlignment VerticalAlignment.Top
                                     StackPanel.isVisible true
@@ -97,6 +110,7 @@ module MainView =
                                 ]
                                 StackPanel.create [
                                     StackPanel.dock Dock.Top
+                                    StackPanel.margin 4.0
                                     StackPanel.orientation Orientation.Horizontal
                                     StackPanel.verticalAlignment VerticalAlignment.Top
                                     StackPanel.children [
@@ -111,6 +125,7 @@ module MainView =
                                 ]
                                 StackPanel.create [
                                     StackPanel.dock Dock.Top
+                                    StackPanel.margin 4.0
                                     StackPanel.orientation Orientation.Horizontal
                                     StackPanel.verticalAlignment VerticalAlignment.Top
                                     StackPanel.children [

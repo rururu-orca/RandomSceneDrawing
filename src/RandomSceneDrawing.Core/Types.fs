@@ -21,6 +21,10 @@ type PlayerState =
 exception PlayFailedException of string
 exception SnapShotFailedException of string
 
+type ValidateError =
+    |OverUpperLimit
+    |BelowLowerLimit
+
 type MediaInfo = { Title: string; Duration: TimeSpan }
 
 type Model =
@@ -78,11 +82,11 @@ type Msg =
     | RequestStopDrawing
     | StopDrawingSuccess
     | SetFrames of int
-    | IncrementFrames
-    | DecrementFrames
+    | IncrementFrames of int
+    | DecrementFrames of int
     | SetDuration of TimeSpan
-    | IncrementDuration
-    | DecrementDuration
+    | IncrementDuration of TimeSpan
+    | DecrementDuration of TimeSpan
     | LayoutUpdated of string
     | SetPlayListFilePath of string
     | RequestSelectPlayListFilePath

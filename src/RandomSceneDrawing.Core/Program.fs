@@ -5,6 +5,7 @@ open System.IO
 open FSharp.Configuration
 open Types
 open RandomSceneDrawing
+open FSharpPlus
 
 type Config = YamlConfig<"Config.yaml">
 
@@ -60,6 +61,30 @@ let getSnapShotPath model =
         $"%03i{model.CurrentFrames}.png"
     |]
 
+let validateDuration =
+    function
+    | t when t < TimeSpan(0, 0, 10) -> Error BelowLowerLimit
+    | t when TimeSpan(99, 99, 99) < t -> Error OverUpperLimit
+    | t -> Ok t
+
+let setDuration (m: Model) newValue =
+    newValue
+    |> validateDuration
+    |> Result.map (fun t -> { m with Duration = t })
+    |> Result.defaultValue m
+
+let validateFrames =
+    function
+    | t when t < 1 -> Error BelowLowerLimit
+    | t when 999 < t -> Error OverUpperLimit
+    | t -> Ok t
+
+let setFrames (m: Model) newValue =
+    newValue
+    |> validateFrames
+    |> Result.map (fun t -> { m with Frames = t })
+    |> Result.defaultValue m
+
 let update msg m =
     match msg with
     // Player
@@ -92,18 +117,12 @@ let update msg m =
         | _ -> { m with PlayerBufferCache = cache }, []
 
     // Random Drawing Setting
-    | SetFrames x -> { m with Frames = x }, []
-    | IncrementFrames -> { m with Frames = m.Frames + 1 }, []
-    | DecrementFrames -> { m with Frames = m.Frames - 1 }, []
-    | SetDuration x -> { m with Duration = x }, []
-    | IncrementDuration ->
-        { m with
-              Duration = m.Duration.Add <| TimeSpan.FromSeconds 10.0 },
-        []
-    | DecrementDuration ->
-        { m with
-              Duration = m.Duration.Add <| TimeSpan.FromSeconds -10.0 },
-        []
+    | SetFrames x -> setFrames m x, []
+    | IncrementFrames n -> setFrames m (m.Frames + n), []
+    | DecrementFrames n -> setFrames m (m.Frames - n), []
+    | SetDuration x -> setDuration m x, []
+    | IncrementDuration time -> setDuration m (m.Duration + time), []
+    | DecrementDuration time -> setDuration m (m.Duration - time), []
     | SetPlayListFilePath path -> { m with PlayListFilePath = path }, []
     | RequestSelectPlayListFilePath -> m, [ SelectPlayListFilePath ]
     | SelectPlayListFilePathSuccess path -> { m with PlayListFilePath = path }, []
