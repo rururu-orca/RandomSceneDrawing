@@ -1,5 +1,6 @@
 namespace RandomSceneDrawing
 
+open System
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.FuncUI.DSL
@@ -60,6 +61,21 @@ module MainView =
                                         Button.create [
                                             Button.content "Stop"
                                             Button.onClick (fun _ -> dispatch RequestStop)
+                                        ]
+                                    ]
+                                ]
+
+                                StackPanel.create [
+                                    StackPanel.dock Dock.Top
+                                    StackPanel.orientation Orientation.Horizontal
+                                    StackPanel.verticalAlignment VerticalAlignment.Top
+                                    StackPanel.children [
+                                        Button.create [
+                                            Button.content "PlayList"
+                                            Button.onClick (fun _ -> dispatch RequestSelectPlayListFilePath)
+                                        ]
+                                        TextBox.create [
+                                            TextBox.text model.PlayListFilePath
                                         ]
                                     ]
                                 ]

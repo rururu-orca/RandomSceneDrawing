@@ -46,6 +46,27 @@ let stopTimer onSuccess =
 
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
+let selectPlayListFileAsync window =
+    async {
+        let dialog =
+            OpenFileDialog(
+                Title = "Open Playlist",
+                AllowMultiple = false,
+                Directory = GetFolderPath(SpecialFolder.MyVideos),
+                Filters =
+                    list [
+                        FileDialogFilter(Name = "Playlist", Extensions = list [ "xspf" ])
+                    ]
+            )
+
+        match! dialog.ShowAsync window |> Async.AwaitTask with
+        | [| path |] ->
+            return SelectPlayListFilePathSuccess path
+
+        | _ -> return SelectPlayListFilePathCanceled
+    }
+
+
 let selectSnapShotFolderAsync window =
     async {
 
@@ -101,6 +122,7 @@ let toCmd window cmdMsg =
     | Pause player ->
         Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
     | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
+    | SelectPlayListFilePath -> Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id PlayFailed
     | _ -> Cmd.none
 
 
