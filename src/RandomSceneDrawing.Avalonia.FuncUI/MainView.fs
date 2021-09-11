@@ -4,10 +4,16 @@ open System
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Builder
+open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Components
+open Avalonia.FuncUI.Elmish
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Program
 open LibVLCSharp.Avalonia.FuncUI
+open FSharpPlus
+
 
 module MainView =
 
@@ -31,6 +37,31 @@ module MainView =
                             else
                                 Button.content "Stop Drawing"
                                 Button.onClick (fun _ -> dispatch RequestStopDrawing)
+                        ]
+                        TextBox.create [
+                            TextBox.text (model.Duration.ToString @"hh\:mm\:ss")
+                            TextBox.onLostFocus
+                                (fun e ->
+                                    match e.Source with
+                                    | :? TextBox as t -> Some t
+                                    | _ -> None
+                                    |> Option.bind
+                                        (fun t ->
+                                            match TimeSpan.TryParse t.Text with
+                                            | true, time -> Some time
+                                            | _ -> None)
+                                    |> Option.filter
+                                        (function
+                                        | t when t < TimeSpan(0, 0, 10) -> false
+                                        | t when TimeSpan(99, 99, 99) < t -> false
+                                        | _ -> true)
+                                    |> Option.iter (SetDuration >> dispatch))
+                        ]
+                        TextBox.create [
+                            TextBox.text (model.CurrentFrames.ToString())
+                        ]
+                        TextBox.create [
+                            TextBox.text (model.CurrentDuration.ToString @"hh\:mm\:ss")
                         ]
                     ]
                 ]

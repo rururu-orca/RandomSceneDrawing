@@ -1,6 +1,7 @@
 module RandomSceneDrawing.Platform
 
 open System
+open System.IO
 open System.Text
 open System.Collections.Generic
 open FSharpPlus
@@ -12,6 +13,7 @@ open Avalonia.FuncUI.DSL
 open Elmish
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Notifications
 open Avalonia.Dialogs
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
@@ -22,27 +24,32 @@ open Avalonia.Media
 open Avalonia.Threading
 open RandomSceneDrawing.Types
 
+open FSharp.Control
+open FSharp.Control.Reactive
+
 open type System.Environment
 
 
-let private timer =
-    DispatcherTimer DispatcherPriority.Render
+let drawingDisporsables = Disposable.Composite
 
 let setupTimer dispatch =
-    timer.Tick
-    |> Observable.add (fun _ -> dispatch Tick)
+    DispatcherTimer.Run(
+        (fun () ->
+            dispatch Tick
+            true),
+        TimeSpan.FromSeconds 1.0
+    )
+    |> Disposable.disposeWith drawingDisporsables
 
 let startTimer onSuccess =
-    async {
-        timer.Start()
-        return onSuccess
-    }
+    Cmd.batch [
+        Cmd.ofSub setupTimer
+        Cmd.ofMsg onSuccess
+    ]
 
 let stopTimer onSuccess =
-    async {
-        timer.Stop()
-        return onSuccess
-    }
+    drawingDisporsables.Clear()
+    onSuccess
 
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
@@ -60,8 +67,7 @@ let selectPlayListFileAsync window =
             )
 
         match! dialog.ShowAsync window |> Async.AwaitTask with
-        | [| path |] ->
-            return SelectPlayListFilePathSuccess path
+        | [| path |] -> return SelectPlayListFilePathSuccess path
 
         | _ -> return SelectPlayListFilePathCanceled
     }
@@ -116,22 +122,66 @@ let selectMediaAndPlayAsync window player =
         | _ -> return PlayCandeled
     }
 
+let createCurrentSnapShotFolder root =
+    let unfolder state =
+        match state with
+        | -1 -> None
+        | _ ->
+            let path =
+                [| root
+                   DateTime.Now.ToString "yyyyMMdd"
+                   $"%03i{state}" |]
+                |> Path.Combine
+
+            match Directory.Exists path with
+            | true -> Some(path, state + 1)
+            | false ->
+                Directory.CreateDirectory path |> ignore
+                Some(path, -1)
+
+    Seq.unfold unfolder 0
+    |> Seq.last
+    |> CreateCurrentSnapShotFolderSuccess
+
+let showErrorNotification (notificationManager: IManagedNotificationManager) info msg =
+    async {
+        Notification("Error!!", info, NotificationType.Error)
+        |> notificationManager.Show
+
+        return msg
+    }
+
 let toCmd window cmdMsg =
+    let notificationManager =
+        WindowNotificationManager(window, Position = NotificationPosition.TopRight, MaxItems = 3)
+
     match cmdMsg with
     | Play player -> Cmd.OfAsyncImmediate.either (selectMediaAndPlayAsync window) player id PlayFailed
     | Pause player ->
         Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
     | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
-    | SelectPlayListFilePath -> Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id SelectPlayListFilePathFailed
-    | SelectSnapShotFolderPath -> Cmd.OfAsyncImmediate.either selectSnapShotFolderAsync window id SelectSnapShotFolderPathFailed
-    // Random Drawing
     | Randomize (player, pl) -> Cmd.OfAsyncImmediate.either (PlayerLib.randomize player) (Uri pl) id RandomizeFailed
-    | _ -> Cmd.none
+    | SelectPlayListFilePath ->
+        Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id SelectPlayListFilePathFailed
+    | SelectSnapShotFolderPath ->
+        Cmd.OfAsyncImmediate.either selectSnapShotFolderAsync window id SelectSnapShotFolderPathFailed
+    | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
+    | TakeSnapshot (player, path) ->
+        async {
+            match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with
+            | Some path -> return TakeSnapshotSuccess
+            | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
+        }
+        |> Cmd.OfAsyncImmediate.result
+    | StartDrawing -> startTimer StartDrawingSuccess
+    | StopDrawing -> Cmd.OfFunc.result <| stopTimer StopDrawingSuccess
+    | ShowErrorInfomation message ->
+        showErrorNotification notificationManager message ShowErrorInfomationSuccess
+        |> Cmd.OfAsyncImmediate.result
 
 
 let subs model =
     Cmd.batch [
-        Cmd.ofSub setupTimer
         Cmd.ofSub (PlayerLib.timeChanged model.Player)
         Cmd.ofSub (PlayerLib.playerBuffering model.Player)
     ]
