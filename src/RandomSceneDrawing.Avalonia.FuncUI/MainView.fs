@@ -26,6 +26,11 @@ module MainView =
                                     StackPanel.isVisible true
                                     StackPanel.children [
                                         Button.create [
+                                            Button.content "🔀 Show Random 🔀"
+                                            Button.isEnabled (not (String.IsNullOrEmpty model.PlayListFilePath))
+                                            Button.onClick (fun _ -> dispatch RequestRandomize)
+                                        ]
+                                        Button.create [
                                             Button.content "Play"
                                             Button.onClick (fun _ -> dispatch RequestPlay)
                                         ]
