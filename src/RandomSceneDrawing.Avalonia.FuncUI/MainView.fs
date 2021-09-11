@@ -64,7 +64,6 @@ module MainView =
                                         ]
                                     ]
                                 ]
-
                                 StackPanel.create [
                                     StackPanel.dock Dock.Top
                                     StackPanel.orientation Orientation.Horizontal
@@ -76,6 +75,20 @@ module MainView =
                                         ]
                                         TextBox.create [
                                             TextBox.text model.PlayListFilePath
+                                        ]
+                                    ]
+                                ]
+                                StackPanel.create [
+                                    StackPanel.dock Dock.Top
+                                    StackPanel.orientation Orientation.Horizontal
+                                    StackPanel.verticalAlignment VerticalAlignment.Top
+                                    StackPanel.children [
+                                        Button.create [
+                                            Button.content "SnapShotFolder"
+                                            Button.onClick (fun _ -> dispatch RequestSelectSnapShotFolderPath)
+                                        ]
+                                        TextBox.create [
+                                            TextBox.text model.SnapShotFolderPath
                                         ]
                                     ]
                                 ]
