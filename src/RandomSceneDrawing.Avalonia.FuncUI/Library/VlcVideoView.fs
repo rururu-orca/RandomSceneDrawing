@@ -161,22 +161,31 @@ type private VlcNativePresenter() =
 
     let mutable platformHandle = Option<IPlatformHandle>.None
 
-    override x.CreateNativeControlCore (parent) =
+    override x.CreateNativeControlCore(parent) =
         platformHandle <-
             base.CreateNativeControlCore parent
             |> Option.ofObj
 
         Option.toObj platformHandle
 
-    override x.DestroyNativeControlCore (control) =
+    override x.DestroyNativeControlCore(control) =
         platformHandle <- None
         base.DestroyNativeControlCore control
 
-    member x.AttachHandle (mediaPlayer : MediaPlayer) =
+    member x.AttachHandle(mediaPlayer: MediaPlayer) =
         match Environment.OSVersion.Platform, platformHandle with
         | PlatformID.Win32NT, Some handle -> mediaPlayer.Hwnd <- handle.Handle
         | PlatformID.MacOSX, Some handle -> mediaPlayer.XWindow <- uint handle.Handle
         | PlatformID.Unix, Some handle -> mediaPlayer.NsObject <- handle.Handle
+        | _ -> ()
+
+    member x.DetachHandle(mediaPlayer: MediaPlayer) =
+        mediaPlayer.Stop()
+
+        match Environment.OSVersion.Platform, platformHandle with
+        | PlatformID.Win32NT, Some handle -> mediaPlayer.Hwnd <- IntPtr.Zero
+        | PlatformID.MacOSX, Some handle -> mediaPlayer.XWindow <- 0u
+        | PlatformID.Unix, Some handle -> mediaPlayer.NsObject <- IntPtr.Zero
         | _ -> ()
 
 type VideoView() as x =
@@ -185,9 +194,7 @@ type VideoView() as x =
     let mediaDisposables = Disposable.Composite
     let mediaPlayerDisposables = Disposable.Composite
 
-    let mutable templateApplied = false
     let mutable nativePresenter = Option<VlcNativePresenter>.None
-    let mutable nativePresenterPanel = Option<Panel>.None
     let mutable mediaPlayer = Option<MediaPlayer>.None
 
     let iterFloating action =
@@ -208,14 +215,16 @@ type VideoView() as x =
                 | VLCState.Opening -> ()
                 | VLCState.Paused -> ()
                 | VLCState.Playing -> iterFloating (fun f -> f.IsVisible <- true)
-                | VLCState.Stopped -> iterFloating (fun f -> f.IsVisible <- false))
+                | VLCState.Stopped -> iterFloating (fun f -> f.IsVisible <- false)
+                | unknown -> invalidArg "unknown" "Unknown VLCState")
+
         |> Disposable.disposeWith mediaDisposables
 
-    let subscribeMediaPlayer (x: VideoView) (mp: MediaPlayer) =
+    let subscribeMediaPlayer (videoView: VideoView) (player: MediaPlayer) =
         mediaPlayerDisposables.Clear()
 
-        mp.MediaChanged
-        |> Observable.subscribe (fun e -> subscribeMedia x e.Media)
+        player.MediaChanged
+        |> Observable.subscribe (fun e -> subscribeMedia videoView e.Media)
         |> Disposable.disposeWith mediaPlayerDisposables
 
     do x.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Library/VlcVideoViewStyles.xaml"
@@ -228,7 +237,6 @@ type VideoView() as x =
                     mediaPlayer <- Option.ofObj value
                     subscribeMediaPlayer x value
                     x.InitMediaPlayer()
-
 
     static member MediaPlayerProperty =
         AvaloniaProperty.RegisterDirect(
@@ -245,9 +253,6 @@ type VideoView() as x =
     override x.OnApplyTemplate e =
         base.OnApplyTemplate e
         nativePresenter <- findNameScope<VlcNativePresenter> "nativePresenter" e.NameScope
-        nativePresenterPanel <- findNameScope<Panel> "nativePresenterPanel" e.NameScope
-
-        templateApplied <- true
 
         x.InitMediaPlayer()
 
@@ -267,16 +272,23 @@ type VideoView() as x =
         base.Render context
 
     override x.OnDetachedFromVisualTree e =
+        match nativePresenter, mediaPlayer with
+        | Some nativePresenter', Some mediaPlayer' ->
+            nativePresenter'.DetachHandle mediaPlayer'
+            mediaPlayer <- None
+        | _ -> ()
 
-        floatingDisposables.Dispose()
         mediaDisposables.Dispose()
         mediaPlayerDisposables.Dispose()
+
+        floatingDisposables.Dispose()
 
         base.OnDetachedFromVisualTree e
 
 module VideoView =
     open Avalonia.FuncUI.Builder
     open Avalonia.FuncUI.Types
+
     let create (attrs: IAttr<VideoView> list) : IView<VideoView> = ViewBuilder.Create<VideoView>(attrs)
 
     let mediaPlayer<'t when 't :> VideoView> (player: MediaPlayer) : IAttr<'t> =
