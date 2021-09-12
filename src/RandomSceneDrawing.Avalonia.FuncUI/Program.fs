@@ -10,6 +10,7 @@ open Avalonia.FuncUI.DSL
 
 open Elmish
 open Avalonia
+open Avalonia.Controls.Notifications
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Elmish
@@ -36,13 +37,17 @@ type MainWindow() as this =
         // Setup LibVLC
         Core.Initialize()
 
+        // Setup NotificationManager
+        // To avoid the Airspace problem, host is configured with FloatingContent.floating.
+        let notificationManager =
+            WindowNotificationManager(FloatingContent.floating, Position = NotificationPosition.BottomRight, MaxItems = 3)
 
 #if DEBUG
         this.AttachDevTools()
 #endif
 
         // Start mainloop
-        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd this)
+        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd this notificationManager)
         |> Program.withHost this
         |> Program.withSubscription (Platform.subs this)
         |> Program.withConsoleTrace

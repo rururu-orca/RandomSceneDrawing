@@ -151,9 +151,8 @@ let showErrorNotification (notificationManager: IManagedNotificationManager) inf
         return msg
     }
 
-let toCmd window cmdMsg =
-    let notificationManager =
-        WindowNotificationManager(window, Position = NotificationPosition.TopRight, MaxItems = 3)
+
+let toCmd (window) (notificationManager: WindowNotificationManager) cmdMsg =
 
     match cmdMsg with
     | Play player -> Cmd.OfAsyncImmediate.either (selectMediaAndPlayAsync window) player id PlayFailed
@@ -173,7 +172,11 @@ let toCmd window cmdMsg =
             | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
         }
         |> Cmd.OfAsyncImmediate.result
-    | StartDrawing -> startTimer StartDrawingSuccess
+    | StartDrawing ->
+        Notification("Start", "Start Drawing.", NotificationType.Information)
+        |> notificationManager.Show
+
+        startTimer StartDrawingSuccess
     | StopDrawing -> Cmd.OfFunc.result <| stopTimer StopDrawingSuccess
     | ShowErrorInfomation message ->
         showErrorNotification notificationManager message ShowErrorInfomationSuccess

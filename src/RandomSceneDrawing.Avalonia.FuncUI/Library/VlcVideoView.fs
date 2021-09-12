@@ -51,7 +51,15 @@ module Util =
 open Util
 
 module FloatingContent =
-
+    let floating =
+        Window(
+            SystemDecorations = SystemDecorations.None,
+            TransparencyLevelHint = WindowTransparencyLevel.Transparent,
+            Background = Brushes.Transparent,
+            TransparencyBackgroundFallback = Brushes.Black,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ShowInTaskbar = false
+        )
 
     let getPoint left top =
         match left, top with
@@ -111,15 +119,6 @@ module FloatingContent =
     let showAtMe (control: ContentControl) =
         let disposables = Disposable.Composite
 
-        let floating =
-            Window(
-                SystemDecorations = SystemDecorations.None,
-                TransparencyLevelHint = WindowTransparencyLevel.Transparent,
-                Background = Brushes.Transparent,
-                TransparencyBackgroundFallback = Brushes.Black,
-                SizeToContent = SizeToContent.WidthAndHeight,
-                ShowInTaskbar = false
-            )
 
 #if DEBUG
         floating.AttachDevTools()
@@ -183,9 +182,9 @@ type private VlcNativePresenter() =
         mediaPlayer.Stop()
 
         match Environment.OSVersion.Platform, platformHandle with
-        | PlatformID.Win32NT, Some handle -> mediaPlayer.Hwnd <- IntPtr.Zero
-        | PlatformID.MacOSX, Some handle -> mediaPlayer.XWindow <- 0u
-        | PlatformID.Unix, Some handle -> mediaPlayer.NsObject <- IntPtr.Zero
+        | PlatformID.Win32NT, Some _ -> mediaPlayer.Hwnd <- IntPtr.Zero
+        | PlatformID.MacOSX, Some _ -> mediaPlayer.XWindow <- 0u
+        | PlatformID.Unix, Some _ -> mediaPlayer.NsObject <- IntPtr.Zero
         | _ -> ()
 
 type VideoView() as x =
