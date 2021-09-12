@@ -2,6 +2,7 @@ namespace RandomSceneDrawing
 
 open System
 open Avalonia.Controls
+open Avalonia.Media
 open Avalonia.Controls.Shapes
 open Avalonia.Layout
 open Avalonia.FuncUI.DSL
@@ -23,10 +24,10 @@ module MainView =
         | { PlayerState = Stopped } -> true
         | { PlayerState = Playing }
         | { PlayerState = Paused } -> false
-    
+
     let drawingSettingVisibility =
         function
-        | {RandomDrawingState = RandomDrawingState.Stop} -> true
+        | { RandomDrawingState = RandomDrawingState.Stop } -> true
         | _ -> false
 
     let videoViewContent model dispatch =
@@ -37,18 +38,22 @@ module MainView =
                     mediaBlindVisibility model |> Rectangle.isVisible
                 ]
                 DockPanel.create [
-                    drawingSettingVisibility model |> DockPanel.isVisible
+                    drawingSettingVisibility model
+                    |> DockPanel.isVisible
                     DockPanel.children [
                         StackPanel.create [
                             StackPanel.dock Dock.Top
-                            StackPanel.margin 4.0
+                            StackPanel.spacing 20.0
+                            StackPanel.margin (0.0, 8.0, 0.0, 0.0)
                             StackPanel.orientation Orientation.Horizontal
                             StackPanel.verticalAlignment VerticalAlignment.Top
                             StackPanel.isVisible true
                             StackPanel.children [
                                 Button.create [
                                     Button.content "🔀 Show Random 🔀"
-                                    Button.isEnabled (not (String.IsNullOrEmpty model.PlayListFilePath))
+                                    (not (String.IsNullOrEmpty model.PlayListFilePath)
+                                     && model.RandomizeState = Waiting)
+                                    |> Button.isEnabled
                                     Button.onClick (fun _ -> dispatch RequestRandomize)
                                 ]
                                 Button.create [
@@ -67,7 +72,8 @@ module MainView =
                         ]
                         StackPanel.create [
                             StackPanel.dock Dock.Top
-                            StackPanel.margin 4.0
+                            StackPanel.margin (0.0, 8.0, 0.0, 0.0)
+                            StackPanel.spacing 20.0
                             StackPanel.orientation Orientation.Horizontal
                             StackPanel.verticalAlignment VerticalAlignment.Top
                             StackPanel.children [
@@ -82,7 +88,8 @@ module MainView =
                         ]
                         StackPanel.create [
                             StackPanel.dock Dock.Top
-                            StackPanel.margin 4.0
+                            StackPanel.margin (0.0, 8.0, 0.0, 0.0)
+                            StackPanel.spacing 20.0
                             StackPanel.orientation Orientation.Horizontal
                             StackPanel.verticalAlignment VerticalAlignment.Top
                             StackPanel.children [
@@ -104,56 +111,114 @@ module MainView =
         DockPanel.create [
             DockPanel.margin 4.0
             DockPanel.children [
-                StackPanel.create [
-                    StackPanel.dock Dock.Top
-                    StackPanel.spacing 4.0
-                    StackPanel.orientation Orientation.Horizontal
-                    StackPanel.children [
-                        Button.create [
-                            if model.RandomDrawingState = RandomDrawingState.Stop then
-                                Button.content "⏲ Start Drawing"
-                                Button.onClick (fun _ -> dispatch RequestStartDrawing)
+                DockPanel.create [
+                    DockPanel.dock Dock.Top
+                    DockPanel.children [
+                        StackPanel.create [
+                            StackPanel.dock Dock.Left
+                            StackPanel.spacing 20.0
+                            StackPanel.orientation Orientation.Horizontal
+                            StackPanel.children [
+                                Button.create [
+                                    if model.RandomDrawingState = RandomDrawingState.Stop then
+                                        Button.content "⏲ Start Drawing"
+                                        Button.onClick (fun _ -> dispatch RequestStartDrawing)
 
-                                [ model.PlayListFilePath
-                                  model.SnapShotFolderPath ]
-                                |> List.forall (String.IsNullOrEmpty >> not)
-                                |> Button.isEnabled
-                            else
-                                Button.content "Stop Drawing"
-                                Button.onClick (fun _ -> dispatch RequestStopDrawing)
+                                        [ model.PlayListFilePath
+                                          model.SnapShotFolderPath ]
+                                        |> List.forall (String.IsNullOrEmpty >> not)
+                                        |> Button.isEnabled
+                                    else
+                                        Button.content "Stop Drawing"
+                                        Button.onClick (fun _ -> dispatch RequestStopDrawing)
+                                ]
+                                match model.RandomDrawingState with
+                                | RandomDrawingState.Stop ->
+                                    TextBox.create [
+                                        TextBox.text (model.Duration.ToString @"hh\:mm\:ss")
+                                        TextBox.onLostFocus
+                                            (fun e ->
+                                                match e.Source with
+                                                | :? TextBox as t -> Some t
+                                                | _ -> None
+                                                |> Option.bind
+                                                    (fun t ->
+                                                        match TimeSpan.TryParse t.Text with
+                                                        | true, time -> Some time
+                                                        | _ -> None)
+                                                |> Option.iter (SetDuration >> dispatch))
+                                        TextBox.onPointerWheelChanged
+                                            (fun e ->
+                                                e.Delta.Y * 10.0
+                                                |> TimeSpan.FromSeconds
+                                                |> IncrementDuration
+                                                |> dispatch)
+                                    ]
+
+                                    NumericUpDown.create [
+                                        NumericUpDown.minimum 1.0
+                                        NumericUpDown.value (double model.Frames)
+                                        NumericUpDown.onValueChanged (int >> SetFrames >> dispatch)
+                                    ]
+                                | _ ->
+                                    TextBlock.create [
+                                        TextBlock.width 100.0
+                                        TextBlock.verticalAlignment VerticalAlignment.Center
+                                        TextBlock.textAlignment TextAlignment.Center
+                                        TextBlock.text (model.CurrentFrames.ToString())
+                                    ]
+
+                                    TextBlock.create [
+                                        TextBlock.verticalAlignment VerticalAlignment.Center
+                                        TextBlock.textAlignment TextAlignment.Center
+                                        TextBlock.text (model.CurrentDuration.ToString @"hh\:mm\:ss")
+                                    ]
+                            ]
                         ]
-                        TextBox.create [
-                            TextBox.text (model.Duration.ToString @"hh\:mm\:ss")
-                            TextBox.onLostFocus
-                                (fun e ->
-                                    match e.Source with
-                                    | :? TextBox as t -> Some t
-                                    | _ -> None
-                                    |> Option.bind
-                                        (fun t ->
-                                            match TimeSpan.TryParse t.Text with
-                                            | true, time -> Some time
-                                            | _ -> None)
-                                    |> Option.iter (SetDuration >> dispatch))
-                            TextBox.onPointerWheelChanged
-                                (fun e ->
-                                    e.Delta.Y * 10.0
-                                    |> TimeSpan.FromSeconds
-                                    |> IncrementDuration
-                                    |> dispatch)
-                        ]
-                        NumericUpDown.create [
-                            NumericUpDown.minimum 1.0
-                            NumericUpDown.value (double model.Frames)
-                            NumericUpDown.onValueChanged (int >> SetFrames >> dispatch)
-                        ]
-                        TextBlock.create [
-                            TextBlock.text (model.CurrentFrames.ToString())
-                        ]
-                        TextBlock.create [
-                            TextBlock.text (model.CurrentDuration.ToString @"hh\:mm\:ss")
+                        StackPanel.create [
+                            StackPanel.orientation Orientation.Horizontal
+                            StackPanel.spacing 20.0
+                            StackPanel.horizontalAlignment HorizontalAlignment.Right
+                            StackPanel.dock Dock.Right
+                            StackPanel.children [
+                                match model.PlayerState with
+                                | Playing
+                                | Paused ->
+                                    TextBlock.create [
+                                        TextBlock.verticalAlignment VerticalAlignment.Center
+                                        TextBlock.textAlignment TextAlignment.Center
+                                        TextBlock.text model.Title
+                                    ]
+
+                                    TextBlock.create [
+                                        TextBlock.verticalAlignment VerticalAlignment.Center
+                                        TextBlock.textAlignment TextAlignment.Center
+                                        TextBlock.text (model.MediaPosition.ToString @"hh\:mm\:ss")
+                                    ]
+
+                                    TextBlock.create [
+                                        TextBlock.verticalAlignment VerticalAlignment.Center
+                                        TextBlock.textAlignment TextAlignment.Center
+                                        TextBlock.text "/"
+                                    ]
+
+                                    TextBlock.create [
+                                        TextBlock.verticalAlignment VerticalAlignment.Center
+                                        TextBlock.textAlignment TextAlignment.Center
+                                        TextBlock.text (model.MediaDuration.ToString @"hh\:mm\:ss")
+                                    ]
+                                | _ -> ()
+                            ]
                         ]
                     ]
+                ]
+                ProgressBar.create [
+                    ProgressBar.dock Dock.Top
+                    (model.Duration - model.CurrentDuration) / model.Duration * 100.0
+                    |> ProgressBar.value
+                    match model.RandomDrawingState with
+                    | RandomDrawingState.Running -> ProgressBar.isVisible true
+                    | _ -> ProgressBar.isVisible false
                 ]
                 VideoView.create [
                     VideoView.mediaPlayer model.Player
