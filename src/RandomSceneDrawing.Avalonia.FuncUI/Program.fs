@@ -37,6 +37,12 @@ type MainWindow() as this =
         // Setup LibVLC
         Core.Initialize()
 
+        // Apply FluentAvalonia Theme to the title bar
+        let thm =
+            AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()
+
+        thm.ForceNativeTitleBarToTheme this
+
         // Setup NotificationManager
         // To avoid the Airspace problem, host is configured with FloatingContent.floating.
         let notificationManager =
@@ -57,9 +63,9 @@ type App() =
     inherit Application()
 
     override this.Initialize() =
-
         // Apply Fluent Theme
-        this.Styles.Add (FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
+        this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
+        this.Styles.Add(FluentAvaloniaTheme(baseUri = null))
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
