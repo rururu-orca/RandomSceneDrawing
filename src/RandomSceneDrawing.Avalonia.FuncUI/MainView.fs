@@ -70,7 +70,7 @@ module MainView =
         Panel.create [
             Panel.children [
                 Rectangle.create [
-                    Rectangle.fill "black"
+                    Rectangle.classes [ "videoViewBlind" ]
                     mediaBlindVisibility model |> Rectangle.isVisible
                 ]
                 DockPanel.create [
@@ -78,12 +78,7 @@ module MainView =
                     |> DockPanel.isVisible
                     DockPanel.children [
                         StackPanel.create [
-                            StackPanel.dock Dock.Top
-                            StackPanel.spacing 20.0
-                            StackPanel.margin (0.0, 8.0, 0.0, 0.0)
-                            StackPanel.orientation Orientation.Horizontal
-                            StackPanel.verticalAlignment VerticalAlignment.Top
-                            StackPanel.isVisible true
+                            StackPanel.classes [ "floating" ]
                             StackPanel.children [
                                 Button.create [
                                     Button.content "🔀 Show Random 🔀"
@@ -107,11 +102,7 @@ module MainView =
                             ]
                         ]
                         StackPanel.create [
-                            StackPanel.dock Dock.Top
-                            StackPanel.margin (0.0, 8.0, 0.0, 0.0)
-                            StackPanel.spacing 20.0
-                            StackPanel.orientation Orientation.Horizontal
-                            StackPanel.verticalAlignment VerticalAlignment.Top
+                            StackPanel.classes [ "floating" ]
                             StackPanel.children [
                                 Button.create [
                                     Button.content "PlayList"
@@ -123,11 +114,7 @@ module MainView =
                             ]
                         ]
                         StackPanel.create [
-                            StackPanel.dock Dock.Top
-                            StackPanel.margin (0.0, 8.0, 0.0, 0.0)
-                            StackPanel.spacing 20.0
-                            StackPanel.orientation Orientation.Horizontal
-                            StackPanel.verticalAlignment VerticalAlignment.Top
+                            StackPanel.classes [ "floating" ]
                             StackPanel.children [
                                 Button.create [
                                     Button.content "SnapShotFolder"
@@ -145,15 +132,12 @@ module MainView =
 
     let view (model: Model) (dispatch: Msg -> unit) =
         DockPanel.create [
-            DockPanel.margin 4.0
             DockPanel.children [
                 DockPanel.create [
                     DockPanel.dock Dock.Top
                     DockPanel.children [
                         StackPanel.create [
                             StackPanel.dock Dock.Left
-                            StackPanel.spacing 20.0
-                            StackPanel.orientation Orientation.Horizontal
                             StackPanel.children [
                                 Button.create [
                                     if model.RandomDrawingState = RandomDrawingState.Stop then
@@ -180,21 +164,15 @@ module MainView =
                                 | _ ->
                                     TextBlock.create [
                                         TextBlock.width 100.0
-                                        TextBlock.verticalAlignment VerticalAlignment.Center
-                                        TextBlock.textAlignment TextAlignment.Center
                                         TextBlock.text (model.CurrentFrames.ToString())
                                     ]
 
                                     TextBlock.create [
-                                        TextBlock.verticalAlignment VerticalAlignment.Center
-                                        TextBlock.textAlignment TextAlignment.Center
                                         TextBlock.text (model.CurrentDuration.ToString @"hh\:mm\:ss")
                                     ]
                             ]
                         ]
                         StackPanel.create [
-                            StackPanel.orientation Orientation.Horizontal
-                            StackPanel.spacing 20.0
                             StackPanel.horizontalAlignment HorizontalAlignment.Right
                             StackPanel.dock Dock.Right
                             StackPanel.children [
@@ -202,26 +180,16 @@ module MainView =
                                 | Playing
                                 | Paused ->
                                     TextBlock.create [
-                                        TextBlock.verticalAlignment VerticalAlignment.Center
-                                        TextBlock.textAlignment TextAlignment.Center
                                         TextBlock.text model.Title
                                     ]
 
                                     TextBlock.create [
-                                        TextBlock.verticalAlignment VerticalAlignment.Center
-                                        TextBlock.textAlignment TextAlignment.Center
                                         TextBlock.text (model.MediaPosition.ToString @"hh\:mm\:ss")
                                     ]
 
-                                    TextBlock.create [
-                                        TextBlock.verticalAlignment VerticalAlignment.Center
-                                        TextBlock.textAlignment TextAlignment.Center
-                                        TextBlock.text "/"
-                                    ]
+                                    TextBlock.create [ TextBlock.text "/" ]
 
                                     TextBlock.create [
-                                        TextBlock.verticalAlignment VerticalAlignment.Center
-                                        TextBlock.textAlignment TextAlignment.Center
                                         TextBlock.text (model.MediaDuration.ToString @"hh\:mm\:ss")
                                     ]
                                 | _ -> ()

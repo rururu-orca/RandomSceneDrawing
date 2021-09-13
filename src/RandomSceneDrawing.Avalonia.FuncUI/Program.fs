@@ -73,6 +73,8 @@ type App() =
         this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
         this.Styles.Add(FluentAvaloniaTheme(baseUri = null))
 
+        this.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
+
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
         | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime -> desktopLifetime.MainWindow <- MainWindow()
