@@ -155,13 +155,14 @@ let bindingsMapper (name, label) =
     | PauseCommand -> Binding.cmdIf (RequestPause, (fun m -> m.PlayerState <> Stopped))
     | StopCommand -> Binding.cmdIf (RequestStop, (fun m -> m.PlayerState <> Stopped))
     | FramesText -> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))
-    | IncrementFramesCommand -> Binding.cmd IncrementFrames
-    | DecrementFramesCommand -> Binding.cmdIf (DecrementFrames, (requireGreaterThan1Frame >> mapCanExec))
+    | IncrementFramesCommand -> Binding.cmd (IncrementFrames 1)
+    | DecrementFramesCommand -> Binding.cmdIf (DecrementFrames 1, (requireGreaterThan1Frame >> mapCanExec))
     | DurationText ->
         Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
         >> Binding.withValidation requireDurationGreaterThan
-    | IncrementDurationCommand -> Binding.cmd IncrementDuration
-    | DecrementDurationCommand -> Binding.cmdIf (DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
+    | IncrementDurationCommand -> Binding.cmd (TimeSpan.FromSeconds 10.0 |> IncrementDuration)
+    | DecrementDurationCommand ->
+        Binding.cmdIf (TimeSpan.FromSeconds 10.0 |> DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
     | PlayListFilePathText -> Binding.twoWay ((fun m -> string m.PlayListFilePath), (string >> SetPlayListFilePath))
     | SetPlayListFilePathCommand -> Binding.cmd RequestSelectPlayListFilePath
     | SnapShotFolderPathText ->

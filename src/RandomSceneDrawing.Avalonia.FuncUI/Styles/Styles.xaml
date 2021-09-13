@@ -1,0 +1,24 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Style Selector="Rectangle.videoViewBlind">
+    <Setter Property="Fill" Value="{Binding $parent[Window].Background}"/>
+  </Style>
+  <Style Selector="StackPanel">
+    <Setter Property="Spacing" Value="20"/>
+    <Setter Property="Orientation" Value="Horizontal"/>
+  </Style>
+  <Style Selector="StackPanel.floating">
+    <Setter Property="Margin" Value="0, 8, 0, 0"/>
+    <Setter Property="DockPanel.Dock" Value="Top"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="TextBlock">
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="TextAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="DockPanel">
+    <Setter Property="Margin" Value="4,0"/>
+  </Style>
+</Styles>

@@ -1,0 +1,16 @@
+<Styles xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:LibVLCSharp.Avalonia.FuncUI" mc:Ignorable="d">
+    <Style Selector="local|VideoView">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel IsHitTestVisible="false" Background="{TemplateBinding Background}" Name="nativePresenterPanel">
+                    <local:VlcNativePresenter Name="nativePresenter" >
+                     </local:VlcNativePresenter>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>
