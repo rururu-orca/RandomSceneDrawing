@@ -30,6 +30,42 @@ module MainView =
         | { RandomDrawingState = RandomDrawingState.Stop } -> true
         | _ -> false
 
+    let durationBox (model: Model) dispatch =
+        let secs =
+            [ 10.0
+              30.0
+              45.0
+              60.0
+              90.0
+              120.0
+              180.0
+              300.0
+              600.0
+              1200.0
+              1800.0 ]
+
+        ComboBox.create [
+            List.map TimeSpan.FromSeconds secs
+            |> ComboBox.dataItems
+            ComboBox.selectedItem model.Duration
+            ComboBox.itemTemplate (
+                DataTemplateView<TimeSpan>.create
+                    (fun i ->
+                        TextBlock.create [
+                            TextBlock.text $"{i}"
+                        ])
+            )
+            ComboBox.onPointerWheelChanged
+                (fun e ->
+                    match e.Source with
+                    | :? ComboBox as combo ->
+                        match combo.SelectedIndex + int e.Delta.Y with
+                        | out when out < 0 || secs.Length < out -> ()
+                        | newIndex -> combo.SelectedIndex <- newIndex
+                    | _ -> ())
+            ComboBox.onSelectedItemChanged (fun item -> item :?> TimeSpan |> SetDuration |> dispatch)
+        ]
+
     let videoViewContent model dispatch =
         Panel.create [
             Panel.children [
@@ -134,26 +170,7 @@ module MainView =
                                 ]
                                 match model.RandomDrawingState with
                                 | RandomDrawingState.Stop ->
-                                    TextBox.create [
-                                        TextBox.text (model.Duration.ToString @"hh\:mm\:ss")
-                                        TextBox.onLostFocus
-                                            (fun e ->
-                                                match e.Source with
-                                                | :? TextBox as t -> Some t
-                                                | _ -> None
-                                                |> Option.bind
-                                                    (fun t ->
-                                                        match TimeSpan.TryParse t.Text with
-                                                        | true, time -> Some time
-                                                        | _ -> None)
-                                                |> Option.iter (SetDuration >> dispatch))
-                                        TextBox.onPointerWheelChanged
-                                            (fun e ->
-                                                e.Delta.Y * 10.0
-                                                |> TimeSpan.FromSeconds
-                                                |> IncrementDuration
-                                                |> dispatch)
-                                    ]
+                                    durationBox model dispatch
 
                                     NumericUpDown.create [
                                         NumericUpDown.minimum 1.0
@@ -214,7 +231,9 @@ module MainView =
                 ]
                 ProgressBar.create [
                     ProgressBar.dock Dock.Top
-                    (model.Duration - model.CurrentDuration) / model.Duration * 100.0
+                    (model.Duration - model.CurrentDuration)
+                    / model.Duration
+                    * 100.0
                     |> ProgressBar.value
                     match model.RandomDrawingState with
                     | RandomDrawingState.Running -> ProgressBar.isVisible true
