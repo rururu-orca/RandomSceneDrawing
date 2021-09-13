@@ -46,7 +46,11 @@ type MainWindow() as this =
         // Setup NotificationManager
         // To avoid the Airspace problem, host is configured with FloatingContent.floating.
         let notificationManager =
-            WindowNotificationManager(FloatingContent.floating, Position = NotificationPosition.BottomRight, MaxItems = 3)
+            WindowNotificationManager(
+                FloatingContent.floating,
+                Position = NotificationPosition.BottomRight,
+                MaxItems = 3
+            )
 
 #if DEBUG
         this.AttachDevTools()
@@ -56,7 +60,9 @@ type MainWindow() as this =
         Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd this notificationManager)
         |> Program.withHost this
         |> Program.withSubscription (Platform.subs this)
+#if DEBUG
         |> Program.withConsoleTrace
+#endif
         |> Program.run
 
 type App() =
