@@ -11,6 +11,8 @@ open Avalonia.FuncUI.Elmish
 
 open FSharpPlus
 
+open LibVLCSharp.Avalonia.FuncUI
+
 module Program =
     let mkProgramWithCmdMsg
         (init: unit -> 'model * 'cmdMsg list)
