@@ -7,8 +7,8 @@
   <ItemGroup>
     <Compile Include="Library\AvaloniaExtensions.fs" />
     <Compile Include="Library\VlcVideoView.fs" />
-    <Compile Include="Platform.fs" />
     <Compile Include="MainView.fs" />
+    <Compile Include="Platform.fs" />
     <Compile Include="Program.fs" />
     <AvaloniaResource Include="**\*.xaml" />
   </ItemGroup>

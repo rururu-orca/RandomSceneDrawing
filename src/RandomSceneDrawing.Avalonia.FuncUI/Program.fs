@@ -1,22 +1,15 @@
 namespace RandomSceneDrawing
 
-open System
-open FSharpPlus
-open LibVLCSharp.Shared
-open LibVLCSharp.Avalonia.FuncUI
 
-// Define a function to construct a message to print
-open Avalonia.FuncUI.DSL
-
-open Elmish
 open Avalonia
-open Avalonia.Controls.Notifications
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
-open Avalonia.FuncUI.Elmish
-open Avalonia.FuncUI.Components.Hosts
 open FluentAvalonia.Styling
 
+open Elmish
+open Avalonia.FuncUI.Elmish
+
+open FSharpPlus
 
 module Program =
     let mkProgramWithCmdMsg
@@ -30,54 +23,41 @@ module Program =
 
         Program.mkProgram (init >> convert) (fun msg model -> update msg model |> convert) view
 
-type MainWindow() as this =
-    inherit HostWindow(Title = "Random Pause  動画のシーンがランダムで表示されます", Height = 720.0, Width = 1280.0)
+type App() =
+    inherit Application()
 
-    do
-        // Setup LibVLC
-        Core.Initialize()
+    let applyFluentTheme (app: App) mainWindow =
+        let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)
+        app.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
+        app.Styles.Add fluentAvaloniaTheme
+        fluentAvaloniaTheme.ForceNativeTitleBarToTheme mainWindow
 
-        // Apply FluentAvalonia Theme to the title bar
-        let thm =
-            AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()
-
-        thm.ForceNativeTitleBarToTheme this
-
-        // Setup NotificationManager
-        // To avoid the Airspace problem, host is configured with FloatingContent.floating.
-        let notificationManager =
-            WindowNotificationManager(
-                FloatingContent.floating,
-                Position = NotificationPosition.BottomRight,
-                MaxItems = 3
-            )
-
-#if DEBUG
-        this.AttachDevTools()
-#endif
-
-        // Start mainloop
-        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd this notificationManager)
-        |> Program.withHost this
-        |> Program.withSubscription (Platform.subs this)
+    let startMainLoop (mainWindow: MainWindow) =
+        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd mainWindow)
+        |> Program.withHost mainWindow
+        |> Program.withSubscription (Platform.subs mainWindow)
 #if DEBUG
         |> Program.withConsoleTrace
 #endif
         |> Program.run
 
-type App() =
-    inherit Application()
+    let run (app: App) (desktopLifetime: IClassicDesktopStyleApplicationLifetime) =
+        LibVLCSharp.Shared.Core.Initialize()
 
-    override this.Initialize() =
-        // Apply Fluent Theme
-        this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
-        this.Styles.Add(FluentAvaloniaTheme(baseUri = null))
+        let mainWindow = MainWindow FloatingContent.floating
+#if DEBUG
+        mainWindow.AttachDevTools()
+#endif
+        desktopLifetime.MainWindow <- mainWindow
 
-        this.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
+        applyFluentTheme app mainWindow
+        app.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
+
+        startMainLoop mainWindow
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
-        | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime -> desktopLifetime.MainWindow <- MainWindow()
+        | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime -> run this desktopLifetime
         | _ -> ()
 
 module Main =

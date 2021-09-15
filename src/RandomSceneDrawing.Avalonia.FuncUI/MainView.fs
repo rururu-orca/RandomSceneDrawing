@@ -1,19 +1,19 @@
 namespace RandomSceneDrawing
 
 open System
+
 open Avalonia.Controls
-open Avalonia.Media
 open Avalonia.Controls.Shapes
 open Avalonia.Layout
-open Avalonia.FuncUI.DSL
-open Avalonia.FuncUI.Builder
-open Avalonia.FuncUI.Components
-open Avalonia.FuncUI.Elmish
-open RandomSceneDrawing.Types
-open RandomSceneDrawing.Program
+
 open LibVLCSharp.Avalonia.FuncUI
+
+open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Components
+
 open FSharpPlus
 
+open RandomSceneDrawing.Types
 
 module MainView =
     let mediaBlindVisibility =
@@ -223,3 +223,16 @@ module MainView =
                 ]
             ]
         ]
+
+open Avalonia.Controls.Notifications
+open Avalonia.FuncUI.Components.Hosts
+
+type MainWindow(floatingWindow) =
+    inherit HostWindow(Title = "Random Pause  動画のシーンがランダムで表示されます", Height = 720.0, Width = 1280.0)
+
+    // Setup NotificationManager
+    // To avoid the Airspace problem, host is configured with FloatingContent.floating.
+    let notificationManager =
+        WindowNotificationManager(floatingWindow, Position = NotificationPosition.BottomRight, MaxItems = 3)
+
+    member _.NotificationManager = notificationManager

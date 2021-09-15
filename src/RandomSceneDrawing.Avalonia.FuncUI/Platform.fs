@@ -2,35 +2,28 @@ module RandomSceneDrawing.Platform
 
 open System
 open System.IO
-open System.Text
 open System.Collections.Generic
-open FSharpPlus
-open LibVLCSharp.Shared
-open LibVLCSharp.Avalonia.FuncUI
-
-open Avalonia.FuncUI.DSL
-
-open Elmish
-open Avalonia
-open Avalonia.Controls
-open Avalonia.Controls.Notifications
-open Avalonia.Dialogs
-open Avalonia.Controls.ApplicationLifetimes
-open Avalonia.Themes.Fluent
-open Avalonia.FuncUI
-open Avalonia.FuncUI.Elmish
-open Avalonia.FuncUI.Components.Hosts
-open Avalonia.Media
-open Avalonia.Threading
-open RandomSceneDrawing.Types
-
-open FSharp.Control
-open FSharp.Control.Reactive
 
 open type System.Environment
 
+open Avalonia.Controls
+open Avalonia.Controls.Notifications
+open Avalonia.Threading
 
-let drawingDisporsables = Disposable.Composite
+open Elmish
+open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Components.Hosts
+
+open LibVLCSharp.Shared
+
+open FSharpPlus
+open FSharp.Control
+open FSharp.Control.Reactive
+
+open RandomSceneDrawing.Types
+
+
+let private drawingDisporsables = Disposable.Composite
 
 let setupTimer dispatch =
     DispatcherTimer.Run(
@@ -71,7 +64,6 @@ let selectPlayListFileAsync window =
 
         | _ -> return SelectPlayListFilePathCanceled
     }
-
 
 let selectSnapShotFolderAsync window =
     async {
@@ -151,8 +143,7 @@ let showErrorNotification (notificationManager: IManagedNotificationManager) inf
         return msg
     }
 
-
-let toCmd (window) (notificationManager: WindowNotificationManager) cmdMsg =
+let toCmd (window: MainWindow) cmdMsg =
 
     match cmdMsg with
     | Play player -> Cmd.OfAsyncImmediate.either (selectMediaAndPlayAsync window) player id PlayFailed
@@ -174,12 +165,12 @@ let toCmd (window) (notificationManager: WindowNotificationManager) cmdMsg =
         |> Cmd.OfAsyncImmediate.result
     | StartDrawing ->
         Notification("Start", "Start Drawing.", NotificationType.Information)
-        |> notificationManager.Show
+        |> window.NotificationManager.Show
 
         startTimer StartDrawingSuccess
-    | StopDrawing -> Cmd.OfFunc.result <| stopTimer StopDrawingSuccess
+    | StopDrawing -> stopTimer StopDrawingSuccess |> Cmd.OfFunc.result
     | ShowErrorInfomation message ->
-        showErrorNotification notificationManager message ShowErrorInfomationSuccess
+        showErrorNotification window.NotificationManager message ShowErrorInfomationSuccess
         |> Cmd.OfAsyncImmediate.result
 
 let onClosed (window: HostWindow) dispatch =
