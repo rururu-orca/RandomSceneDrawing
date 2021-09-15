@@ -92,12 +92,22 @@ module MainView =
                                     Button.onClick (fun _ -> dispatch RequestPlay)
                                 ]
                                 Button.create [
-                                    Button.content "Pause"
-                                    Button.onClick (fun _ -> dispatch RequestPause)
+                                    match model.PlayerState with
+                                    | Stopped ->
+                                        Button.content "Pause"
+                                        Button.isEnabled false
+                                    | Playing ->
+                                        Button.content "Pause"
+                                        Button.onClick (fun _ -> dispatch RequestPause)
+                                    | Paused ->
+                                        Button.content "Resume"
+                                        Button.onClick (fun _ -> dispatch RequestPause)
                                 ]
                                 Button.create [
                                     Button.content "Stop"
                                     Button.onClick (fun _ -> dispatch RequestStop)
+                                    if model.PlayerState = Stopped then
+                                        Button.isEnabled false
                                 ]
                             ]
                         ]
