@@ -159,7 +159,7 @@ let bindingsMapper (name, label) =
     | DecrementFramesCommand -> Binding.cmdIf (DecrementFrames 1, (requireGreaterThan1Frame >> mapCanExec))
     | DurationText ->
         Binding.twoWay ((fun m -> m.Duration.ToString @"mm\:ss"), (TimeSpan.Parse >> SetDuration))
-        >> Binding.withValidation requireDurationGreaterThan
+        >> Binding.addValidation requireDurationGreaterThan
     | IncrementDurationCommand -> Binding.cmd (TimeSpan.FromSeconds 10.0 |> IncrementDuration)
     | DecrementDurationCommand ->
         Binding.cmdIf (TimeSpan.FromSeconds 10.0 |> DecrementDuration, (requireDurationGreaterThan >> mapCanExec))
