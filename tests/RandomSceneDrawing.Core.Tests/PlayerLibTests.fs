@@ -37,9 +37,10 @@ let playerLibTests =
                  |> Path.Combine
 
              use player = PlayerLib.initPlayer ()
+             use subPlayer = PlayerLib.initPlayer ()
 
              do!
-                 PlayerLib.randomize player (Uri path)
+                 PlayerLib.randomize player subPlayer (Uri path)
                  |> Async.Ignore
 
              let media: Media = player.Media
@@ -61,9 +62,10 @@ let playerLibTests =
                  |]
 
              use player = PlayerLib.initPlayer ()
+             use subPlayer = PlayerLib.initPlayer ()
 
              do!
-                 PlayerLib.randomize player (Uri path)
+                 PlayerLib.randomize player subPlayer (Uri path)
                  |> Async.Ignore
 
              Expect.isSome

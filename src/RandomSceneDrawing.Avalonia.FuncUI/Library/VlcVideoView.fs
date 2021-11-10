@@ -244,6 +244,16 @@ type VideoView() as x =
             (fun (o: VideoView) v -> (o :> IVideoView).MediaPlayer <- v)
         )
 
+
+    member val HasFloating = false with get, set
+
+    static member HasFloatingProperty =
+        AvaloniaProperty.RegisterDirect(
+            nameof Unchecked.defaultof<VideoView>.HasFloating,
+            (fun (o: VideoView) -> o.HasFloating),
+            (fun (o: VideoView) v -> o.HasFloating <- v)
+        )
+
     static member VideoPanel() =
         [ VideoView.MediaPlayerProperty.Changed
           |> addClassHandler<VideoView, MediaPlayer> (fun s e -> s.InitMediaPlayer()) ]
@@ -264,7 +274,7 @@ type VideoView() as x =
         | _ -> ()
 
     override x.Render context =
-        if floatingDisposables.Count = 0 then
+        if x.HasFloating && floatingDisposables.Count = 0 then
             FloatingContent.showAtMe x
             |> Disposable.disposeWith floatingDisposables
 
@@ -293,3 +303,11 @@ module VideoView =
     let mediaPlayer<'t when 't :> VideoView> (player: MediaPlayer) : IAttr<'t> =
         AttrBuilder<'t>
             .CreateProperty<MediaPlayer>(VideoView.MediaPlayerProperty, player, ValueNone)
+
+    let hasFloating<'t when 't :> VideoView> (hasFloating: bool) : IAttr<'t> =
+        AttrBuilder<'t>
+            .CreateProperty<bool>(VideoView.HasFloatingProperty, hasFloating, ValueNone)
+
+    let opacity<'t when 't :> VideoView> (opacity: float) : IAttr<'t> =
+        AttrBuilder<'t>
+            .CreateProperty<float>(VideoView.OpacityProperty, opacity, ValueNone)

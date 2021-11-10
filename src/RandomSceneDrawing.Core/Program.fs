@@ -24,7 +24,8 @@ let init () =
     { Frames = config.Frames
       Duration = config.Duration
       Interval = config.Interval
-      Player = PlayerLib.initPlayer ()
+      Player = PlayerLib.initPlayer()
+      SubPlayer = PlayerLib.initPlayer()
       PlayerState = PlayerState.Stopped
       MediaDuration = TimeSpan.Zero
       MediaPosition = TimeSpan.Zero
@@ -136,7 +137,8 @@ let update msg m =
     | SelectSnapShotFolderPathFailed ex -> m, [ ShowErrorInfomation ex.Message ]
 
     // Random Drawing
-    | RequestRandomize (_) -> { m with RandomizeState = Running }, [ Randomize(m.Player, m.PlayListFilePath) ]
+    | RequestRandomize (_) ->
+        { m with RandomizeState = Running }, [ Randomize(m.Player, m.SubPlayer, m.PlayListFilePath) ]
     | RandomizeSuccess (_) ->
         { m with
               Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
@@ -154,7 +156,7 @@ let update msg m =
         | :? TimeoutException ->
             { m with PlayerState = Stopped },
             [ Stop m.Player
-              Randomize(m.Player, m.PlayListFilePath) ]
+              Randomize(m.Player, m.SubPlayer, m.PlayListFilePath) ]
         | PlayFailedException (str) ->
             { m with RandomizeState = Waiting },
             [ ShowErrorInfomation str
@@ -174,7 +176,7 @@ let update msg m =
               CurrentDuration = m.Interval
               RandomDrawingState = Interval
               RandomizeState = Running },
-        [ Randomize(m.Player, m.PlayListFilePath) ]
+        [ Randomize(m.Player, m.SubPlayer, m.PlayListFilePath) ]
     | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
     | StartDrawingFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | StopDrawingSuccess ->
@@ -211,7 +213,7 @@ let update msg m =
                   CurrentFrames = m.CurrentFrames + 1
                   CurrentDuration = m.Interval },
             [ (m.Player, getSnapShotPath m) |> TakeSnapshot
-              Randomize(m.Player, m.PlayListFilePath) ]
+              Randomize(m.Player, m.SubPlayer, m.PlayListFilePath) ]
         | RandomDrawingFinished ->
             { m with
                   CurrentDuration = TimeSpan.Zero },
