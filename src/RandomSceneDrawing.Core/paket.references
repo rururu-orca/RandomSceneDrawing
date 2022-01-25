@@ -3,6 +3,7 @@ LibVLCSharp
 Serilog.Extensions.Logging
 Serilog.Sinks.Console
 FsToolkit.ErrorHandling
+FsToolkit.ErrorHandling.TaskResult
 FSharp.Control.AsyncSeq
 FSharpPlus
 FSharp.Configuration

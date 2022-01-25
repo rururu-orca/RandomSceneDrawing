@@ -150,7 +150,11 @@ let toCmd (window: MainWindow) cmdMsg =
     | Pause player ->
         Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
     | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
-    | Randomize (player, subPlayer, pl) -> Cmd.OfAsyncImmediate.either (PlayerLib.randomize player subPlayer) (Uri pl) id RandomizeFailed
+    | Randomize (player, subPlayer, pl) ->
+        let randomize pl =
+            PlayerLib.randomize player subPlayer pl
+            |> Async.AwaitTask
+        Cmd.OfAsyncImmediate.either randomize (Uri pl) id RandomizeFailed
     | SelectPlayListFilePath ->
         Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id SelectPlayListFilePathFailed
     | SelectSnapShotFolderPath ->

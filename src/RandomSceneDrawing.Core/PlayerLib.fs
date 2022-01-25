@@ -8,17 +8,11 @@ open FSharp.Control
 open FSharpPlus
 open System.Threading.Tasks
 
-
-type AsyncBuilder with
-
-    member x.Bind(t: Task<'T>, f: 'T -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
-    member x.Bind(t: Task, f: unit -> Async<'R>) : Async<'R> = async.Bind(Async.AwaitTask t, f)
-
 let initialize () = Core.Initialize()
 
 let libVLC =
 #if DEBUG
-    new LibVLC("--verbose=2")
+    new LibVLC("--verbose=2", "--no-snapshot-preview", "--no-audio")
 #else
     new LibVLC(false)
 #endif
@@ -28,19 +22,17 @@ let initPlayer () =
         libVLC,
         FileCaching = 500u,
         NetworkCaching = 500u,
-        EnableHardwareDecoding = true,
-        Mute = true,
-        Volume = 0
+        EnableHardwareDecoding = true
     )
 
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
 let loadPlayList source =
-    async {
+    task {
         let playList = new Media(libVLC, uri = source)
 
-        do! playList.Parse MediaParseOptions.ParseNetwork
+        let! _ = playList.Parse MediaParseOptions.ParseNetwork
 
         return playList
     }
@@ -144,88 +136,39 @@ let stopAsync (player: MediaPlayer) onSuccess =
         return onSuccess
     }
 
-open System.Collections.Generic
-open System.Threading
-
-let private initThumbnailDisposableDic = new Dictionary<int, IDisposable>()
-
 let subscribeThumbnailPlayer (time: TimeSpan) (player: MediaPlayer) (media: Media) =
     let offSet = 1250L
+    let repeatTime = 1000
+
+    let toSec mSec = float mSec / 1000.0
 
     let startTime =
-        if time.TotalMilliseconds < float offSet then
-            0L
-        else
-            int64 time.TotalMilliseconds - offSet
+        int64 time.TotalMilliseconds - offSet
+        |> max 0L
+        |> toSec
 
     let endTime =
-        if float media.Duration - time.TotalMilliseconds < float offSet then
-            media.Duration
-        else
-            int64 time.TotalMilliseconds + offSet
+        int64 time.TotalMilliseconds + offSet
+        |> min media.Duration
+        |> toSec
 
-    player.Time <- startTime
+    media.AddOption $":repeat"
+    media.AddOption ":no-play-and-pause"
+    media.AddOption $":start-time={startTime}"
+    media.AddOption $":stop-time={endTime}"
+    media.AddOption $":input-repeat={repeatTime}"
 
-    initThumbnailDisposableDic.Add(
-        player.GetHashCode(),
-        player.TimeChanged
-        |> Observable.subscribe
-            (fun e ->
-                fun _ ->
-                    if e.Time > endTime then
-                        player.SetPause false
-                        Threading.Thread.Sleep(TimeSpan.FromSeconds(1.0))
-                        player.Time <- startTime
-                        player.Play() |> ignore
-                |> ThreadPool.QueueUserWorkItem
-                |> ignore)
-    )
-
-let unsubscribeThumbnailPlayer (player: MediaPlayer) =
-    match initThumbnailDisposableDic.TryGetValue(player.GetHashCode()) with
-    | true, disposable ->
-        disposable.Dispose()
-        player.Stop()
-
-        initThumbnailDisposableDic.Remove(player.GetHashCode())
-        |> ignore
-    | _ -> ()
-
-let private playAndSeekAsync (media: Media) (player: MediaPlayer) milliSec =
-    async {
-        player.Play media |> ignore
-
-        do! pauseAsync player ()
-
-        player.Mute <- true
-        player.SetAudioTrack -1 |> ignore
-
-        player.Time <- milliSec
-
-        do! resumeAsync player ()
-
-
-        do! Async.Sleep 100 |> Async.Ignore
-
-        if player.State = VLCState.Buffering then
-            do!
-                player.Media.StateChanged
-                |> Async.AwaitEvent
-                |> Async.Ignore
-    }
-
-
+    playAsync player () media
 
 let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) =
-    async {
-        if player.IsPlaying then
-            do! Async.Sleep 100 |> Async.Ignore
-            do! stopAsync player ()
+    taskResult {
+        for p in [player;subPlayer] do
+            if p.IsPlaying then
+                do! stopAsync p ()        
 
-        unsubscribeThumbnailPlayer subPlayer
         subPlayer.SetRate 0.5f |> ignore
-        subPlayer.FileCaching <- 4000u
-        subPlayer.NetworkCaching <- 4000u
+        subPlayer.FileCaching <- 1500u
+        subPlayer.NetworkCaching <- 1500u
 
 
         let random = Random()
@@ -236,48 +179,32 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
             playList.SubItems
             |> Seq.item (random.Next playList.SubItems.Count)
 
-        do! media.Parse MediaParseOptions.ParseNetwork
+        let! _ = media.Parse MediaParseOptions.ParseNetwork
+        let media' = media.Duplicate()
+
 
         let rTime =
             random.Next(1000, int media.Duration - 3000)
             |> int64
 
-        match!
-            Async.StartChild(playAsync player () media, 1000)
-            |> Async.join
-            with
-        | Ok _ ->
-            let! subPlayerInitOp =
-                let media' = Uri media.Mrl |> getMediaFromUri
+        media.AddOption ":play-and-pause"
+        media.AddOption $":start-time={float (rTime - 1250L) / 1000.0}"
+        media.AddOption $":stop-time={float rTime / 1000.0}"
 
-                playAndSeekAsync media' subPlayer rTime
-                |> Async.StartChild
+        do! playAsync player () media
+        do! Async.Sleep 100 |> Async.Ignore
+        do! subscribeThumbnailPlayer (TimeSpan.FromMilliseconds(float rTime)) subPlayer media'
 
-            player.Mute <- true
-            player.SetAudioTrack -1 |> ignore
-
-            do! pauseAsync player ()
-
-            player.Time <- rTime
-            do! resumeAsync player ()
-
-            do! Async.Sleep 100 |> Async.Ignore
-
-            if player.State = VLCState.Buffering then
-                do!
-                    player.Media.StateChanged
-                    |> Async.AwaitEvent
-                    |> Async.Ignore
-
-            do! Async.Sleep 1500 |> Async.Ignore
-
-
-            do! subPlayerInitOp
-            subscribeThumbnailPlayer (TimeSpan.FromMilliseconds(float rTime)) subPlayer media
-
-            return RandomizeSuccess
-        | Error ex -> return RandomizeFailed ex
+        if player.State = VLCState.Buffering then
+            do!
+                player.Media.StateChanged
+                |> Async.AwaitEvent
+                |> Async.Ignore
+        
+        do! Async.Sleep 1500 |> Async.Ignore
+        return RandomizeSuccess
     }
+    |> TaskResult.foldResult id RandomizeFailed
 
 
 let getSize (player: MediaPlayer) num =

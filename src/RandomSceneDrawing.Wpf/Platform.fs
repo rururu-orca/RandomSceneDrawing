@@ -144,13 +144,10 @@ let toCmd hwnd =
     | SelectSnapShotFolderPath -> Cmd.OfAsync.either selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
     | Randomize (player, subPlayer, pl) ->
-        let op () =
-            async {
-                let! msg = PlayerLib.randomize player subPlayer (Uri pl)
-                return msg
-            }
-
-        Cmd.OfAsyncImmediate.either op () id RandomizeFailed
+        let randomize pl =
+            PlayerLib.randomize player subPlayer pl
+            |> Async.AwaitTask
+        Cmd.OfAsyncImmediate.either randomize (Uri pl) id RandomizeFailed
 
     // Cmd.OfAsyncImmediate.either (PlayerLib.randomize player subPlayer) (Uri pl) id RandomizeFailed
     | StartDrawing -> Cmd.OfAsync.either startTimer StartDrawingSuccess id StartDrawingFailed
