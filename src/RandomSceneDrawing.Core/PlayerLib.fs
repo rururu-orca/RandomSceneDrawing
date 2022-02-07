@@ -16,7 +16,7 @@ let settings =
     {| randomize =
         {| min = 1000
            maxOffset = 3000
-           SleepTime = {| onPlay = 100; onComplated = 1500 |} |}
+           SleepTime = {| onPlay = 500; onComplated = 1500 |} |}
        repeat =
         {| offset = 1250L
            time = 1000
@@ -27,17 +27,28 @@ let settings =
 let initialize () = Core.Initialize()
 
 let libVLC =
+    let options = [|
 #if DEBUG
-    new LibVLC("--verbose=2", "--no-snapshot-preview", "--no-audio")
-#else
-    new LibVLC("--no-snapshot-preview", "--no-audio")
+        "-vvv"
 #endif
+        "--no-snapshot-preview"
+        "--audio-time-stretch"
+        "--no-audio"
+        "--aout=none"
+        "--no-drop-late-frames"
+        "--no-skip-frames"
+        "--avcodec-skip-frame"
+        "--avcodec-hw=any"
+    |]
+    new LibVLC(options)
 
 let initPlayer () =
-    new MediaPlayer(libVLC, FileCaching = 500u, NetworkCaching = 500u, EnableHardwareDecoding = true)
+    new MediaPlayer(libVLC, EnableHardwareDecoding = true)
 
 let initSubPlayer () =
-    new MediaPlayer(libVLC, FileCaching = 500u, NetworkCaching = 500u, EnableHardwareDecoding = true)
+    let caching = uint settings.repeat.offset * 2u
+
+    new MediaPlayer(libVLC, FileCaching = caching, NetworkCaching = caching, EnableHardwareDecoding = true)
     |> tap (fun p -> p.SetRate settings.repeat.rate |> ignore)
 
 
@@ -161,8 +172,7 @@ let subscribeThumbnailPlayer (time: TimeSpan) (player: MediaPlayer) (media: Medi
         |> min media.Duration
         |> toSecf
 
-    media.AddOption $":repeat"
-    media.AddOption ":no-play-and-pause"
+    media.AddOption ":no-start-paused"
     media.AddOption $":start-time={startTime}"
     media.AddOption $":stop-time={endTime}"
     media.AddOption $":input-repeat={repeatTime}"
@@ -183,16 +193,17 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
             |> Seq.item (random.Next playList.SubItems.Count)
 
         let! _ = media.Parse MediaParseOptions.ParseNetwork
-        let media' = media.Duplicate()
+        media.AddOption ":clock-jitter=0"
+        media.AddOption ":clock-synchro=0"
 
+        let media' = media.Duplicate()
 
         let rTime =
             random.Next(settings.randomize.min, int media.Duration - settings.randomize.maxOffset)
             |> int64
 
-        media.AddOption ":play-and-pause"
-        media.AddOption $":start-time={rTime - settings.repeat.offset |> toSecf}"
-        media.AddOption $":stop-time={rTime |> toSecf}"
+        media.AddOption ":start-paused"
+        media.AddOption $":start-time={rTime |> toSecf}"
 
         do! playAsync player () media
 

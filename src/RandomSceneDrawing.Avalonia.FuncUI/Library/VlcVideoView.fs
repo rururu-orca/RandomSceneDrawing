@@ -28,7 +28,7 @@ module Util =
         |> Disposable.disposeWith disposables
 
     let inline addClassHandler< ^T, ^U when ^T :> AvaloniaObject>
-        ([<InlineIfLambda>]action)
+        ([<InlineIfLambda>] action)
         (observable: IObservable<AvaloniaPropertyChangedEventArgs< ^U >>)
         =
         observable
@@ -149,11 +149,8 @@ type private VlcNativePresenter() =
     let mutable platformHandle = Option<IPlatformHandle>.None
 
     override x.CreateNativeControlCore(parent) =
-        platformHandle <-
-            base.CreateNativeControlCore parent
-            |> Option.ofObj
-
-        Option.toObj platformHandle
+        base.CreateNativeControlCore parent
+        |> tap (fun handle -> platformHandle <- Some handle)
 
     override x.DestroyNativeControlCore(control) =
         platformHandle <- None

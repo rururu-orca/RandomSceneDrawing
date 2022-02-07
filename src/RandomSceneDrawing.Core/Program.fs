@@ -150,7 +150,7 @@ let update msg m =
                     WaitBuffering
             MediaPosition = (float m.Player.Time |> TimeSpan.FromMilliseconds)
             MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
-        [ Pause m.Player ]
+        []
     | RandomizeFailed ex ->
         match ex with
         | :? TimeoutException ->
