@@ -162,6 +162,10 @@ let toCmd (window: MainWindow) cmdMsg =
     | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
     | TakeSnapshot (player, path) ->
         async {
+            do!
+                Text.RegularExpressions.Regex.Replace(path,"png","mp4")
+                |> PlayerLib.copySubVideo
+                |> Async.AwaitTask
             match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with
             | Some path -> return TakeSnapshotSuccess
             | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")

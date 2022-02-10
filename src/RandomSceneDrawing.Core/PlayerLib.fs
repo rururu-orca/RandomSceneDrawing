@@ -21,6 +21,16 @@ let tempSavePath = $"{Path.GetTempPath()}/RandomSceneDrawing"
 if not (Directory.Exists tempSavePath) then
     Directory.CreateDirectory tempSavePath |> ignore
 
+let tempVideo = "trimed.mp4"
+let tempVideo' = "trimed_sub.mp4"
+
+/// 一時ファイル名
+let destination =
+    $"{tempSavePath}/{tempVideo}"
+
+let destination' =
+    $"{tempSavePath}/{tempVideo'}"
+
 let initialize () = Core.Initialize()
 
 let libVLC =
@@ -189,13 +199,6 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
             |> min media.Duration
             |> toSecf
 
-        /// 一時ファイル名
-        let destination =
-            $"{tempSavePath}/trimed.mp4"
-
-        let destination' =
-            $"{tempSavePath}/trimed_sub.mp4"
-
         let runFFmpeg args =
             task {
                 let args' = String.concat " " args
@@ -290,4 +293,9 @@ let takeSnapshot sizefn num path =
             return! Some path
         else
             return! None
+    }
+
+let copySubVideo dest =
+    task {
+        File.Copy(destination', dest)
     }
