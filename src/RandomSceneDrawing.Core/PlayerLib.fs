@@ -1,11 +1,13 @@
 module RandomSceneDrawing.PlayerLib
 
 open System
+open System.IO
 open System.Diagnostics
 open Cysharp.Diagnostics
 open LibVLCSharp.Shared
 open FsToolkit.ErrorHandling
 open Types
+open Util
 open FSharp.Control
 open FSharpPlus
 open System.Threading.Tasks
@@ -14,23 +16,10 @@ open System.Threading.Tasks
 module Helper =
     let toSecf mSec = float mSec / 1000.0
 
-let settings =
-    let USERPROFILE = Environment.GetEnvironmentVariable "USERPROFILE"
 
-    {| convert =
-        {| ffmpegPath = $"ffmpeg"
-           width = 300 |}
-       randomize =
-        {| min = 1000
-           maxOffset = 3000
-           SleepTime = {| onPlay = 50; onComplated = 500 |} |}
-       repeat =
-        {| offset = 1250L
-           time = 1000
-           rate = 0.5f |}
-       playFailedMsg = fun mediaInfo -> $"{mediaInfo} の再生に失敗しました。"
-       tempfilePath = $"{USERPROFILE}/Videos" |}
-
+let tempSavePath = $"{Path.GetTempPath()}/RandomSceneDrawing"
+if not (Directory.Exists tempSavePath) then
+    Directory.CreateDirectory tempSavePath |> ignore
 
 let initialize () = Core.Initialize()
 
@@ -55,10 +44,10 @@ let initPlayer () =
     new MediaPlayer(libVLC, EnableHardwareDecoding = true)
 
 let initSubPlayer () =
-    let caching = uint settings.repeat.offset * 2u
+    let caching = uint config.SubPlayer.RepeatDuration
 
     new MediaPlayer(libVLC, FileCaching = caching, NetworkCaching = caching, EnableHardwareDecoding = true)
-    |> tap (fun p -> p.SetRate settings.repeat.rate |> ignore)
+    |> tap (fun p -> float32 config.SubPlayer.Rate |> p.SetRate |> ignore)
 
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
@@ -109,7 +98,8 @@ let (|AlreadyBufferingCompleted|_|) (m, msg) =
 
 let playAsync (player: MediaPlayer) onSuccess (media: Media) =
     async {
-        let msg = settings.playFailedMsg media.Mrl
+
+        let msg = String.Format(config.PlayerLib.PlayFailedMsg , media.Mrl)
 
         let result =
             media
@@ -186,28 +176,30 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
         let! _ = media.Parse MediaParseOptions.ParseNetwork
         media.AddOption ":no-audio"
 
-        let rTime =
-            random.Next(settings.randomize.min, int media.Duration - settings.randomize.maxOffset)
+        let randomizeTime =
+            random.Next(config.Randomize.MinStartMsec, int media.Duration - config.Randomize.MaxEndMsec)
             |> int64
+        
+        let repeatOffset = int64 config.SubPlayer.RepeatDuration / 2L
 
-        let startTime = rTime - settings.repeat.offset |> max 0L |> toSecf
+        let startTime = randomizeTime - repeatOffset |> max 0L |> toSecf
 
         let endTime =
-            rTime + settings.repeat.offset
+            randomizeTime + repeatOffset
             |> min media.Duration
             |> toSecf
 
         /// 一時ファイル名
         let destination =
-            $"{settings.tempfilePath}/trimed.mp4"
+            $"{tempSavePath}/trimed.mp4"
 
         let destination' =
-            $"{settings.tempfilePath}/trimed_sub.mp4"
+            $"{tempSavePath}/trimed_sub.mp4"
 
         let runFFmpeg args =
             task {
                 let args' = String.concat " " args
-                let startInfo = ProcessStartInfo(settings.convert.ffmpegPath, Arguments = args')
+                let startInfo = ProcessStartInfo(config.PlayerLib.FFmpegPath, Arguments = args')
 
                 try
                     let struct (_, stdout, stderr) = ProcessX.GetDualAsyncEnumerable(startInfo)
@@ -241,7 +233,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
         do!
             [ "-loglevel warning -y -hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
               $"-ss %.3f{startTime} -to %.3f{endTime} -i \"{path}\""
-              $"-vf \"hwupload,libplacebo={settings.convert.width}:-1:p010le,hwupload_cuda\""
+              $"-vf \"hwupload,libplacebo={config.SubPlayer.Width}:-1:p010le,hwupload_cuda\""
               $" -c:v hevc_nvenc -c:a copy \"{destination'}\"" ]
             |> runFFmpeg
 
@@ -262,11 +254,10 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
         media'.AddOption ":no-start-paused"
         media'.AddOption ":clock-jitter=0"
         media'.AddOption ":clock-synchro=0"
-        media'.AddOption $":input-repeat={settings.repeat.time}"
+        media'.AddOption $":input-repeat=65535"
         do! playAsync subPlayer () media'
-
         do!
-            Async.Sleep settings.randomize.SleepTime.onPlay
+            Async.Sleep 50
             |> Async.Ignore
 
         if player.State = VLCState.Buffering then
@@ -275,7 +266,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
                 |> Async.AwaitEvent
                 |> Async.Ignore
         do!
-            Async.Sleep settings.randomize.SleepTime.onComplated
+            Async.Sleep 50
             |> Async.Ignore
 
         return RandomizeSuccess

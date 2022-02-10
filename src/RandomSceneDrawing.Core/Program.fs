@@ -2,25 +2,12 @@
 
 open System
 open System.IO
-open FSharp.Configuration
 open Types
+open Util
 open RandomSceneDrawing
 open FSharpPlus
 
-type Config = YamlConfig<"Config.yaml">
-
-let changedConfigPath =
-    Path.Combine [|
-        AppDomain.CurrentDomain.BaseDirectory
-        "ChangedConfig.yaml"
-    |]
-
-let config = Config()
-
 let init () =
-    if File.Exists changedConfigPath then
-        config.Load changedConfigPath
-
     { Frames = config.Frames
       Duration = config.Duration
       Interval = config.Interval
