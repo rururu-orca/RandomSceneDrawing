@@ -1,4 +1,4 @@
-module RandomSceneDrawing.Program
+﻿module RandomSceneDrawing.Program
 
 open System
 open System.IO
@@ -26,7 +26,7 @@ let init () =
       Interval = config.Interval
       Player = PlayerLib.initPlayer ()
       SubPlayer = PlayerLib.initSubPlayer ()
-      PlayerState = PlayerState.Stopped
+      PlayerState = Stopped
       MediaDuration = TimeSpan.Zero
       MediaPosition = TimeSpan.Zero
       PlayerBufferCache = 0.0f
