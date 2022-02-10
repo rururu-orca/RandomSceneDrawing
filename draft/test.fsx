@@ -1,12 +1,34 @@
 #r "nuget: FSharpPlus"
-#r "nuget: ProcessX, 1.3.0"
-#r "nuget: FSharp.Control.AsyncSeq, 3.0.5"
+#r "nuget: ProcessX"
+#r "nuget: FSharp.Control.AsyncSeq"
 
 open FSharpPlus
 open FSharp.Control
 open Cysharp.Diagnostics
 open System
 open System.IO
+
+
+task {
+    let USERPROFILE = Environment.GetEnvironmentVariable "USERPROFILE"
+    let input = $"{USERPROFILE}/temp/imascgstage.exe/output22.mp4"
+    let output = "output.mp4"
+    let width = 300
+    let startTime = 20000
+    let dur = 5000
+    let args = 
+        [
+            "ffmpeg"
+            "-hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
+            $"-ss {startTime}ms -i {input} -t {dur}ms"
+            $"-vf \"hwupload,libplacebo={width}:-1:p010le,hwupload_cuda\""
+            $" -c:v hevc_nvenc -c:a copy {output}"
+        ]
+        |> String.concat " "
+    do! ProcessX.StartAsync(args).WriteLineAllAsync()
+}
+|> Async.AwaitTask
+|> Async.RunSynchronously
 
 ProcessX.StartAsync
     "powershell -nop -NonInteractive -c Get-PnpDevice -InstanceId *1C14A083-0001-1010-8000-0025DCDF3531 | Get-PnpDeviceProperty DEVPKEY_Device_LocationInfo | % Data"
