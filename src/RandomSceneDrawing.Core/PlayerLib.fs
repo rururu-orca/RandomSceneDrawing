@@ -1,6 +1,8 @@
 module RandomSceneDrawing.PlayerLib
 
 open System
+open System.Diagnostics
+open Cysharp.Diagnostics
 open LibVLCSharp.Shared
 open FsToolkit.ErrorHandling
 open Types
@@ -13,33 +15,40 @@ module Helper =
     let toSecf mSec = float mSec / 1000.0
 
 let settings =
-    {| randomize =
+    let USERPROFILE = Environment.GetEnvironmentVariable "USERPROFILE"
+
+    {| convert =
+        {| ffmpegPath = $"ffmpeg"
+           width = 300 |}
+       randomize =
         {| min = 1000
            maxOffset = 3000
-           SleepTime = {| onPlay = 500; onComplated = 1500 |} |}
+           SleepTime = {| onPlay = 50; onComplated = 500 |} |}
        repeat =
         {| offset = 1250L
            time = 1000
            rate = 0.5f |}
-       playFailedMsg = fun mediaInfo -> $"{mediaInfo} の再生に失敗しました。" |}
+       playFailedMsg = fun mediaInfo -> $"{mediaInfo} の再生に失敗しました。"
+       tempfilePath = $"{USERPROFILE}/Videos" |}
 
 
 let initialize () = Core.Initialize()
 
 let libVLC =
-    let options = [|
+    let options =
+        [|
 #if DEBUG
-        "-vvv"
+           "-vvv"
 #endif
-        "--no-snapshot-preview"
-        "--audio-time-stretch"
-        "--no-audio"
-        "--aout=none"
-        "--no-drop-late-frames"
-        "--no-skip-frames"
-        "--avcodec-skip-frame"
-        "--avcodec-hw=any"
-    |]
+           "--no-snapshot-preview"
+           "--audio-time-stretch"
+           "--no-audio"
+           "--aout=none"
+           "--no-drop-late-frames"
+           "--no-skip-frames"
+           "--avcodec-skip-frame"
+           "--avcodec-hw=any" |]
+
     new LibVLC(options)
 
 let initPlayer () =
@@ -158,32 +167,14 @@ let stopAsync (player: MediaPlayer) onSuccess =
         return onSuccess
     }
 
-let subscribeThumbnailPlayer (time: TimeSpan) (player: MediaPlayer) (media: Media) =
-    let offSet = settings.repeat.offset
-    let repeatTime = settings.repeat.time
-
-    let startTime =
-        int64 time.TotalMilliseconds - offSet
-        |> max 0L
-        |> toSecf
-
-    let endTime =
-        int64 time.TotalMilliseconds + offSet
-        |> min media.Duration
-        |> toSecf
-
-    media.AddOption ":no-start-paused"
-    media.AddOption $":start-time={startTime}"
-    media.AddOption $":stop-time={endTime}"
-    media.AddOption $":input-repeat={repeatTime}"
-
-    playAsync player () media
 
 let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) =
     taskResult {
+        // すでに再生済みなら停止
         for p in [ player; subPlayer ] do
             if p.IsPlaying then do! stopAsync p ()
 
+        // 再生動画、時間を設定
         let random = Random()
 
         let! playList = loadPlayList playListUri
@@ -193,32 +184,96 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
             |> Seq.item (random.Next playList.SubItems.Count)
 
         let! _ = media.Parse MediaParseOptions.ParseNetwork
-        media.AddOption ":clock-jitter=0"
-        media.AddOption ":clock-synchro=0"
-
-        let media' = media.Duplicate()
+        media.AddOption ":no-audio"
 
         let rTime =
             random.Next(settings.randomize.min, int media.Duration - settings.randomize.maxOffset)
             |> int64
 
-        media.AddOption ":start-paused"
-        media.AddOption $":start-time={rTime |> toSecf}"
+        let startTime = rTime - settings.repeat.offset |> max 0L |> toSecf
 
+        let endTime =
+            rTime + settings.repeat.offset
+            |> min media.Duration
+            |> toSecf
+
+        /// 一時ファイル名
+        let destination =
+            $"{settings.tempfilePath}/trimed.mp4"
+
+        let destination' =
+            $"{settings.tempfilePath}/trimed_sub.mp4"
+
+        let runFFmpeg args =
+            task {
+                let args' = String.concat " " args
+                let startInfo = ProcessStartInfo(settings.convert.ffmpegPath, Arguments = args')
+
+                try
+                    let struct (_, stdout, stderr) = ProcessX.GetDualAsyncEnumerable(startInfo)
+
+                    do!
+                        [| stdout.WriteLineAllAsync()
+                           stderr.WriteLineAllAsync() |]
+                        |> Task.WhenAll
+
+                    return Ok()
+                with
+                | :? ProcessErrorException as ex ->
+                    let msg = $"%A{ex.ErrorOutput}"
+                    return (exn( msg , ex) |>Error)
+            }
+
+        // キャプチャ設定
+        let mrl = Uri(media.Mrl)
+
+        let path =
+            if mrl.IsFile then
+                mrl.LocalPath
+            else
+                mrl.AbsoluteUri
+
+        // 録画実行
+        do!
+            [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -i \"{path}\" -c copy \"{destination}\"" ]
+            |> runFFmpeg
+
+        do!
+            [ "-loglevel warning -y -hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
+              $"-ss %.3f{startTime} -to %.3f{endTime} -i \"{path}\""
+              $"-vf \"hwupload,libplacebo={settings.convert.width}:-1:p010le,hwupload_cuda\""
+              $" -c:v hevc_nvenc -c:a copy \"{destination'}\"" ]
+            |> runFFmpeg
+
+        /// 生成した一時ファイルのMedia
+        let media = new Media(libVLC, destination, FromType.FromPath)
+        /// サブプレイヤー用一時ファイル
+        let media' = new Media(libVLC, destination', FromType.FromPath)
+
+        // メインプレイヤーの設定、再生
+        media.AddOption ":start-paused"
+        media.AddOption ":clock-jitter=0"
+        media.AddOption ":clock-synchro=0"
+        let time = Math.Round((endTime - startTime) / 2.0, 2)
+        media.AddOption $":start-time=%.2f{time}"
         do! playAsync player () media
+
+        // サブプレイヤーの設定、再生
+        media'.AddOption ":no-start-paused"
+        media'.AddOption ":clock-jitter=0"
+        media'.AddOption ":clock-synchro=0"
+        media'.AddOption $":input-repeat={settings.repeat.time}"
+        do! playAsync subPlayer () media'
 
         do!
             Async.Sleep settings.randomize.SleepTime.onPlay
             |> Async.Ignore
-
-        do! subscribeThumbnailPlayer (TimeSpan.FromMilliseconds(float rTime)) subPlayer media'
 
         if player.State = VLCState.Buffering then
             do!
                 player.Media.StateChanged
                 |> Async.AwaitEvent
                 |> Async.Ignore
-
         do!
             Async.Sleep settings.randomize.SleepTime.onComplated
             |> Async.Ignore
