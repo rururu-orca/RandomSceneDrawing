@@ -1,4 +1,4 @@
-﻿module RandomSceneDrawing.Program
+module RandomSceneDrawing.Program
 
 open System
 open System.IO
@@ -104,7 +104,7 @@ let update msg m =
     | RequestPause -> m, [ Pause m.Player ]
     | PauseSuccess state -> { m with PlayerState = state }, []
     | PauseFailed ex -> m, [ ShowErrorInfomation ex.Message ]
-    | RequestStop -> m, [ Stop m.Player ]
+    | RequestStop -> m, [ Stop m.Player;Stop m.SubPlayer ]
     | StopSuccess -> { m with PlayerState = Stopped }, []
     | StopFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | PlayerTimeChanged time -> { m with MediaPosition = time }, []
