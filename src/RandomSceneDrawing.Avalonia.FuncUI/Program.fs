@@ -32,7 +32,7 @@ type App() =
         let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)
         app.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
         app.Styles.Add fluentAvaloniaTheme
-        fluentAvaloniaTheme.ForceNativeTitleBarToTheme mainWindow
+        fluentAvaloniaTheme.ForceWin32WindowToTheme mainWindow
 
     let startMainLoop (mainWindow: MainWindow) =
         Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd mainWindow)

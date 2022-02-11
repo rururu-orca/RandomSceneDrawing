@@ -2,16 +2,12 @@ namespace LibVLCSharp.Avalonia.FuncUI
 
 open Avalonia
 open Avalonia.Controls
-open Avalonia.Controls.Templates
-open Avalonia.Controls.Presenters
 open Avalonia.Controls.Primitives
 open Avalonia.Media
 open Avalonia.Layout
 open Avalonia.VisualTree
 open Avalonia.Platform
 open Avalonia.Threading
-open Avalonia.Styling
-open System
 open System
 open System.Collections.Generic
 open FSharpPlus
@@ -32,15 +28,14 @@ module Util =
         |> Disposable.disposeWith disposables
 
     let inline addClassHandler< ^T, ^U when ^T :> AvaloniaObject>
-        action
+        ([<InlineIfLambda>] action)
         (observable: IObservable<AvaloniaPropertyChangedEventArgs< ^U >>)
         =
         observable
-        |> Observable.subscribe
-            (fun e ->
-                match e.Sender with
-                | :? ^T as target -> action target e
-                | _ -> ())
+        |> Observable.subscribe (fun e ->
+            match e.Sender with
+            | :? ^T as target -> action target e
+            | _ -> ())
 
     let findNameScope<'T when 'T: not struct> name (namescope: INameScope) =
         try
@@ -82,39 +77,33 @@ module FloatingContent =
 
     let fitWindowPosition (floating: Window) (owner: ContentControl) =
         floating.GetVisualDescendants()
-        |> Seq.tryPick
-            (function
+        |> Seq.tryPick (function
             | :? VisualLayerManager as m -> Some m
             | _ -> None)
-        |> Option.map
-            (fun manager ->
-                let getLeft' = Some(getLeft owner manager)
-                let getTop' = Some(getTop owner manager)
+        |> Option.iter (fun manager ->
+            let getLeft' = Some(getLeft owner manager)
+            let getTop' = Some(getTop owner manager)
 
-                let newValues =
-                    match manager.HorizontalAlignment, manager.VerticalAlignment with
-                    | (HorizontalAlignment.Stretch, VerticalAlignment.Stretch) ->
-                        SizeToContent.Manual, owner.Bounds.Width, owner.Bounds.Height, getPoint None None
-                    | (HorizontalAlignment.Stretch, _) ->
-                        SizeToContent.Width, owner.Bounds.Width, Double.NaN, getPoint None getLeft'
-                    | (_, VerticalAlignment.Stretch) ->
-                        SizeToContent.Height, Double.NaN, owner.Bounds.Height, getPoint getTop' None
-                    | (_, _) -> SizeToContent.Manual, Double.NaN, Double.NaN, getPoint getLeft' getTop'
+            let newSizeToContent, newWidth, newHeight, newPoint =
+                match manager.HorizontalAlignment, manager.VerticalAlignment with
+                | (HorizontalAlignment.Stretch, VerticalAlignment.Stretch) ->
+                    SizeToContent.Manual, owner.Bounds.Width, owner.Bounds.Height, getPoint None None
+                | (HorizontalAlignment.Stretch, _) ->
+                    SizeToContent.Width, owner.Bounds.Width, Double.NaN, getPoint None getLeft'
+                | (_, VerticalAlignment.Stretch) ->
+                    SizeToContent.Height, Double.NaN, owner.Bounds.Height, getPoint getTop' None
+                | (_, _) -> SizeToContent.Manual, Double.NaN, Double.NaN, getPoint getLeft' getTop'
 
-                manager, newValues)
-        |> Option.iter
-            (fun (manager, (newSizeToContent, newWidth, newHeight, newPoint)) ->
+            manager.MaxWidth <- owner.Bounds.Width
+            manager.MaxHeight <- owner.Bounds.Height
 
-                manager.MaxWidth <- owner.Bounds.Width
-                manager.MaxHeight <- owner.Bounds.Height
+            floating.SizeToContent <- newSizeToContent
+            floating.Width <- newWidth
+            floating.Height <- newHeight
 
-                floating.SizeToContent <- newSizeToContent
-                floating.Width <- newWidth
-                floating.Height <- newHeight
-
-                match owner.PointToScreen newPoint with
-                | newPosition when newPosition <> floating.Position -> floating.Position <- newPosition
-                | _ -> ())
+            match owner.PointToScreen newPoint with
+            | newPosition when newPosition <> floating.Position -> floating.Position <- newPosition
+            | _ -> ())
 
     let showAtMe (control: ContentControl) =
         let disposables = Disposable.Composite
@@ -132,8 +121,7 @@ module FloatingContent =
             |> Observable.subscribe (fun _ -> fitWindowPosition floating control)
             |> Disposable.disposeWith disposables
 
-        let root =
-            (control :> IVisual).VisualRoot :?> Window
+        let root = (control :> IVisual).VisualRoot :?> Window
 
         floating
         |> bindToControl ContentControl.ContentProperty
@@ -161,11 +149,8 @@ type private VlcNativePresenter() =
     let mutable platformHandle = Option<IPlatformHandle>.None
 
     override x.CreateNativeControlCore(parent) =
-        platformHandle <-
-            base.CreateNativeControlCore parent
-            |> Option.ofObj
-
-        Option.toObj platformHandle
+        base.CreateNativeControlCore parent
+        |> tap (fun handle -> platformHandle <- Some handle)
 
     override x.DestroyNativeControlCore(control) =
         platformHandle <- None
@@ -204,18 +189,17 @@ type VideoView() as x =
         mediaDisposables.Clear()
 
         media.StateChanged
-        |> Observable.subscribe
-            (fun e ->
-                match e.State with
-                | VLCState.Buffering -> ()
-                | VLCState.Ended -> ()
-                | VLCState.Error -> ()
-                | VLCState.NothingSpecial -> ()
-                | VLCState.Opening -> ()
-                | VLCState.Paused -> ()
-                | VLCState.Playing -> iterPresenter (fun presenter -> presenter.IsVisible <- true)
-                | VLCState.Stopped -> iterPresenter (fun presenter -> presenter.IsVisible <- false)
-                | unknown -> invalidArg "unknown" "Unknown VLCState")
+        |> Observable.subscribe (fun e ->
+            match e.State with
+            | VLCState.Buffering -> ()
+            | VLCState.Ended -> ()
+            | VLCState.Error -> ()
+            | VLCState.NothingSpecial -> ()
+            | VLCState.Opening -> ()
+            | VLCState.Paused -> ()
+            | VLCState.Playing -> iterPresenter (fun presenter -> presenter.IsVisible <- true)
+            | VLCState.Stopped -> iterPresenter (fun presenter -> presenter.IsVisible <- false)
+            | unknown -> invalidArg "unknown" "Unknown VLCState")
 
         |> Disposable.disposeWith mediaDisposables
 
@@ -244,6 +228,16 @@ type VideoView() as x =
             (fun (o: VideoView) v -> (o :> IVideoView).MediaPlayer <- v)
         )
 
+
+    member val HasFloating = false with get, set
+
+    static member HasFloatingProperty =
+        AvaloniaProperty.RegisterDirect(
+            nameof Unchecked.defaultof<VideoView>.HasFloating,
+            (fun (o: VideoView) -> o.HasFloating),
+            (fun (o: VideoView) v -> o.HasFloating <- v)
+        )
+
     static member VideoPanel() =
         [ VideoView.MediaPlayerProperty.Changed
           |> addClassHandler<VideoView, MediaPlayer> (fun s e -> s.InitMediaPlayer()) ]
@@ -264,7 +258,7 @@ type VideoView() as x =
         | _ -> ()
 
     override x.Render context =
-        if floatingDisposables.Count = 0 then
+        if x.HasFloating && floatingDisposables.Count = 0 then
             FloatingContent.showAtMe x
             |> Disposable.disposeWith floatingDisposables
 
@@ -293,3 +287,11 @@ module VideoView =
     let mediaPlayer<'t when 't :> VideoView> (player: MediaPlayer) : IAttr<'t> =
         AttrBuilder<'t>
             .CreateProperty<MediaPlayer>(VideoView.MediaPlayerProperty, player, ValueNone)
+
+    let hasFloating<'t when 't :> VideoView> (hasFloating: bool) : IAttr<'t> =
+        AttrBuilder<'t>
+            .CreateProperty<bool>(VideoView.HasFloatingProperty, hasFloating, ValueNone)
+
+    let opacity<'t when 't :> VideoView> (opacity: float) : IAttr<'t> =
+        AttrBuilder<'t>
+            .CreateProperty<float>(VideoView.OpacityProperty, opacity, ValueNone)

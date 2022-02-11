@@ -32,6 +32,7 @@ type Model =
       Duration: TimeSpan
       Interval: TimeSpan
       Player: MediaPlayer
+      SubPlayer: MediaPlayer
       PlayerState: PlayerState
       PlayerBufferCache: float32
       RandomizeState: CommandState
@@ -50,7 +51,7 @@ type CmdMsg =
     | Play of MediaPlayer
     | Pause of MediaPlayer
     | Stop of MediaPlayer
-    | Randomize of MediaPlayer * string
+    | Randomize of MediaPlayer * MediaPlayer * string
     | CreateCurrentSnapShotFolder of string
     | TakeSnapshot of MediaPlayer * string
     | StartDrawing

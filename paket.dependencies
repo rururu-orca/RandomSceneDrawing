@@ -10,7 +10,9 @@ nuget FSharp.Control.Reactive
 nuget FSharp.Interop.Dynamic
 nuget FSharpPlus
 nuget FsToolkit.ErrorHandling
+nuget FsToolkit.ErrorHandling.TaskResult
 nuget Microsoft.Xaml.Behaviors.Wpf
+nuget ProcessX
 nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console
 nuget VideoLAN.LibVLC.Windows

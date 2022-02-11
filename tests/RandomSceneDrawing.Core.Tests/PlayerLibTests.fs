@@ -25,7 +25,7 @@ let playerLibTests =
                     "TestPlayList.xspf" |]
                  |> Path.Combine
 
-             let! playList = PlayerLib.loadPlayList (Uri path)
+             let! playList = PlayerLib.loadPlayList (Uri path) |> Async.AwaitTask
 
              Expect.equal playList.Type MediaType.File ""
 
@@ -37,9 +37,11 @@ let playerLibTests =
                  |> Path.Combine
 
              use player = PlayerLib.initPlayer ()
+             use subPlayer = PlayerLib.initPlayer ()
 
              do!
-                 PlayerLib.randomize player (Uri path)
+                 PlayerLib.randomize player subPlayer (Uri path)
+                 |> Async.AwaitTask
                  |> Async.Ignore
 
              let media: Media = player.Media
@@ -61,9 +63,11 @@ let playerLibTests =
                  |]
 
              use player = PlayerLib.initPlayer ()
+             use subPlayer = PlayerLib.initPlayer ()
 
              do!
-                 PlayerLib.randomize player (Uri path)
+                 PlayerLib.randomize player subPlayer (Uri path)
+                 |> Async.AwaitTask
                  |> Async.Ignore
 
              Expect.isSome

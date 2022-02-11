@@ -143,7 +143,13 @@ let toCmd hwnd =
     | SelectPlayListFilePath -> Cmd.OfAsync.either selectPlayList hwnd id SelectPlayListFilePathFailed
     | SelectSnapShotFolderPath -> Cmd.OfAsync.either selectSnapShotFolder hwnd id SelectSnapShotFolderPathFailed
     // Random Drawing
-    | Randomize (player, pl) -> Cmd.OfAsyncImmediate.either (PlayerLib.randomize player) (Uri pl) id RandomizeFailed
+    | Randomize (player, subPlayer, pl) ->
+        let randomize pl =
+            PlayerLib.randomize player subPlayer pl
+            |> Async.AwaitTask
+        Cmd.OfAsyncImmediate.either randomize (Uri pl) id RandomizeFailed
+
+    // Cmd.OfAsyncImmediate.either (PlayerLib.randomize player subPlayer) (Uri pl) id RandomizeFailed
     | StartDrawing -> Cmd.OfAsync.either startTimer StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfAsync.result <| stopTimer StopDrawingSuccess
     | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg

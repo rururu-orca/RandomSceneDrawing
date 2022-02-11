@@ -150,7 +150,11 @@ let toCmd (window: MainWindow) cmdMsg =
     | Pause player ->
         Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
     | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
-    | Randomize (player, pl) -> Cmd.OfAsyncImmediate.either (PlayerLib.randomize player) (Uri pl) id RandomizeFailed
+    | Randomize (player, subPlayer, pl) ->
+        let randomize pl =
+            PlayerLib.randomize player subPlayer pl
+            |> Async.AwaitTask
+        Cmd.OfAsyncImmediate.either randomize (Uri pl) id RandomizeFailed
     | SelectPlayListFilePath ->
         Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id SelectPlayListFilePathFailed
     | SelectSnapShotFolderPath ->
@@ -158,6 +162,10 @@ let toCmd (window: MainWindow) cmdMsg =
     | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
     | TakeSnapshot (player, path) ->
         async {
+            do!
+                Text.RegularExpressions.Regex.Replace(path,"png","mp4")
+                |> PlayerLib.copySubVideo
+                |> Async.AwaitTask
             match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with
             | Some path -> return TakeSnapshotSuccess
             | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
