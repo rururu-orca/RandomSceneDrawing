@@ -14,6 +14,7 @@ open Avalonia.FuncUI.Components
 open FSharpPlus
 
 open RandomSceneDrawing.Types
+open RandomSceneDrawing.Util
 
 module MainView =
     let mediaBlindVisibility =
@@ -55,27 +56,26 @@ module MainView =
                             TextBlock.text $"{i}"
                         ])
             )
-            ComboBox.onPointerWheelChanged
-                (fun e ->
-                    match e.Source with
-                    | :? ComboBox as combo ->
-                        match combo.SelectedIndex + int e.Delta.Y with
-                        | out when out < 0 || secs.Length < out -> ()
-                        | newIndex -> combo.SelectedIndex <- newIndex
-                    | _ -> ())
+            ComboBox.onPointerWheelChanged (fun e ->
+                match e.Source with
+                | :? ComboBox as combo ->
+                    match combo.SelectedIndex + int e.Delta.Y with
+                    | out when out < 0 || secs.Length < out -> ()
+                    | newIndex -> combo.SelectedIndex <- newIndex
+                | _ -> ())
             ComboBox.onSelectedItemChanged (fun item -> item :?> TimeSpan |> SetDuration |> dispatch)
         ]
 
     let subPlayerView model dispatch =
         let subViewwidth =
             if mediaBlindVisibility model |> not then
-                300.0
+                config.SubPlayer.Width
             else
-                0.0
+                0
 
         VideoView.create [
             VideoView.dock Dock.Right
-            VideoView.height 150.0
+            VideoView.height config.SubPlayer.Height
             VideoView.width subViewwidth
             VideoView.verticalAlignment VerticalAlignment.Top
             VideoView.horizontalAlignment HorizontalAlignment.Right

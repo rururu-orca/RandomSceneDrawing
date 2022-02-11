@@ -18,6 +18,7 @@ module Helper =
 
 
 let tempSavePath = $"{Path.GetTempPath()}/RandomSceneDrawing"
+
 if not (Directory.Exists tempSavePath) then
     Directory.CreateDirectory tempSavePath |> ignore
 
@@ -25,11 +26,9 @@ let tempVideo = "trimed.mp4"
 let tempVideo' = "trimed_sub.mp4"
 
 /// 一時ファイル名
-let destination =
-    $"{tempSavePath}/{tempVideo}"
+let destination = $"{tempSavePath}/{tempVideo}"
 
-let destination' =
-    $"{tempSavePath}/{tempVideo'}"
+let destination' = $"{tempSavePath}/{tempVideo'}"
 
 let initialize () = Core.Initialize()
 
@@ -57,7 +56,10 @@ let initSubPlayer () =
     let caching = uint config.SubPlayer.RepeatDuration
 
     new MediaPlayer(libVLC, FileCaching = caching, NetworkCaching = caching, EnableHardwareDecoding = true)
-    |> tap (fun p -> float32 config.SubPlayer.Rate |> p.SetRate |> ignore)
+    |> tap (fun p ->
+        float32 config.SubPlayer.Rate
+        |> p.SetRate
+        |> ignore)
 
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
@@ -109,7 +111,7 @@ let (|AlreadyBufferingCompleted|_|) (m, msg) =
 let playAsync (player: MediaPlayer) onSuccess (media: Media) =
     async {
 
-        let msg = String.Format(config.PlayerLib.PlayFailedMsg , media.Mrl)
+        let msg = String.Format(config.PlayerLib.PlayFailedMsg, media.Mrl)
 
         let result =
             media
@@ -183,13 +185,28 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
             playList.SubItems
             |> Seq.item (random.Next playList.SubItems.Count)
 
-        let! _ = media.Parse MediaParseOptions.ParseNetwork
-        media.AddOption ":no-audio"
+        match! media.Parse MediaParseOptions.ParseNetwork with
+        | MediaParsedStatus.Done -> do! Ok()
+        | other -> do! Error(exn "Media Parse $%A{other}")
+
+        let! originWidth, originHeight =
+            media.Tracks
+            |> Array.tryFind (fun t -> t.TrackType = TrackType.Video)
+            |> Option.map (fun t -> Ok(t.Data.Video.Width, t.Data.Video.Height))
+            |> Option.defaultValue (Error(exn "Target is Not Video."))
+
+        let rescaleParam =
+            if float originWidth / float originHeight
+               <= float config.SubPlayer.Width
+                  / float config.SubPlayer.Height then
+                $"-1:{config.SubPlayer.Height}"
+            else
+                $"{config.SubPlayer.Width}:-1"
 
         let randomizeTime =
             random.Next(config.Randomize.MinStartMsec, int media.Duration - config.Randomize.MaxEndMsec)
             |> int64
-        
+
         let repeatOffset = int64 config.SubPlayer.RepeatDuration / 2L
 
         let startTime = randomizeTime - repeatOffset |> max 0L |> toSecf
@@ -216,7 +233,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
                 with
                 | :? ProcessErrorException as ex ->
                     let msg = $"%A{ex.ErrorOutput}"
-                    return (exn( msg , ex) |>Error)
+                    return (exn (msg, ex) |> Error)
             }
 
         // キャプチャ設定
@@ -235,8 +252,8 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
 
         do!
             [ "-loglevel warning -y -hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
-              $"-ss %.3f{startTime} -to %.3f{endTime} -i \"{path}\""
-              $"-vf \"hwupload,libplacebo={config.SubPlayer.Width}:-1:p010le,hwupload_cuda\""
+              $"-i \"{destination}\""
+              $"-vf \"hwupload,libplacebo={rescaleParam}:p010le,hwupload_cuda\""
               $" -c:v hevc_nvenc -c:a copy \"{destination'}\"" ]
             |> runFFmpeg
 
@@ -246,6 +263,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
         let media' = new Media(libVLC, destination', FromType.FromPath)
 
         // メインプレイヤーの設定、再生
+        media.AddOption ":no-audio"
         media.AddOption ":start-paused"
         media.AddOption ":clock-jitter=0"
         media.AddOption ":clock-synchro=0"
@@ -259,18 +277,15 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
         media'.AddOption ":clock-synchro=0"
         media'.AddOption $":input-repeat=65535"
         do! playAsync subPlayer () media'
-        do!
-            Async.Sleep 50
-            |> Async.Ignore
+        do! Async.Sleep 50 |> Async.Ignore
 
         if player.State = VLCState.Buffering then
             do!
                 player.Media.StateChanged
                 |> Async.AwaitEvent
                 |> Async.Ignore
-        do!
-            Async.Sleep 50
-            |> Async.Ignore
+
+        do! Async.Sleep 50 |> Async.Ignore
 
         return RandomizeSuccess
     }
@@ -295,7 +310,4 @@ let takeSnapshot sizefn num path =
             return! None
     }
 
-let copySubVideo dest =
-    task {
-        File.Copy(destination', dest)
-    }
+let copySubVideo dest = task { File.Copy(destination', dest) }
