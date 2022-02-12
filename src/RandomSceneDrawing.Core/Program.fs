@@ -46,7 +46,7 @@ let mapCanExec =
 let getSnapShotPath model =
     Path.Combine [|
         model.SnapShotPath
-        $"%03i{model.CurrentFrames}.png"
+        $"%03i{model.CurrentFrames} {model.Title}.png"
     |]
 
 let validateDuration =
@@ -91,7 +91,7 @@ let update msg m =
     | RequestPause -> m, [ Pause m.Player ]
     | PauseSuccess state -> { m with PlayerState = state }, []
     | PauseFailed ex -> m, [ ShowErrorInfomation ex.Message ]
-    | RequestStop -> m, [ Stop m.Player;Stop m.SubPlayer ]
+    | RequestStop -> m, [ Stop m.Player; Stop m.SubPlayer ]
     | StopSuccess -> { m with PlayerState = Stopped }, []
     | StopFailed ex -> m, [ ShowErrorInfomation ex.Message ]
     | PlayerTimeChanged time -> { m with MediaPosition = time }, []
