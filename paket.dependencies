@@ -18,9 +18,6 @@ nuget Serilog.Sinks.Console
 nuget VideoLAN.LibVLC.Windows
 nuget LibVLCSharp.WPF
 
-nuget JaggerJo.Avalonia.FuncUI prerelease
-nuget JaggerJo.Avalonia.FuncUI.DSL prerelease
-nuget JaggerJo.Avalonia.FuncUI.Elmish prerelease
 nuget Avalonia
 nuget Avalonia.Desktop
 nuget Avalonia.Diagnostics
@@ -32,3 +29,6 @@ nuget Expecto.FsCheck
 nuget Expecto.Hopac
 nuget YoloDev.Expecto.TestSdk
 nuget Microsoft.NET.Test.Sdk
+
+storage: packages
+github fsprojects/Avalonia.FuncUI:master

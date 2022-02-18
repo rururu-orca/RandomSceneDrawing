@@ -9,7 +9,7 @@ open Avalonia.Layout
 open LibVLCSharp.Avalonia.FuncUI
 
 open Avalonia.FuncUI.DSL
-open Avalonia.FuncUI.Components
+open Avalonia.FuncUI
 
 open FSharpPlus
 
@@ -252,7 +252,7 @@ module MainView =
         ]
 
 open Avalonia.Controls.Notifications
-open Avalonia.FuncUI.Components.Hosts
+open Avalonia.FuncUI.Hosts
 
 type MainWindow(floatingWindow) =
     inherit HostWindow(Title = "Random Pause  動画のシーンがランダムで表示されます", Height = 720.0, Width = 1280.0)

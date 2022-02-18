@@ -12,7 +12,7 @@ open Avalonia.Threading
 
 open Elmish
 open Avalonia.FuncUI.DSL
-open Avalonia.FuncUI.Components.Hosts
+open Avalonia.FuncUI.Hosts
 
 open LibVLCSharp.Shared
 
