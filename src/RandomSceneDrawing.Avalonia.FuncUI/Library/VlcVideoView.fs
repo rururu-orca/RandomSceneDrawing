@@ -17,33 +17,7 @@ open FSharp.Control.Reactive
 open RandomSceneDrawing.AvaloniaExtensions
 open LibVLCSharp.Shared
 
-module Util =
-    let bindProperty<'T when 'T :> AvaloniaProperty>
-        disposables
-        (property: 'T)
-        (source: AvaloniaObject)
-        (target: AvaloniaObject)
-        =
-        target.Bind(property, source.GetObservable property)
-        |> Disposable.disposeWith disposables
 
-    let inline addClassHandler< ^T, ^U when ^T :> AvaloniaObject>
-        ([<InlineIfLambda>] action)
-        (observable: IObservable<AvaloniaPropertyChangedEventArgs< ^U >>)
-        =
-        observable
-        |> Observable.subscribe (fun e ->
-            match e.Sender with
-            | :? ^T as target -> action target e
-            | _ -> ())
-
-    let findNameScope<'T when 'T: not struct> name (namescope: INameScope) =
-        try
-            Some(namescope.Get<'T> name)
-        with
-        | :? KeyNotFoundException -> None
-
-open Util
 
 module FloatingContent =
     let floating =

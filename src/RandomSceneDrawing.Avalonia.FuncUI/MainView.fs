@@ -8,13 +8,15 @@ open Avalonia.Layout
 
 open LibVLCSharp.Avalonia.FuncUI
 
-open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI
-
+open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
+open Avalonia.Threading
 open FSharpPlus
 
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Util
+open RandomSceneDrawing.AvaloniaExtensions
 
 module MainView =
     let mediaBlindVisibility =
@@ -161,9 +163,58 @@ module MainView =
             ]
         ]
 
+    module ToolWindow =
+        open LibVLCSharp.Shared
+
+        let create model dispatch =
+            SubWindow.create [
+                SubWindow.isVisible (
+                    model.RandomDrawingState
+                    <> RandomDrawingState.Stop
+                )
+                SubWindow.dock Dock.Bottom
+                SubWindow.content (
+                    DockPanel.create [
+                        DockPanel.margin 8
+                        DockPanel.children [
+                            Slider.create [
+                                Slider.isEnabled model.Player.IsSeekable
+                                Slider.dock Dock.Top
+                                Slider.minimum 0.0
+                                Slider.maximum 1.0
+                                Slider.value (double model.Player.Position)
+                                Slider.onValueChanged (fun e ->
+                                    Dispatcher.UIThread.Post(fun _ -> model.Player.Position <- float32 e))
+                            ]
+                            StackPanel.create [
+                                StackPanel.children [
+                                    Button.create [
+                                        Button.isEnabled model.Player.IsSeekable
+                                        Button.content "Show Random"
+                                        Button.onClick (fun _ -> dispatch RequestRandomize)
+                                    ]
+
+                                    Button.create [
+                                        Button.isEnabled (
+                                            model.Player.IsSeekable
+                                            && model.Player.State <> VLCState.Buffering
+                                        )
+                                        Button.content "Next Frame"
+                                        Button.onClick (fun _ ->
+                                            Dispatcher.UIThread.Post(fun _ -> model.Player.NextFrame())
+                                            Dispatcher.UIThread.Post id)
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                )
+            ]
+
     let view (model: Model) (dispatch: Msg -> unit) =
         DockPanel.create [
             DockPanel.children [
+                ToolWindow.create model dispatch
                 DockPanel.create [
                     DockPanel.dock Dock.Top
                     DockPanel.children [
@@ -243,6 +294,7 @@ module MainView =
                     | RandomDrawingState.Running -> ProgressBar.isVisible true
                     | _ -> ProgressBar.isVisible false
                 ]
+
                 VideoView.create [
                     VideoView.mediaPlayer model.Player
                     VideoView.hasFloating true

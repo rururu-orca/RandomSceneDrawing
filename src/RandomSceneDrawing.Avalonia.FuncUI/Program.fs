@@ -13,6 +13,8 @@ open FSharpPlus
 
 open LibVLCSharp.Avalonia.FuncUI
 
+open RandomSceneDrawing.AvaloniaExtensions
+
 module Program =
     let mkProgramWithCmdMsg
         (init: unit -> 'model * 'cmdMsg list)
@@ -30,6 +32,7 @@ type App() =
 
     let applyFluentTheme (app: App) mainWindow =
         let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)
+
         app.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
         app.Styles.Add fluentAvaloniaTheme
         fluentAvaloniaTheme.ForceWin32WindowToTheme mainWindow
