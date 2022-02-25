@@ -9,6 +9,23 @@ open System
 open System.IO
 
 
+let times =
+    let input = stdin.ReadLine()
+    let args =
+        [ "ffprobe"
+          "-v error"
+          "-select_streams v:0"
+          "-show_entries frame=best_effort_timestamp_time"
+          "-of default=nokey=1:noprint_wrappers=1"
+          $"\"{input}\"" ]
+        |> String.concat " "
+    ProcessX.StartAsync(args)
+    |> AsyncSeq.ofAsyncEnum
+    |> AsyncSeq.map float
+    |> AsyncSeq.toArraySynchronously
+
+
+
 task {
     let USERPROFILE = Environment.GetEnvironmentVariable "USERPROFILE"
     let input = $"{USERPROFILE}/temp/imascgstage.exe/output22.mp4"
@@ -16,15 +33,16 @@ task {
     let width = 300
     let startTime = 20000
     let dur = 5000
-    let args = 
-        [
-            "ffmpeg"
-            "-hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
-            $"-ss {startTime}ms -i {input} -t {dur}ms"
-            $"-vf \"hwupload,libplacebo={width}:-1:p010le,hwupload_cuda\""
-            $" -c:v hevc_nvenc -c:a copy {output}"
-        ]
+
+    let args =
+        [ "ffmpeg"
+          "-v error"
+          "-hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
+          $"-ss {startTime}ms -i {input} -t {dur}ms"
+          $"-vf \"hwupload,libplacebo={width}:-1:p010le,hwupload_cuda\""
+          $" -c:v hevc_nvenc -c:a copy {output}" ]
         |> String.concat " "
+
     do! ProcessX.StartAsync(args).WriteLineAllAsync()
 }
 |> Async.AwaitTask
@@ -81,7 +99,8 @@ type TestCase =
         |> Seq.map (fun c -> c.Name)
 
 type TestRecord =
-    { Text1: string; Text2: string }
+    { Text1: string
+      Text2: string }
     static member GetSeqLabels() =
         FSharpType.GetRecordFields(typeof<TestRecord>)
         |> Seq.map (fun c -> c.Name)
