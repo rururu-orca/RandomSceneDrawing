@@ -11,6 +11,7 @@ open System.IO
 
 let times =
     let input = stdin.ReadLine()
+
     let args =
         [ "ffprobe"
           "-v error"
@@ -19,6 +20,7 @@ let times =
           "-of default=nokey=1:noprint_wrappers=1"
           $"\"{input}\"" ]
         |> String.concat " "
+
     ProcessX.StartAsync(args)
     |> AsyncSeq.ofAsyncEnum
     |> AsyncSeq.map float
@@ -114,3 +116,49 @@ let mapCase =
     function
     | Text1 -> 1
     | Text3 -> 3
+
+// アプローチ検証
+
+// メッセージ分割
+type MediaMsg =
+    | SetTime
+    | Play
+    | Stop
+
+type DoMsg =
+    | Start
+    | Wip
+    | Done of msg:string
+
+type Msg =
+    | Media of MediaMsg
+    | Do of DoMsg
+
+// 関数のレコード
+type Api = {
+    play: int -> unit
+    stop: int -> unit
+}
+
+let update (api:Api) msg =
+    match msg with
+    | Media SetTime -> ()
+    | Media Play -> api.play 2
+    | Media Stop -> api.stop 4
+    | Do Start -> failwith "Not Implemented"
+    | Do Wip -> failwith "Not Implemented"
+    | Do (Done _) -> failwith "Not Implemented"
+
+module TestCmd =
+    let add4 i = i + 4
+    let play i = printfn $"play: {add4 i}"
+    let stop i = printfn $"stop: {i + 5}"
+    let api = {
+        play = play
+        stop = stop
+    }
+
+module Main =
+    let update = update TestCmd.api
+
+    Media Play |> update
