@@ -247,14 +247,14 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
 
         // 録画実行
         do!
-            [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -i \"{path}\" -c copy \"{destination}\"" ]
+            [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -i \"{path}\" -c:v copy -an \"{destination}\"" ]
             |> runFFmpeg
 
         do!
             [ "-loglevel warning -y -hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
               $"-i \"{destination}\""
               $"-vf \"hwupload,libplacebo={rescaleParam}:p010le,hwupload_cuda\""
-              $" -c:v hevc_nvenc -c:a copy \"{destination'}\"" ]
+              $"-c:v hevc_nvenc -an \"{destination'}\"" ]
             |> runFFmpeg
 
         /// 生成した一時ファイルのMedia
