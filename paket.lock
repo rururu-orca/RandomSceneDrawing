@@ -130,9 +130,6 @@ NUGET
       FSharp.Core (>= 4.5.2)
     Iced (1.17)
     JetBrains.Annotations (2021.3)
-    LibVLCSharp (3.6.5)
-    LibVLCSharp.WPF (3.6.5)
-      LibVLCSharp (>= 3.6.5)
     MicroCom.CodeGenerator.MSBuild (0.10.4)
     MicroCom.Runtime (0.10.4)
     Microsoft.Bcl.AsyncInterfaces (6.0)
@@ -260,11 +257,15 @@ NUGET
     Tmds.DBus (0.10.1)
       System.Reflection.Emit (>= 4.7)
       System.Security.Principal.Windows (>= 4.7)
-    VideoLAN.LibVLC.Windows (3.0.16)
     YoloDev.Expecto.TestSdk (0.12.13)
       Expecto (>= 9.0 < 10.0)
       FSharp.Core (>= 4.6)
       System.Collections.Immutable (>= 1.5)
+  remote: https://f.feedz.io/videolan/preview/nuget/index.json
+    LibVLCSharp (4.0.0-alpha-20220224-5436)
+    LibVLCSharp.WPF (4.0.0-alpha-20220224-5436)
+      LibVLCSharp (>= 4.0.0-alpha-20220224-5436)
+    VideoLAN.LibVLC.Windows (4.0.0-alpha-20220223)
 GITHUB
   remote: fsprojects/Avalonia.FuncUI
     FULLPROJECT (0f800b5baa80512cdc1b035a67ee54f569adc2b6)

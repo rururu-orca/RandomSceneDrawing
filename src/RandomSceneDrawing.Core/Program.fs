@@ -128,7 +128,7 @@ let update msg m =
         { m with RandomizeState = Running }, [ Randomize(m.Player, m.SubPlayer, m.PlayListFilePath) ]
     | RandomizeSuccess (_) ->
         { m with
-            Title = m.Player.Media.Meta LibVLCSharp.Shared.MetadataType.Title
+            Title = m.Player.Media.Meta LibVLCSharp.MetadataType.Title
             PlayerState = Playing
             RandomizeState =
                 if m.PlayerBufferCache = 100.0f then

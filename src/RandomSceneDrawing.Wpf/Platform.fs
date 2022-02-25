@@ -73,11 +73,11 @@ let playSelectedVideo player hwnd =
             let media =
                 PlayerLib.getMediaFromUri (Uri file.Path)
 
-            match! PlayerLib.playAsync player PlaySuccess media with
+            match! PlayerLib.playAsync player PlaySuccess media |> Async.AwaitTask with
             | Ok msg ->
                 return
                     msg
-                        { Title = media.Meta LibVLCSharp.Shared.MetadataType.Title
+                        { Title = media.Meta LibVLCSharp.MetadataType.Title
                           Duration = float media.Duration |> TimeSpan.FromMilliseconds }
             | Error e -> return PlayFailed e
     }

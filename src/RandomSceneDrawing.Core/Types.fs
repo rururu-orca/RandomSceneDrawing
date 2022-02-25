@@ -1,7 +1,7 @@
 module RandomSceneDrawing.Types
 
 open System
-open LibVLCSharp.Shared
+open LibVLCSharp
 
 type RandomDrawingState =
     | Stop

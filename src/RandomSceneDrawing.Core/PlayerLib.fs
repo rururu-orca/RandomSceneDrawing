@@ -4,17 +4,29 @@ open System
 open System.IO
 open System.Diagnostics
 open Cysharp.Diagnostics
-open LibVLCSharp.Shared
+open LibVLCSharp
 open FsToolkit.ErrorHandling
 open Types
 open Util
 open FSharp.Control
 open FSharpPlus
+open System.Threading
 open System.Threading.Tasks
 
 [<AutoOpen>]
 module Helper =
     let toSecf mSec = float mSec / 1000.0
+
+    let internalAsync sub unsub action (tcs: TaskCompletionSource) (ctr: CancellationTokenRegistration) =
+        task {
+            try
+                sub ()
+                action ()
+                return! tcs.Task.ConfigureAwait false
+            finally
+                unsub ()
+                ctr.Dispose()
+        }
 
 
 let tempSavePath = $"{Path.GetTempPath()}/RandomSceneDrawing"
@@ -38,24 +50,25 @@ let libVLC =
 #if DEBUG
            "-vvv"
 #endif
+           "--hw-dec"
+           "--codec=nvdec,any"
+           "--dec-dev=nvdec"
+           "--packetizer=hevc,any"
            "--no-snapshot-preview"
-           "--audio-time-stretch"
            "--no-audio"
            "--aout=none"
            "--no-drop-late-frames"
-           "--no-skip-frames"
-           "--avcodec-skip-frame"
-           "--avcodec-hw=any" |]
+           "--no-skip-frames" |]
 
     new LibVLC(options)
 
 let initPlayer () =
-    new MediaPlayer(libVLC, EnableHardwareDecoding = true)
+    new MediaPlayer(libVLC)
 
 let initSubPlayer () =
     let caching = uint config.SubPlayer.RepeatDuration
 
-    new MediaPlayer(libVLC, FileCaching = caching, NetworkCaching = caching, EnableHardwareDecoding = true)
+    new MediaPlayer(libVLC, FileCaching = caching, NetworkCaching = caching)
     |> tap (fun p ->
         float32 config.SubPlayer.Rate
         |> p.SetRate
@@ -109,19 +122,15 @@ let (|AlreadyBufferingCompleted|_|) (m, msg) =
         None
 
 let playAsync (player: MediaPlayer) onSuccess (media: Media) =
-    async {
+    task {
 
         let msg = String.Format(config.PlayerLib.PlayFailedMsg, media.Mrl)
 
-        let result =
-            media
-            |> pickMediaState (function
-                | VLCState.Playing as s -> Ok onSuccess |> Some
-                | VLCState.Error -> Error(PlayFailedException msg) |> Some
-                | _ -> None)
+        let sub = player.Playing |> Async.AwaitEvent |> Async.Ignore
 
         if player.Play media then
-            return! result
+            do! sub
+            return Ok onSuccess
         else
             return Error(PlayFailedException msg)
     }
@@ -187,13 +196,14 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
 
         match! media.Parse MediaParseOptions.ParseNetwork with
         | MediaParsedStatus.Done -> do! Ok()
-        | other -> do! Error(exn "Media Parse $%A{other}")
+        | other -> do! Error(exn $"Media Parse %A{other}")
 
         let! originWidth, originHeight =
-            media.Tracks
-            |> Array.tryFind (fun t -> t.TrackType = TrackType.Video)
-            |> Option.map (fun t -> Ok(t.Data.Video.Width, t.Data.Video.Height))
-            |> Option.defaultValue (Error(exn "Target is Not Video."))
+            match media.TrackList TrackType.Video with
+            | t when t.Count = 1u ->
+                let t = t[0u]
+                Ok(t.Data.Video.Width, t.Data.Video.Height)
+            | _ -> Error(exn "Target is Not Video.")
 
         let rescaleParam =
             if float originWidth / float originHeight
@@ -233,7 +243,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
                 with
                 | :? ProcessErrorException as ex ->
                     let msg = $"%A{ex.ErrorOutput}"
-                    return (exn (msg, ex) |> Error)
+                    return (exn (stderr.ToString()) |> Error)
             }
 
         // キャプチャ設定
@@ -244,6 +254,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
                 mrl.LocalPath
             else
                 mrl.AbsoluteUri
+        let path = Text.RegularExpressions.Regex.Replace(path, @"^/" ,"")
 
         // 録画実行
         do!

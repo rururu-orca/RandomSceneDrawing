@@ -14,7 +14,7 @@ open Elmish
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Hosts
 
-open LibVLCSharp.Shared
+open LibVLCSharp
 
 open FSharpPlus
 open FSharp.Control
@@ -81,7 +81,7 @@ let selectSnapShotFolderAsync window =
     }
 
 let playAsync player media =
-    async {
+    task {
         match! PlayerLib.playAsync player PlaySuccess media with
         | Ok msg ->
             return
@@ -92,7 +92,7 @@ let playAsync player media =
     }
 
 let selectMediaAndPlayAsync window player =
-    async {
+    task {
         let dialog =
             OpenFileDialog(
                 Title = "Open Video File",
@@ -146,7 +146,7 @@ let showErrorNotification (notificationManager: IManagedNotificationManager) inf
 let toCmd (window: MainWindow) cmdMsg =
 
     match cmdMsg with
-    | Play player -> Cmd.OfAsyncImmediate.either (selectMediaAndPlayAsync window) player id PlayFailed
+    | Play player -> Cmd.OfTask.either (selectMediaAndPlayAsync window) player id PlayFailed
     | Pause player ->
         Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
     | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed

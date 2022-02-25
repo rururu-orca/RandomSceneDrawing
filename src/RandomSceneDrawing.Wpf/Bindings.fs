@@ -4,7 +4,7 @@ open System
 open System.Windows.Input
 open Microsoft.FSharp.Reflection
 open Elmish.WPF
-open LibVLCSharp.Shared
+open LibVLCSharp
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Program
 open System.Windows

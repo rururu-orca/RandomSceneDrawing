@@ -47,7 +47,7 @@ type App() =
         |> Program.run
 
     let run (app: App) (desktopLifetime: IClassicDesktopStyleApplicationLifetime) =
-        LibVLCSharp.Shared.Core.Initialize()
+        LibVLCSharp.Core.Initialize()
 
         let mainWindow = MainWindow FloatingContent.floating
 #if DEBUG

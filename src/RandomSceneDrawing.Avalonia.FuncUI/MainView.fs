@@ -164,7 +164,7 @@ module MainView =
         ]
 
     module ToolWindow =
-        open LibVLCSharp.Shared
+        open LibVLCSharp
 
         let create model dispatch =
             SubWindow.create [
@@ -183,9 +183,13 @@ module MainView =
                                 Slider.minimum 0.0
                                 Slider.maximum 1.0
                                 Slider.value (double model.Player.Position)
-                                Slider.onValueChanged (fun e ->
-                                    Dispatcher.UIThread.Post(fun _ -> model.Player.Position <- float32 e))
-                            ]
+                                Slider.onPointerReleased (fun e ->
+                                    fun _ ->
+                                        float32 (e.Source :?> Slider).Value
+                                        |> model.Player.SetPosition
+                                        |> ignore
+                                    |> Dispatcher.UIThread.Post)
+                                ]
                             StackPanel.create [
                                 StackPanel.children [
                                     Button.create [

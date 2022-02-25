@@ -15,7 +15,7 @@ open FSharp.Control
 open FSharp.Control.Reactive
 
 open RandomSceneDrawing.AvaloniaExtensions
-open LibVLCSharp.Shared
+open LibVLCSharp
 
 
 
@@ -138,7 +138,7 @@ type private VlcNativePresenter() =
         | _ -> ()
 
     member x.DetachHandle(mediaPlayer: MediaPlayer) =
-        mediaPlayer.Stop()
+        mediaPlayer.Stop() |> ignore
 
         match Environment.OSVersion.Platform, platformHandle with
         | PlatformID.Win32NT, Some _ -> mediaPlayer.Hwnd <- IntPtr.Zero
@@ -155,35 +155,6 @@ type VideoView() as x =
     let mutable nativePresenter = Option<VlcNativePresenter>.None
     let mutable mediaPlayer = Option<MediaPlayer>.None
 
-    let iterPresenter action =
-        fun _ -> nativePresenter |> Option.iter action
-        |> Dispatcher.UIThread.Post
-
-    let subscribeMedia (x: VideoView) (media: Media) =
-        mediaDisposables.Clear()
-
-        media.StateChanged
-        |> Observable.subscribe (fun e ->
-            match e.State with
-            | VLCState.Buffering -> ()
-            | VLCState.Ended -> ()
-            | VLCState.Error -> ()
-            | VLCState.NothingSpecial -> ()
-            | VLCState.Opening -> ()
-            | VLCState.Paused -> ()
-            | VLCState.Playing -> iterPresenter (fun presenter -> presenter.IsVisible <- true)
-            | VLCState.Stopped -> iterPresenter (fun presenter -> presenter.IsVisible <- false)
-            | unknown -> invalidArg "unknown" "Unknown VLCState")
-
-        |> Disposable.disposeWith mediaDisposables
-
-    let subscribeMediaPlayer (videoView: VideoView) (player: MediaPlayer) =
-        mediaPlayerDisposables.Clear()
-
-        player.MediaChanged
-        |> Observable.subscribe (fun e -> subscribeMedia videoView e.Media)
-        |> Disposable.disposeWith mediaPlayerDisposables
-
     do x.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Library/VlcVideoViewStyles.xaml"
 
     interface IVideoView with
@@ -192,7 +163,6 @@ type VideoView() as x =
             and set (value) =
                 if x.SetAndRaise(VideoView.MediaPlayerProperty, (Option.toObj >> ref) mediaPlayer, value) then
                     mediaPlayer <- Option.ofObj value
-                    subscribeMediaPlayer x value
                     x.InitMediaPlayer()
 
     static member MediaPlayerProperty =
@@ -228,7 +198,7 @@ type VideoView() as x =
         | Some player, Some presenter ->
 
             presenter.AttachHandle player
-            presenter.IsVisible <- false
+            presenter.IsVisible <- true
         | _ -> ()
 
     override x.Render context =
