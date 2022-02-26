@@ -27,7 +27,7 @@ let playerLibTests =
 
              let! playList = PlayerLib.loadPlayList (Uri path) |> Async.AwaitTask
 
-             Expect.equal playList.Type MediaType.File ""
+             Expect.equal playList.Type MediaType.Playlist "should work"
 
          }
          testAsync "can randomize" {
