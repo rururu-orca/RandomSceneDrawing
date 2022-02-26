@@ -151,7 +151,7 @@ let bindingsMapper (name, label) =
                 | { PlayerState = Stopped } -> Visibility.Visible
                 | { PlayerState = Playing }
                 | { PlayerState = Paused } -> Visibility.Collapsed)
-    | PlayCommand -> Binding.cmd RequestPlay
+    | PlayCommand -> Binding.cmd (Play Started)
     | PauseCommand -> Binding.cmdIf (RequestPause, (fun m -> m.PlayerState <> Stopped))
     | StopCommand -> Binding.cmdIf (RequestStop, (fun m -> m.PlayerState <> Stopped))
     | FramesText -> Binding.twoWay ((fun m -> string m.Frames), (int >> SetFrames))

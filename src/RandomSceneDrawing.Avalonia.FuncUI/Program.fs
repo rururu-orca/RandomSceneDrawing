@@ -9,23 +9,9 @@ open FluentAvalonia.Styling
 open Elmish
 open Avalonia.FuncUI.Elmish
 
-open FSharpPlus
-
 open LibVLCSharp.Avalonia.FuncUI
 
 open RandomSceneDrawing.AvaloniaExtensions
-
-module Program =
-    let mkProgramWithCmdMsg
-        (init: unit -> 'model * 'cmdMsg list)
-        (update: 'msg -> 'model -> 'model * 'cmdMsg list)
-        (view: 'model -> Dispatch<'msg> -> 'view)
-        (toCmd: 'cmdMsg -> Cmd<'msg>)
-        =
-        let convert (model, cmdMsgs) =
-            model, (cmdMsgs |> List.map toCmd |> Cmd.batch)
-
-        Program.mkProgram (init >> convert) (fun msg model -> update msg model |> convert) view
 
 type App() =
     inherit Application()
@@ -38,7 +24,7 @@ type App() =
         fluentAvaloniaTheme.ForceWin32WindowToTheme mainWindow
 
     let startMainLoop (mainWindow: MainWindow) =
-        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd mainWindow)
+        Program.mkProgram Program.init (Platform.api mainWindow |> Program.updateProto) MainView.view
         |> Program.withHost mainWindow
         |> Program.withSubscription (Platform.subs mainWindow)
 #if DEBUG

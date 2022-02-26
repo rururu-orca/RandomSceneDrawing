@@ -65,21 +65,22 @@ let playSelectedVideo player hwnd =
         |> List.iter picker.FileTypeFilter.Add
 
         match! picker.PickSingleFileAsync() with
-        | null -> return PlayCandeled
+        | null -> return Finished(Error "Canceled")
         | file when String.IsNullOrEmpty file.Path ->
-            return PlayFailed(PlayFailedException "メディアサーバーの動画を指定して再生することは出来ません。")
+            return Finished(Error "メディアサーバーの動画を指定して再生することは出来ません。")
 
         | file ->
             let media =
                 PlayerLib.getMediaFromUri (Uri file.Path)
 
-            match! PlayerLib.playAsync player PlaySuccess media |> Async.AwaitTask with
-            | Ok msg ->
+            match! PlayerLib.playAsync player () media |> Async.AwaitTask with
+            | Ok _ ->
                 return
-                    msg
+                    Ok
                         { Title = media.Meta LibVLCSharp.MetadataType.Title
                           Duration = float media.Duration |> TimeSpan.FromMilliseconds }
-            | Error e -> return PlayFailed e
+                    |> Finished
+            | Error e -> return (Error e.Message) |> Finished
     }
 
 let selectPlayList hwnd =
@@ -135,7 +136,7 @@ let createCurrentSnapShotFolder root =
 let toCmd hwnd =
     function
     // Player
-    | Play player -> Cmd.OfAsyncImmediate.either (playSelectedVideo player) hwnd id PlayFailed
+    // | Play player -> Cmd.OfAsyncImmediate.either (playSelectedVideo player) hwnd id PlayFailed
     | Pause player ->
         Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
     | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed

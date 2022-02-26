@@ -19,6 +19,7 @@ open LibVLCSharp
 open FSharpPlus
 open FSharp.Control
 open FSharp.Control.Reactive
+open FsToolkit.ErrorHandling
 
 open RandomSceneDrawing.Types
 
@@ -82,14 +83,15 @@ let selectSnapShotFolderAsync window =
 
 let playAsync player media =
     task {
-        match! PlayerLib.playAsync player PlaySuccess media with
-        | Ok msg ->
+        match! PlayerLib.playAsync player () media with
+        | Ok _ ->
             return
-                msg
+                Ok
                     { Title = media.Meta MetadataType.Title
                       Duration = float media.Duration |> TimeSpan.FromMilliseconds }
-        | Error e -> return PlayFailed e
+        | Error ex -> return Error ex.Message
     }
+    |> Task.map Finished
 
 let selectMediaAndPlayAsync window player =
     task {
@@ -111,7 +113,7 @@ let selectMediaAndPlayAsync window player =
                 |> PlayerLib.getMediaFromUri
                 |> playAsync player
 
-        | _ -> return PlayCandeled
+        | _ -> return Finished(Error "Canceled")
     }
 
 let createCurrentSnapShotFolder root =
@@ -143,49 +145,9 @@ let showErrorNotification (notificationManager: IManagedNotificationManager) inf
         return msg
     }
 
-let toCmd (window: MainWindow) cmdMsg =
-
-    match cmdMsg with
-    | Play player -> Cmd.OfTask.either (selectMediaAndPlayAsync window) player id PlayFailed
-    | Pause player ->
-        Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
-    | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
-    | Randomize (player, subPlayer, pl) ->
-        let randomize pl =
-            PlayerLib.randomize player subPlayer pl
-            |> Async.AwaitTask
-
-        Cmd.OfAsyncImmediate.either randomize (Uri pl) id RandomizeFailed
-    | SelectPlayListFilePath ->
-        Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id SelectPlayListFilePathFailed
-    | SelectSnapShotFolderPath ->
-        Cmd.OfAsyncImmediate.either selectSnapShotFolderAsync window id SelectSnapShotFolderPathFailed
-    | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
-    | TakeSnapshot (player, path) ->
-        async {
-            do!
-                Text.RegularExpressions.Regex.Replace(path, "png", "mp4")
-                |> PlayerLib.copySubVideo
-                |> Async.AwaitTask
-
-            match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with
-            | Some path -> return TakeSnapshotSuccess
-            | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
-        }
-        |> Cmd.OfAsyncImmediate.result
-    | StartDrawing ->
-        Notification("Start", "Start Drawing.", NotificationType.Information)
-        |> window.NotificationManager.Show
-
-        startTimer StartDrawingSuccess
-    | StopDrawing -> stopTimer StopDrawingSuccess |> Cmd.OfFunc.result
-    | ShowErrorInfomation message ->
-        showErrorNotification window.NotificationManager message ShowErrorInfomationSuccess
-        |> Cmd.OfAsyncImmediate.result
-
 let api (window: MainWindow) : Api =
 
-    { playAsync = selectMediaAndPlayAsync window
+    { playAsync = (selectMediaAndPlayAsync window) >> Task.map Play
       pauseAsync =
         fun player ->
             PlayerLib.togglePauseAsync player (Playing, Paused)
@@ -195,7 +157,12 @@ let api (window: MainWindow) : Api =
         fun player ->
             PlayerLib.stopAsync player StopSuccess
             |> Async.StartAsTask
-      randomizeAsync = fun mp sp urlStr -> PlayerLib.randomize mp sp (Uri urlStr)
+      randomizeAsync =
+        fun mp sp urlStr ->
+            task {
+                let! result = PlayerLib.randomize mp sp (Uri urlStr)
+                return result
+            }
       createCurrentSnapShotFolderAsync = fun root -> task { return createCurrentSnapShotFolder root }
       takeSnapshotAsync =
         fun (player, path) ->

@@ -69,18 +69,18 @@ module MainView =
         ]
 
     let subPlayerView model dispatch =
-        let subViewwidth =
-            if mediaBlindVisibility model |> not then
+        let subViewwidth m =
+            if mediaBlindVisibility m |> not then
                 config.SubPlayer.Width
             else
                 0
 
         VideoView.create [
-            VideoView.dock Dock.Right
             VideoView.height config.SubPlayer.Height
-            VideoView.width subViewwidth
+            VideoView.width (subViewwidth model)
             VideoView.verticalAlignment VerticalAlignment.Top
             VideoView.horizontalAlignment HorizontalAlignment.Right
+            VideoView.hasFloating false
             VideoView.mediaPlayer model.SubPlayer
         ]
 
@@ -110,7 +110,7 @@ module MainView =
                                         ]
                                         Button.create [
                                             Button.content "Play"
-                                            Button.onClick (fun _ -> dispatch RequestPlay)
+                                            Button.onClick (fun _ -> Play Started |> dispatch)
                                         ]
                                         Button.create [
                                             match model.PlayerState with
@@ -183,13 +183,7 @@ module MainView =
                                 Slider.minimum 0.0
                                 Slider.maximum 1.0
                                 Slider.value (double model.Player.Position)
-                                Slider.onPointerReleased (fun e ->
-                                    fun _ ->
-                                        float32 (e.Source :?> Slider).Value
-                                        |> model.Player.SetPosition
-                                        |> ignore
-                                    |> Dispatcher.UIThread.Post)
-                                ]
+                            ]
                             StackPanel.create [
                                 StackPanel.children [
                                     Button.create [
@@ -197,7 +191,6 @@ module MainView =
                                         Button.content "Show Random"
                                         Button.onClick (fun _ -> dispatch RequestRandomize)
                                     ]
-
                                     Button.create [
                                         Button.isEnabled (
                                             model.Player.IsSeekable

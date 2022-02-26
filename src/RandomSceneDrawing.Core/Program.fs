@@ -13,6 +13,7 @@ let init () =
       Duration = config.Duration
       Interval = config.Interval
       Player = PlayerLib.initPlayer ()
+      PlayerMediaInfo = HasNotStartedYet
       SubPlayer = PlayerLib.initSubPlayer ()
       PlayerState = Stopped
       MediaDuration = TimeSpan.Zero
@@ -78,18 +79,13 @@ let setFrames (m: Model) newValue =
 let update msg m =
     match msg with
     // Player
-    | RequestPlay -> m, [ Play m.Player ]
-    | PlayCandeled -> m, []
-    | PlaySuccess mediaInfo ->
+    | Play Started when m.PlayerMediaInfo = InProgress -> m, []
+    | Play Started -> { m with PlayerMediaInfo = InProgress }, [ CmdMsg.Play m.Player ]
+    | Play (Finished result) ->
         { m with
-            Title = mediaInfo.Title
             PlayerState = Playing
-            MediaDuration = mediaInfo.Duration },
+            PlayerMediaInfo = Resolved result },
         []
-    | PlayFailed ex ->
-        match ex with
-        | PlayFailedException (str) -> m, [ ShowErrorInfomation str ]
-        | _ -> m, [ ShowErrorInfomation ex.Message ]
     | RequestPause -> m, [ Pause m.Player ]
     | PauseSuccess state -> { m with PlayerState = state }, []
     | PauseFailed ex -> m, [ ShowErrorInfomation ex.Message ]
@@ -234,19 +230,18 @@ let update msg m =
 open Cmd.OfTask
 
 let updateProto api msg m =
+    let randomizeCmd() =
+        api.randomizeAsync m.Player m.SubPlayer m.PlayListFilePath
+        |> result
+
     match msg with
-    | RequestPlay -> m, attempt api.playAsync m.Player PlayFailed
-    | PlaySuccess mediaInfo ->
+    | Play Started when m.PlayerMediaInfo = InProgress -> m, Cmd.none
+    | Play Started -> { m with PlayerMediaInfo = InProgress }, api.playAsync m.Player |> result
+    | Play (Finished result) ->
         { m with
-            Title = mediaInfo.Title
             PlayerState = Playing
-            MediaDuration = mediaInfo.Duration },
+            PlayerMediaInfo = Resolved result },
         Cmd.none
-    | PlayCandeled -> m, Cmd.none
-    | PlayFailed ex ->
-        match ex with
-        | PlayFailedException (str) -> m, api.showErrorAsync str |> result
-        | _ -> m, api.showErrorAsync ex.Message |> result
     | RequestPause -> m, attempt api.pauseAsync m.Player PauseFailed
     | PauseSuccess state -> { m with PlayerState = state }, []
     | PauseFailed ex -> m, api.showErrorAsync ex.Message |> result
@@ -257,7 +252,11 @@ let updateProto api msg m =
         [ m.Player; m.SubPlayer ]
         |> List.map stopOp
         |> Cmd.batch
-    | StopSuccess -> { m with PlayerState = Stopped }, []
+    | StopSuccess ->
+        { m with
+            PlayerState = Stopped
+            PlayerMediaInfo = HasNotStartedYet },
+        []
     | StopFailed ex -> m, api.showErrorAsync ex.Message |> result
     | PlayerTimeChanged time -> { m with MediaPosition = time }, []
     | PlayerBuffering cache ->
@@ -289,9 +288,7 @@ let updateProto api msg m =
     | SelectSnapShotFolderPathFailed ex -> m, api.showErrorAsync ex.Message |> result
 
     // Random Drawing
-    | RequestRandomize (_) ->
-        { m with RandomizeState = Running },
-        attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed
+    | RequestRandomize (_) -> { m with RandomizeState = Running }, randomizeCmd ()
     | RandomizeSuccess (_) ->
         { m with
             Title = m.Player.Media.Meta LibVLCSharp.MetadataType.Title
@@ -309,7 +306,7 @@ let updateProto api msg m =
         | :? TimeoutException ->
             { m with PlayerState = Stopped },
             [ attempt api.stopAsync m.Player StopFailed
-              attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed ]
+              randomizeCmd() ]
             |> Cmd.batch
         | PlayFailedException (str) ->
             { m with RandomizeState = Waiting },
@@ -334,7 +331,7 @@ let updateProto api msg m =
             CurrentDuration = m.Interval
             RandomDrawingState = Interval
             RandomizeState = Running },
-        attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed
+        randomizeCmd()
     | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
     | StartDrawingFailed ex -> m, api.showErrorAsync ex.Message |> result
     | StopDrawingSuccess -> { m with RandomDrawingState = RandomDrawingState.Stop }, []
@@ -366,7 +363,7 @@ let updateProto api msg m =
                 CurrentDuration = m.Interval },
 
             [ attempt api.takeSnapshotAsync (m.Player, getSnapShotPath m) TakeSnapshotFailed
-              attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed ]
+              randomizeCmd() ]
             |> Cmd.batch
         | RandomDrawingFinished ->
             { m with CurrentDuration = TimeSpan.Zero },
