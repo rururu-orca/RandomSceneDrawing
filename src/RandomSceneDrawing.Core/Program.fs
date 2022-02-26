@@ -291,7 +291,7 @@ let updateProto api msg m =
     // Random Drawing
     | RequestRandomize (_) ->
         { m with RandomizeState = Running },
-        attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed
+        attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed
     | RandomizeSuccess (_) ->
         { m with
             Title = m.Player.Media.Meta LibVLCSharp.MetadataType.Title
@@ -309,7 +309,7 @@ let updateProto api msg m =
         | :? TimeoutException ->
             { m with PlayerState = Stopped },
             [ attempt api.stopAsync m.Player StopFailed
-              attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed ]
+              attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed ]
             |> Cmd.batch
         | PlayFailedException (str) ->
             { m with RandomizeState = Waiting },
@@ -325,7 +325,7 @@ let updateProto api msg m =
         m,
         [ api.createCurrentSnapShotFolderAsync m.SnapShotFolderPath
           |> result
-          api.startDrawingAsync () |> result ]
+          api.startDrawing () ]
         |> Cmd.batch
     | RequestStopDrawing (_) -> m, api.stopDrawingAsync () |> result
     | StartDrawingSuccess (_) ->
@@ -334,7 +334,7 @@ let updateProto api msg m =
             CurrentDuration = m.Interval
             RandomDrawingState = Interval
             RandomizeState = Running },
-        attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed
+        attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed
     | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
     | StartDrawingFailed ex -> m, api.showErrorAsync ex.Message |> result
     | StopDrawingSuccess -> { m with RandomDrawingState = RandomDrawingState.Stop }, []
@@ -366,7 +366,7 @@ let updateProto api msg m =
                 CurrentDuration = m.Interval },
 
             [ attempt api.takeSnapshotAsync (m.Player, getSnapShotPath m) TakeSnapshotFailed
-              attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed ]
+              attempt (api.randomizeAsync m.Player m.SubPlayer) m.PlayListFilePath RandomizeFailed ]
             |> Cmd.batch
         | RandomDrawingFinished ->
             { m with CurrentDuration = TimeSpan.Zero },

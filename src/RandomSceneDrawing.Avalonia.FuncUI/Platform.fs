@@ -183,6 +183,52 @@ let toCmd (window: MainWindow) cmdMsg =
         showErrorNotification window.NotificationManager message ShowErrorInfomationSuccess
         |> Cmd.OfAsyncImmediate.result
 
+let api (window: MainWindow) : Api =
+
+    { playAsync = selectMediaAndPlayAsync window
+      pauseAsync =
+        fun player ->
+            PlayerLib.togglePauseAsync player (Playing, Paused)
+            |> Async.map PauseSuccess
+            |> Async.StartAsTask
+      stopAsync =
+        fun player ->
+            PlayerLib.stopAsync player StopSuccess
+            |> Async.StartAsTask
+      randomizeAsync = fun mp sp urlStr -> PlayerLib.randomize mp sp (Uri urlStr)
+      createCurrentSnapShotFolderAsync = fun root -> task { return createCurrentSnapShotFolder root }
+      takeSnapshotAsync =
+        fun (player, path) ->
+            task {
+                do!
+                    Text.RegularExpressions.Regex.Replace(path, "png", "mp4")
+                    |> PlayerLib.copySubVideo
+                    |> Async.AwaitTask
+
+                match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with
+                | Some path -> return TakeSnapshotSuccess
+                | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
+            }
+      startDrawing =
+        fun _ ->
+            Notification("Start", "Start Drawing.", NotificationType.Information)
+            |> window.NotificationManager.Show
+
+            startTimer StartDrawingSuccess
+      stopDrawingAsync = fun _ -> task { return stopTimer StopDrawingSuccess }
+      selectPlayListFilePathAsync =
+        fun _ ->
+            selectPlayListFileAsync window
+            |> Async.StartAsTask
+      selectSnapShotFolderPathAsync =
+        fun _ ->
+            selectSnapShotFolderAsync window
+            |> Async.StartAsTask
+      showErrorAsync =
+        fun message ->
+            showErrorNotification window.NotificationManager message ShowErrorInfomationSuccess
+            |> Async.StartAsTask }
+
 let onClosed (window: HostWindow) dispatch =
     window.Closed
     |> Observable.add (fun e -> dispatch WindowClosed)

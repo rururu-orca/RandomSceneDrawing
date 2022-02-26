@@ -107,14 +107,15 @@ type Msg =
     | ResetSettings
     | ShowErrorInfomationSuccess
 
+open Elmish
 type Api =
     { playAsync: MediaPlayer -> Task<Msg>
       pauseAsync: MediaPlayer -> Task<Msg>
       stopAsync: MediaPlayer -> Task<Msg>
-      randomizeAsync: MediaPlayer * MediaPlayer * string -> Task<Msg>
+      randomizeAsync: MediaPlayer -> MediaPlayer -> string -> Task<Msg>
       createCurrentSnapShotFolderAsync: string -> Task<Msg>
       takeSnapshotAsync: MediaPlayer * string -> Task<Msg>
-      startDrawingAsync: unit -> Task<Msg>
+      startDrawing: unit -> Cmd<Msg>
       stopDrawingAsync: unit -> Task<Msg>
       selectPlayListFilePathAsync: unit -> Task<Msg>
       selectSnapShotFolderPathAsync: unit -> Task<Msg>
