@@ -6,6 +6,7 @@ open Types
 open Util
 open RandomSceneDrawing
 open FSharpPlus
+open Elmish
 
 let init () =
     { Frames = config.Frames
@@ -72,6 +73,7 @@ let setFrames (m: Model) newValue =
     |> validateFrames
     |> Result.map (fun t -> { m with Frames = t })
     |> Result.defaultValue m
+
 
 let update msg m =
     match msg with
@@ -207,6 +209,178 @@ let update msg m =
         match ex with
         | SnapShotFailedException (str) -> m, [ ShowErrorInfomation str ]
         | _ -> m, [ ShowErrorInfomation ex.Message ]
+    // Util
+    | LayoutUpdated p -> { m with StatusMessage = p }, []
+    | WindowClosed ->
+        config.Duration <- m.Duration
+        config.Frames <- m.Frames
+        config.Interval <- m.Interval
+        config.PlayListFilePath <- m.PlayListFilePath
+        config.SnapShotFolderPath <- m.SnapShotFolderPath
+        config.Save changedConfigPath
+        m, []
+    | ResetSettings ->
+        let origin = Config()
+
+        { m with
+            Duration = origin.Duration
+            Frames = origin.Frames
+            Interval = origin.Interval
+            PlayListFilePath = origin.PlayListFilePath
+            SnapShotFolderPath = origin.SnapShotFolderPath },
+        []
+    | ShowErrorInfomationSuccess -> m, []
+
+open Cmd.OfTask
+
+let updateProto api msg m =
+    match msg with
+    | RequestPlay -> m, attempt api.playAsync m.Player PlayFailed
+    | PlaySuccess mediaInfo ->
+        { m with
+            Title = mediaInfo.Title
+            PlayerState = Playing
+            MediaDuration = mediaInfo.Duration },
+        Cmd.none
+    | PlayCandeled -> m, Cmd.none
+    | PlayFailed ex ->
+        match ex with
+        | PlayFailedException (str) -> m, api.showErrorAsync str |> result
+        | _ -> m, api.showErrorAsync ex.Message |> result
+    | RequestPause -> m, attempt api.pauseAsync m.Player PauseFailed
+    | PauseSuccess state -> { m with PlayerState = state }, []
+    | PauseFailed ex -> m, api.showErrorAsync ex.Message |> result
+    | RequestStop ->
+        let stopOp p = attempt api.stopAsync p StopFailed
+
+        m,
+        [ m.Player; m.SubPlayer ]
+        |> List.map stopOp
+        |> Cmd.batch
+    | StopSuccess -> { m with PlayerState = Stopped }, []
+    | StopFailed ex -> m, api.showErrorAsync ex.Message |> result
+    | PlayerTimeChanged time -> { m with MediaPosition = time }, []
+    | PlayerBuffering cache ->
+        match cache with
+        | 100.0f when m.RandomizeState = WaitBuffering ->
+            { m with
+                PlayerBufferCache = cache
+                RandomizeState = Waiting },
+            []
+        | _ -> { m with PlayerBufferCache = cache }, []
+
+    // Random Drawing Setting
+    | SetFrames x -> setFrames m x, []
+    | IncrementFrames n -> setFrames m (m.Frames + n), []
+    | DecrementFrames n -> setFrames m (m.Frames - n), []
+    | SetDuration x -> setDuration m x, []
+    | IncrementDuration time -> setDuration m (m.Duration + time), []
+    | DecrementDuration time -> setDuration m (m.Duration - time), []
+    | SetPlayListFilePath path -> { m with PlayListFilePath = path }, []
+    | RequestSelectPlayListFilePath -> m, attempt api.selectPlayListFilePathAsync () SelectPlayListFilePathFailed
+    | SelectPlayListFilePathSuccess path -> { m with PlayListFilePath = path }, []
+    | SelectPlayListFilePathCanceled _ -> m, []
+    | SelectPlayListFilePathFailed ex -> m, api.showErrorAsync ex.Message |> result
+
+    | SetSnapShotFolderPath path -> { m with SnapShotFolderPath = path }, []
+    | RequestSelectSnapShotFolderPath -> m, attempt api.selectSnapShotFolderPathAsync () SelectSnapShotFolderPathFailed
+    | SelectSnapShotFolderPathSuccess path -> { m with SnapShotFolderPath = path }, []
+    | SelectSnapShotFolderPathCandeled -> m, []
+    | SelectSnapShotFolderPathFailed ex -> m, api.showErrorAsync ex.Message |> result
+
+    // Random Drawing
+    | RequestRandomize (_) ->
+        { m with RandomizeState = Running },
+        attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed
+    | RandomizeSuccess (_) ->
+        { m with
+            Title = m.Player.Media.Meta LibVLCSharp.MetadataType.Title
+            PlayerState = Playing
+            RandomizeState =
+                if m.PlayerBufferCache = 100.0f then
+                    Waiting
+                else
+                    WaitBuffering
+            MediaPosition = (float m.Player.Time |> TimeSpan.FromMilliseconds)
+            MediaDuration = (float m.Player.Length |> TimeSpan.FromMilliseconds) },
+        []
+    | RandomizeFailed ex ->
+        match ex with
+        | :? TimeoutException ->
+            { m with PlayerState = Stopped },
+            [ attempt api.stopAsync m.Player StopFailed
+              attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed ]
+            |> Cmd.batch
+        | PlayFailedException (str) ->
+            { m with RandomizeState = Waiting },
+            [ api.showErrorAsync str |> result
+              attempt api.stopAsync m.Player StopFailed ]
+            |> Cmd.batch
+        | _ ->
+            { m with RandomizeState = Waiting },
+            [ api.showErrorAsync ex.Message |> result
+              attempt api.stopAsync m.Player StopFailed ]
+            |> Cmd.batch
+    | RequestStartDrawing (_) ->
+        m,
+        [ api.createCurrentSnapShotFolderAsync m.SnapShotFolderPath
+          |> result
+          api.startDrawingAsync () |> result ]
+        |> Cmd.batch
+    | RequestStopDrawing (_) -> m, api.stopDrawingAsync () |> result
+    | StartDrawingSuccess (_) ->
+        { m with
+            CurrentFrames = 1
+            CurrentDuration = m.Interval
+            RandomDrawingState = Interval
+            RandomizeState = Running },
+        attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed
+    | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
+    | StartDrawingFailed ex -> m, api.showErrorAsync ex.Message |> result
+    | StopDrawingSuccess -> { m with RandomDrawingState = RandomDrawingState.Stop }, []
+    | Tick ->
+        let nextDuration = m.CurrentDuration - TimeSpan(0, 0, 1)
+
+        let (|RunningCountDown|IntervalFinished|CurrentFrameFinished|RandomDrawingFinished|) m =
+            if nextDuration > TimeSpan.Zero then
+                RunningCountDown
+            elif m.RandomDrawingState = Interval then
+                IntervalFinished
+            elif m.CurrentFrames < m.Frames then
+                CurrentFrameFinished
+            else
+                RandomDrawingFinished
+
+        match m with
+        | RunningCountDown -> { m with CurrentDuration = nextDuration }, []
+        | IntervalFinished ->
+            { m with
+                RandomDrawingState = RandomDrawingState.Running
+                CurrentDuration = m.Duration },
+            []
+        | CurrentFrameFinished ->
+            { m with
+                RandomDrawingState = Interval
+                RandomizeState = Running
+                CurrentFrames = m.CurrentFrames + 1
+                CurrentDuration = m.Interval },
+
+            [ attempt api.takeSnapshotAsync (m.Player, getSnapShotPath m) TakeSnapshotFailed
+              attempt api.randomizeAsync (m.Player, m.SubPlayer, m.PlayListFilePath) RandomizeFailed ]
+            |> Cmd.batch
+        | RandomDrawingFinished ->
+            { m with CurrentDuration = TimeSpan.Zero },
+            [ attempt api.takeSnapshotAsync (m.Player, getSnapShotPath m) TakeSnapshotFailed
+              api.stopDrawingAsync () |> result ]
+            |> Cmd.batch
+        |> (function
+        | PlayerLib.AlreadyBufferingCompleted (m', msg') -> { m' with RandomizeState = Waiting }, msg'
+        | next -> next)
+    | TakeSnapshotSuccess -> m, []
+    | TakeSnapshotFailed ex ->
+        match ex with
+        | SnapShotFailedException (str) -> m, api.showErrorAsync str |> result
+        | _ -> m, api.showErrorAsync ex.Message |> result
     // Util
     | LayoutUpdated p -> { m with StatusMessage = p }, []
     | WindowClosed ->
