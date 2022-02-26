@@ -1,6 +1,7 @@
 module RandomSceneDrawing.Types
 
 open System
+open System.Threading.Tasks
 open LibVLCSharp
 
 type RandomDrawingState =
@@ -22,8 +23,8 @@ exception PlayFailedException of string
 exception SnapShotFailedException of string
 
 type ValidateError =
-    |OverUpperLimit
-    |BelowLowerLimit
+    | OverUpperLimit
+    | BelowLowerLimit
 
 type MediaInfo = { Title: string; Duration: TimeSpan }
 
@@ -105,3 +106,16 @@ type Msg =
     | WindowClosed
     | ResetSettings
     | ShowErrorInfomationSuccess
+
+type Api =
+    { playAsync: MediaPlayer -> Task<Msg>
+      pauseAsync: MediaPlayer -> Task<Msg>
+      stopAsync: MediaPlayer -> Task<Msg>
+      randomizeAsync: MediaPlayer * MediaPlayer * string -> Task<Msg>
+      createCurrentSnapShotFolderAsync: string -> Task<Msg>
+      takeSnapshotAsync: MediaPlayer * string -> Task<Msg>
+      startDrawingAsync: unit -> Task<Msg>
+      stopDrawingAsync: unit -> Task<Msg>
+      selectPlayListFilePathAsync: unit -> Task<Msg>
+      selectSnapShotFolderPathAsync: unit -> Task<Msg>
+      showErrorAsync: string -> Task<Msg> }
