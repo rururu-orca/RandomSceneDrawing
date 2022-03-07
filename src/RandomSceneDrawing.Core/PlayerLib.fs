@@ -49,6 +49,8 @@ let libVLC =
         [|
 #if DEBUG
            "-vvv"
+#else
+           "-q"
 #endif
            "--hw-dec"
            "--codec=nvdec,any"
@@ -62,8 +64,7 @@ let libVLC =
 
     new LibVLC(options)
 
-let initPlayer () =
-    new MediaPlayer(libVLC)
+let initPlayer () = new MediaPlayer(libVLC)
 
 let initSubPlayer () =
     let caching = uint config.SubPlayer.RepeatDuration
@@ -74,6 +75,12 @@ let initSubPlayer () =
         |> p.SetRate
         |> ignore)
 
+let isPlayingOrPaused (player: MediaPlayer) =
+    match enum<VLCState> (int player.Scale) with
+    | VLCState.Playing
+    | VLCState.Paused -> true
+    | _ -> false
+
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
@@ -81,7 +88,7 @@ let loadPlayList source =
     task {
         let playList = new Media(libVLC, uri = source)
 
-        let! _ = playList.Parse MediaParseOptions.ParseNetwork
+        let! _ = playList.ParseAsync MediaParseOptions.ParseNetwork
 
         return playList
     }
@@ -194,7 +201,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
             playList.SubItems
             |> Seq.item (random.Next playList.SubItems.Count)
 
-        match! media.Parse MediaParseOptions.ParseNetwork with
+        match! media.ParseAsync MediaParseOptions.ParseNetwork with
         | MediaParsedStatus.Done -> do! Ok()
         | other -> do! Error(exn $"Media Parse %A{other}")
 
@@ -254,7 +261,8 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
                 mrl.LocalPath
             else
                 mrl.AbsoluteUri
-        let path = Text.RegularExpressions.Regex.Replace(path, @"^/" ,"")
+
+        let path = Text.RegularExpressions.Regex.Replace(path, @"^/", "")
 
         // 録画実行
         do!

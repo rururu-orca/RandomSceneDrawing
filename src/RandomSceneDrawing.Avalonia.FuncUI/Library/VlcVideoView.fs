@@ -161,6 +161,7 @@ type VideoView() as x =
         member x.MediaPlayer
             with get () = Option.toObj mediaPlayer
             and set (value) =
+                mediaPlayerDisposables.Clear()
                 if x.SetAndRaise(VideoView.MediaPlayerProperty, (Option.toObj >> ref) mediaPlayer, value) then
                     mediaPlayer <- Option.ofObj value
                     x.InitMediaPlayer()
@@ -182,6 +183,24 @@ type VideoView() as x =
             (fun (o: VideoView) v -> o.HasFloating <- v)
         )
 
+    member _.IsVideoVisible
+        with get () =
+            nativePresenter
+            |> Option.map (fun np -> np.IsVisible)
+            |> Option.defaultValue false
+            
+        and set (value) =
+            nativePresenter
+            |> Option.iter (fun np -> np.IsVisible <- value)
+
+    static member IsVideoVisibleProperty =
+        AvaloniaProperty.RegisterDirect(
+            nameof Unchecked.defaultof<VideoView>.IsVideoVisible,
+            (fun (o: VideoView) -> o.IsVideoVisible),
+            (fun (o: VideoView) v -> o.IsVideoVisible <- v)
+        )
+
+
     static member VideoPanel() =
         [ VideoView.MediaPlayerProperty.Changed
           |> addClassHandler<VideoView, MediaPlayer> (fun s e -> s.InitMediaPlayer()) ]
@@ -196,9 +215,8 @@ type VideoView() as x =
     member private x.InitMediaPlayer() =
         match mediaPlayer, nativePresenter with
         | Some player, Some presenter ->
-
             presenter.AttachHandle player
-            presenter.IsVisible <- true
+            presenter.IsVisible <- false
         | _ -> ()
 
     override x.Render context =
@@ -235,6 +253,10 @@ module VideoView =
     let hasFloating<'t when 't :> VideoView> (hasFloating: bool) : IAttr<'t> =
         AttrBuilder<'t>
             .CreateProperty<bool>(VideoView.HasFloatingProperty, hasFloating, ValueNone)
+
+    let isVideoVisible<'t when 't :> VideoView> (isVideoVisible: bool) : IAttr<'t> =
+        AttrBuilder<'t>
+            .CreateProperty<bool>(VideoView.IsVideoVisibleProperty, isVideoVisible, ValueNone)
 
     let opacity<'t when 't :> VideoView> (opacity: float) : IAttr<'t> =
         AttrBuilder<'t>

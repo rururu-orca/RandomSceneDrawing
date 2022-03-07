@@ -230,7 +230,7 @@ let update msg m =
 open Cmd.OfTask
 
 let updateProto api msg m =
-    let randomizeCmd() =
+    let randomizeCmd () =
         api.randomizeAsync m.Player m.SubPlayer m.PlayListFilePath
         |> result
 
@@ -247,11 +247,7 @@ let updateProto api msg m =
     | PauseFailed ex -> m, api.showErrorAsync ex.Message |> result
     | RequestStop ->
         let stopOp p = attempt api.stopAsync p StopFailed
-
-        m,
-        [ m.Player; m.SubPlayer ]
-        |> List.map stopOp
-        |> Cmd.batch
+        m, stopOp m.Player @ stopOp m.SubPlayer
     | StopSuccess ->
         { m with
             PlayerState = Stopped
@@ -306,7 +302,7 @@ let updateProto api msg m =
         | :? TimeoutException ->
             { m with PlayerState = Stopped },
             [ attempt api.stopAsync m.Player StopFailed
-              randomizeCmd() ]
+              randomizeCmd () ]
             |> Cmd.batch
         | PlayFailedException (str) ->
             { m with RandomizeState = Waiting },
@@ -331,7 +327,7 @@ let updateProto api msg m =
             CurrentDuration = m.Interval
             RandomDrawingState = Interval
             RandomizeState = Running },
-        randomizeCmd()
+        randomizeCmd ()
     | CreateCurrentSnapShotFolderSuccess path -> { m with SnapShotPath = path }, []
     | StartDrawingFailed ex -> m, api.showErrorAsync ex.Message |> result
     | StopDrawingSuccess -> { m with RandomDrawingState = RandomDrawingState.Stop }, []
@@ -363,7 +359,7 @@ let updateProto api msg m =
                 CurrentDuration = m.Interval },
 
             [ attempt api.takeSnapshotAsync (m.Player, getSnapShotPath m) TakeSnapshotFailed
-              randomizeCmd() ]
+              randomizeCmd () ]
             |> Cmd.batch
         | RandomDrawingFinished ->
             { m with CurrentDuration = TimeSpan.Zero },

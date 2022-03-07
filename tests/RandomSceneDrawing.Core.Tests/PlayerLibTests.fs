@@ -3,6 +3,7 @@ module RandomSceneDrawing.Tests.PlayerLib
 open System
 open Expecto
 open RandomSceneDrawing
+open RandomSceneDrawing.Types
 open System.IO
 open LibVLCSharp
 
@@ -25,12 +26,14 @@ let playerLibTests =
                     "TestPlayList.xspf" |]
                  |> Path.Combine
 
-             let! playList = PlayerLib.loadPlayList (Uri path) |> Async.AwaitTask
+             let! playList =
+                 PlayerLib.loadPlayList (Uri path)
+                 |> Async.AwaitTask
 
              Expect.equal playList.Type MediaType.Playlist "should work"
 
          }
-         testAsync "can randomize" {
+         testTask "can randomize" {
              let path =
                  [| __SOURCE_DIRECTORY__
                     "TestPlayList.xspf" |]
@@ -39,14 +42,11 @@ let playerLibTests =
              use player = PlayerLib.initPlayer ()
              use subPlayer = PlayerLib.initPlayer ()
 
-             do!
-                 PlayerLib.randomize player subPlayer (Uri path)
-                 |> Async.AwaitTask
-                 |> Async.Ignore
+             let! actuel = PlayerLib.randomize player subPlayer (Uri path)
 
              let media: Media = player.Media
              Expect.notEqual media.Duration -1L ""
-             Expect.isGreaterThan player.Time 0L ""
+             Expect.equal actuel RandomizeSuccess ""
          }
 
          testAsync "can take Snapshot" {
@@ -77,3 +77,4 @@ let playerLibTests =
          }
 
          ]
+    |> testSequenced

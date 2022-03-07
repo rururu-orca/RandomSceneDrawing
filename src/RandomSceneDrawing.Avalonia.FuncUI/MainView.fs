@@ -69,19 +69,13 @@ module MainView =
         ]
 
     let subPlayerView model dispatch =
-        let subViewwidth m =
-            if mediaBlindVisibility m |> not then
-                config.SubPlayer.Width
-            else
-                0
-
         VideoView.create [
             VideoView.height config.SubPlayer.Height
-            VideoView.width (subViewwidth model)
+            VideoView.width config.SubPlayer.Width
             VideoView.verticalAlignment VerticalAlignment.Top
             VideoView.horizontalAlignment HorizontalAlignment.Right
-            VideoView.hasFloating false
             VideoView.mediaPlayer model.SubPlayer
+            VideoView.isVideoVisible model.SubPlayer.IsPlaying
         ]
 
     let videoViewContent model dispatch =
@@ -294,6 +288,7 @@ module MainView =
 
                 VideoView.create [
                     VideoView.mediaPlayer model.Player
+                    VideoView.isVideoVisible model.Player.IsSeekable
                     VideoView.hasFloating true
                     VideoView.content (videoViewContent model dispatch)
                 ]
