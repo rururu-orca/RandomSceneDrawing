@@ -19,13 +19,15 @@ type Deferred<'t> =
 module Deferred =
 
     /// Returns whether the `Deferred<'T>` value has been resolved or not.
-    let resolved = function
+    let resolved =
+        function
         | HasNotStartedYet -> false
         | InProgress -> false
         | Resolved _ -> true
 
     /// Returns whether the `Deferred<'T>` value is in progress or not.
-    let inProgress = function
+    let inProgress =
+        function
         | HasNotStartedYet -> false
         | InProgress -> true
         | Resolved _ -> false
@@ -35,10 +37,11 @@ module Deferred =
         match deferred with
         | HasNotStartedYet -> HasNotStartedYet
         | InProgress -> InProgress
-        | Resolved value -> Resolved (transform value)
+        | Resolved value -> Resolved(transform value)
 
     /// Verifies that a `Deferred<'T>` value is resolved and the resolved data satisfies a given requirement.
-    let exists (predicate: 'T -> bool) = function
+    let exists (predicate: 'T -> bool) =
+        function
         | HasNotStartedYet -> false
         | InProgress -> false
         | Resolved value -> predicate value
@@ -74,12 +77,119 @@ type ValidateError =
 
 type MediaInfo = { Title: string; Duration: TimeSpan }
 
+module Player =
+    type State =
+        | Playing
+        | Paused
+        | Stopped
+
+    type Model<'player> =
+        { Player: 'player
+          State: AsyncOperationStatus<Result<State, string>>
+          Media: Deferred<Result<MediaInfo, string>> }
+
+    type Msg =
+        | Play of Result<MediaInfo, string> AsyncOperationStatus
+        | Pause of Result<MediaInfo, string> AsyncOperationStatus
+        | Stop of Result<unit, string> AsyncOperationStatus
+
+    type api<'player> =
+        { playAsync: 'player -> Task<Msg>
+          pauseAsync: 'player -> Task<Msg>
+          stopAsync: 'player -> Task<Msg> }
+
+    open Elmish
+    open Elmish.Cmd.OfTask
+
+    let init player =
+        { Player = player
+          State = Finished(Ok Stopped)
+          Media = HasNotStartedYet }
+
+    let update api msg m =
+        let mapState state = Result.map (fun _ -> state)
+
+        match msg, m.Media with
+        | Play Started, InProgress -> m, Cmd.none
+        | Play Started, _ ->
+            { m with
+                Media = InProgress
+                State = Started },
+            api.playAsync m.Player |> result
+        | Play (Finished result), _ ->
+            { m with
+                Media = Resolved result
+                State = Finished(mapState Playing result) },
+            Cmd.none
+        | Pause Started, HasNotStartedYet
+        | Pause Started, InProgress
+        | Pause Started, Resolved (Error _) -> m, Cmd.none
+        | Pause Started, _ ->
+            { m with
+                State = Started },
+            api.pauseAsync m.Player |> result
+        | Pause (Finished (Ok mediainfo)), _ ->
+            { m with
+                Media = Resolved(Ok mediainfo)
+                State = Finished(Ok Paused) },
+            Cmd.none
+        | Pause (Finished (Error msg)), _ -> { m with State = Finished(Error msg) }, Cmd.none
+        | Stop Started, HasNotStartedYet
+        | Stop Started, InProgress
+        | Stop Started, Resolved (Error _) -> m, Cmd.none
+        | Stop Started, _ ->
+            { m with
+                State = Started },
+            api.stopAsync m.Player |> result
+        | Stop (Finished (Ok _)), _ ->
+            { m with
+                Media = HasNotStartedYet
+                State = Finished(Ok Stopped) },
+            Cmd.none
+        | Stop (Finished (Error msg)), _ -> { m with State = Finished(Error msg) }, Cmd.none
+
+
+
+
+module Main =
+    open Elmish
+
+    type PlayerId =
+        | MainPlayer
+        | SubPlayer
+
+    type Model<'player> =
+        { MainPlayer: Player.Model<'player>
+          SubPlayer: Player.Model<'player> }
+
+    type Msg = PlayerMsg of PlayerId * Player.Msg
+
+
+    let init player subPlayer =
+        { MainPlayer = Player.init player
+          SubPlayer = Player.init subPlayer }
+
+    let update playerApi msg m =
+        let playerUpdate = Player.update playerApi
+
+        match msg with
+        | PlayerMsg (MainPlayer, msg) ->
+            let mainPlayer', cmd' = playerUpdate msg m.MainPlayer
+
+            { m with MainPlayer = mainPlayer' }, Cmd.map ((fun m -> MainPlayer, m) >> PlayerMsg) cmd'
+
+        | PlayerMsg (SubPlayer, msg) ->
+            let player', cmd' = playerUpdate msg m.SubPlayer
+
+            { m with SubPlayer = player' }, Cmd.map ((fun m -> SubPlayer, m) >> PlayerMsg) cmd'
+
+
 type Model =
     { Frames: int
       Duration: TimeSpan
       Interval: TimeSpan
       Player: MediaPlayer
-      PlayerMediaInfo : Result<MediaInfo, string> Deferred
+      PlayerMediaInfo: Result<MediaInfo, string> Deferred
       SubPlayer: MediaPlayer
       PlayerState: PlayerState
       PlayerBufferCache: float32

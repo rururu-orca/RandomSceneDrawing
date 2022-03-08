@@ -168,6 +168,7 @@ let resumeAsync (player: MediaPlayer) onSuccess =
 
 let togglePauseAsync (player: MediaPlayer) (onPlaying, onPaused) =
     async {
+
         let result =
             player.Media
             |> pickMediaState (function
