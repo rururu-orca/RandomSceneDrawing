@@ -2,12 +2,9 @@ module RandomSceneDrawing.Tests.PlayerCore
 
 open Expecto
 
-open Elmish
 open System
 
-open RandomSceneDrawing
 open RandomSceneDrawing.Types
-open RandomSceneDrawing.Types.Player
 
 module Expect =
     let private foldMessages initialState msgs msgMapper update =
@@ -21,11 +18,10 @@ module Expect =
 
         Expect.equal actual expectedUpdatedModel testMessage
 
-
-
 module Player =
+    open RandomSceneDrawing.Player
 
-    let stateStopped = Player.init ()
+    let stateStopped = init ()
 
     let errorResult = Error "Not Implemented"
     let errorFinished = Finished errorResult
@@ -132,7 +128,8 @@ module Player =
         msgTestSet "Player Model Base" (init ()) (fun _ state -> state) id update
 
 module Main =
-    let init = Main.init () ()
+    open RandomSceneDrawing.Main
+    let init = init () ()
 
     [<Tests>]
     let mainPlayerTest =
@@ -140,8 +137,8 @@ module Main =
             "Model.MainPlayer"
             init
             (fun model state -> { model with MainPlayer = state })
-            (fun msg -> Main.PlayerMsg(Main.MainPlayer, msg))
-            Main.update
+            (fun msg -> PlayerMsg(MainPlayer, msg))
+            update
 
     [<Tests>]
     let subPlayerTest =
@@ -149,5 +146,5 @@ module Main =
             "Model.SubPlayer"
             init
             (fun model state -> { model with SubPlayer = state })
-            (fun msg -> Main.PlayerMsg(Main.SubPlayer, msg))
-            Main.update
+            (fun msg -> PlayerMsg(SubPlayer, msg))
+            update
