@@ -4,6 +4,129 @@ open System
 open System.Threading.Tasks
 open LibVLCSharp
 
+[<Struct>]
+type Validated<'value, 'wrapped, 'error> =
+    private
+    | Valid of wrapped: 'wrapped
+    | Invalid of current: 'wrapped voption * arg: 'value * error: 'error
+
+[<Struct>]
+type UnwrapInvalid<'value, 'error> =
+    { Current: 'value voption
+      Arg: 'value
+      Error: 'error }
+
+let (|Valid|Invalid|) (validated: Validated<'value, 'wrapped, 'error>) =
+    match validated with
+    | Valid value -> Valid value
+    | Invalid (current, arg, error) -> Invalid(current, arg, error)
+
+type Validator<'value, 'wrapped, 'error>(wrap, unwrap, validate) =
+    let validate: 'value -> Result<'value, 'error> = validate
+    let wrap: 'value -> 'wrapped = wrap
+    let unwrap: 'wrapped -> 'value = unwrap
+
+    member _.Create value =
+        match validate value with
+        | Ok v -> Valid(wrap v)
+        | Error error -> Invalid(ValueNone, value, error)
+
+    member _.Update newValueArg (currentValue: Validated<'value, 'wrapped, 'error>) =
+        match (validate newValueArg), currentValue with
+        | Ok v, _ -> Valid(wrap v)
+        | Error error, Valid c -> Invalid(ValueSome c, newValueArg, error)
+        | Error error, Invalid _ -> Invalid(ValueNone, newValueArg, error)
+
+
+    member _.Fold onValid onInvalid (validated: Validated<'value, 'wrapped, 'error>) =
+        match validated with
+        | Valid x -> onValid x
+        | Invalid e -> onInvalid e
+
+    member this.UnwrapFold onValid onInvalid (validated: Validated<'value, 'wrapped, 'error>) =
+        this.Fold
+            (unwrap >> onValid)
+            ((fun (v, invalid, error) ->
+                { Current = ValueOption.map unwrap v
+                  Arg = invalid
+                  Error = error })
+             >> onInvalid)
+            validated
+
+    member this.Map (f: 'value -> 'value) validated =
+        match validated with
+        | Valid v -> validated |> this.Update(f (unwrap v))
+        | invalid -> invalid
+
+    member this.UnwrapWith (f: 'value -> 'a) (validated: Validated<'value, 'wrapped, 'error>) =
+        this.UnwrapFold(f >> Ok) (id >> Error) validated
+
+    member this.UnwrapOr f (validated: Validated<'value, 'wrapped, 'error>) =
+        this.UnwrapFold(id >> Ok) (f >> Error) validated
+
+    member this.Unwrap(validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapWith id validated
+
+    member this.ValueOr f (validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapFold id f validated
+
+    member this.DefaultWith f (validated: Validated<'value, 'wrapped, 'error>) = this.ValueOr(ignore >> f) validated
+
+    member this.DefaultValue value (validated: Validated<'value, 'wrapped, 'error>) =
+        this.DefaultWith(fun () -> value) validated
+
+    member this.Tee f (validated: Validated<'value, 'wrapped, 'error>) = this.Fold f ignore validated
+
+    member this.UnwrapTee f (validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapFold f ignore validated
+
+    member this.TeeInvalid f (validated: Validated<'value, 'wrapped, 'error>) = this.Fold ignore f validated
+
+    member this.UnwrapTeeInvalid f (validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapFold ignore f validated
+
+    member _.IsValid(validated: Validated<'value, 'wrapped, 'error>) =
+        match validated with
+        | Valid _ -> true
+        | Invalid _ -> false
+
+    member _.IsInvalid(validated: Validated<'value, 'wrapped, 'error>) =
+        match validated with
+        | Valid _ -> false
+        | Invalid _ -> true
+
+
+module ErrorTypes =
+    type FilePickerError =
+        | Canceled
+        | FileSystemError of string
+
+module Validator =
+    let validateIfPositiveNumber num =
+        if num < 0 then
+            Error "Must be a positive number."
+        else
+            Ok num
+
+    let validateIfPositiveTime time =
+        if time < TimeSpan.Zero then
+            Error "Must be a positive number."
+        else
+            Ok time
+
+    open System.IO
+
+    type FileType =
+        | File
+        | Directory
+
+    let validateExists label path =
+        match label with
+        | File when File.Exists path -> Ok path
+        | Directory when Directory.Exists path -> Ok path
+        | _ -> Error $"{path} is not exsists."
+
+    let validatePathString label path =
+        if String.IsNullOrEmpty path then
+            Ok path
+        else
+            validateExists label path
 
 type AsyncOperationStatus<'t> =
     | Started

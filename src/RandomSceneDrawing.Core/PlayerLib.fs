@@ -182,7 +182,11 @@ let togglePauseAsync (player: MediaPlayer) (onPlaying, onPaused) =
 
 let stopAsync (player: MediaPlayer) onSuccess =
     async {
-        player.Stop()
+        do!
+            player.StopAsync()
+            |> Async.AwaitTask
+            |> Async.Ignore
+
         return onSuccess
     }
 

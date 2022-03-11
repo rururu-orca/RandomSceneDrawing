@@ -5,18 +5,7 @@ open Expecto
 open System
 
 open RandomSceneDrawing.Types
-
-module Expect =
-    let private foldMessages initialState msgs msgMapper update =
-        msgs
-        |> List.map msgMapper
-        |> List.fold (fun (state, _) message -> update message state) (initialState, [])
-
-    let model update testMessage initModel msg msgMapper expectedUpdatedModel =
-
-        let actual, _ = update |> foldMessages initModel [ msg ] msgMapper
-
-        Expect.equal actual expectedUpdatedModel testMessage
+open Utils
 
 module Player =
     open RandomSceneDrawing.Player
