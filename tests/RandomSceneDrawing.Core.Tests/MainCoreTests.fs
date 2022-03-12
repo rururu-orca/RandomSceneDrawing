@@ -7,7 +7,7 @@ open RandomSceneDrawing.Main
 let api =
     { step = fun _ -> async { do! Async.Sleep 2 }}
 let init = init () ()
-let updatePlayer = update api
+let updatePlayer = update api DrawingSettings.api
 
 [<Tests>]
 let mainPlayerTest =
@@ -26,3 +26,16 @@ let subPlayerTest =
         (fun model state -> { model with SubPlayer = state })
         (fun msg -> PlayerMsg(SubPlayer, msg))
         updatePlayer
+
+let updateSettings settingsApi =
+    update api settingsApi Player.Core.apiOk
+
+[<Tests>]
+let settingTest =
+    DrawingSettings.msgTestSet
+        "Model.Settings"
+        init
+        (fun model state -> { model with Settings = state })
+        SettingsMsg
+        updateSettings
+

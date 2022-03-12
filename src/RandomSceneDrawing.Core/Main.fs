@@ -65,8 +65,9 @@ let init player subPlayer =
       Settings = DrawingSettings.init ()
       State = Setting }
 
-let update api playerApi msg m =
+let update api settingsApi playerApi msg m =
     let cmds = Cmds api
+    let settingUpdate = DrawingSettings.update settingsApi
     let playerUpdate = Player.update playerApi
 
     let countDown map x = map ((-) (TimeSpan.FromSeconds 1.0)) x
@@ -81,7 +82,9 @@ let update api playerApi msg m =
         let player', cmd' = playerUpdate msg m.SubPlayer
 
         { m with SubPlayer = player' }, Cmd.map ((fun m -> SubPlayer, m) >> PlayerMsg) cmd'
-    | SettingsMsg msg when m.State = Setting -> failwith "Not Implemented"
+    | SettingsMsg msg when m.State = Setting ->
+        let settings', cmd' = settingUpdate msg m.Settings
+        { m with Settings = settings' }, Cmd.map SettingsMsg cmd'
     | SettingsMsg _ -> m, Cmd.none
     | Tick ->
         match m.State with
