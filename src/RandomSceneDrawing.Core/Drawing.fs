@@ -97,19 +97,42 @@ type Msg =
 
 type Api =
     { step: unit -> Async<unit>
-      pickPlayList: unit -> Task<string>
-      pickSnapshotFolder: unit -> Task<string> }
-
-let init () =
-    { Settings = Settings.Default()
-      PickedPlayListPath = HasNotStartedYet
-      PickedSnapShotFolderPath = HasNotStartedYet }
-    |> Stopped
+      pickPlayList: unit -> Task<Result<string, FilePickerError>>
+      pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>> }
 
 open Elmish
-open Elmish.Cmd.OfAsync
+
+type Cmds(api: Api) =
+    member _.Step() =
+        async {
+            do! api.step ()
+            return Tick
+        }
+        |> Cmd.OfAsync.result
+
+    member _.PickPlayList() =
+        task {
+            let! result = api.pickPlayList ()
+            return (Finished >> PickPlayList) result
+        }
+        |> Cmd.OfTask.result
+
+    member _.PickSnapshotFolder() =
+        task {
+            let! result = api.pickSnapshotFolder ()
+            return (Finished >> PickSnapshotFolder) result
+        }
+        |> Cmd.OfTask.result
+
+
+let init () =
+    Settings.Default()
+    |> DrawingStopped.create
+    |> Stopped
 
 let update api msg m =
+    let cmds = Cmds api
+
     match m with
     | Stopped m ->
         match msg with
@@ -124,7 +147,16 @@ let update api msg m =
             (m.WithSettings >> Stopped) (fun m ->
                 { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }),
             Cmd.none
-        | PickPlayList (_) -> failwith "Not Implemented"
+        | PickPlayList Started when m.PickedPlayListPath = InProgress -> Stopped m, Cmd.none
+        | PickPlayList Started -> Stopped { m with PickedPlayListPath = InProgress }, cmds.PickPlayList()
+        | PickPlayList (Finished (Ok x as result)) ->
+            let m' =
+                fun (m: Settings) -> { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }
+                |> DrawingStopped.withSettings { m with PickedPlayListPath = Resolved result }
+
+            Stopped m', Cmd.none
+        | PickPlayList (Finished (Error _ as result)) ->
+            Stopped { m with PickedPlayListPath = Resolved result }, Cmd.none
         | SetSnapShotFolderPath x ->
             (m.WithSettings >> Stopped) (fun m ->
                 { m with
@@ -132,7 +164,21 @@ let update api msg m =
                         m.SnapShotFolderPath
                         |> snapShotFolderPath.Update x }),
             Cmd.none
-        | PickSnapshotFolder (_) -> failwith "Not Implemented"
+        | PickSnapshotFolder Started when m.PickedSnapShotFolderPath = InProgress -> Stopped m, Cmd.none
+        | PickSnapshotFolder Started ->
+            Stopped { m with PickedSnapShotFolderPath = InProgress }, cmds.PickSnapshotFolder()
+        | PickSnapshotFolder (Finished (Ok x as result)) ->
+            let m' =
+                fun (m: Settings) ->
+                    { m with
+                        SnapShotFolderPath =
+                            m.SnapShotFolderPath
+                            |> snapShotFolderPath.Update x }
+                |> DrawingStopped.withSettings { m with PickedSnapShotFolderPath = Resolved result }
+
+            Stopped m', Cmd.none
+        | PickSnapshotFolder (Finished (Error _ as result)) ->
+            Stopped { m with PickedSnapShotFolderPath = Resolved result }, Cmd.none
     | Running m ->
         match msg with
         | Tick ->
@@ -141,13 +187,13 @@ let update api msg m =
                 |> duration.Map((-) (TimeSpan.FromSeconds 1.0))
 
             match nextDuration with
-            | Valid _ -> Running { m with CurrentDuration = nextDuration }, perform api.step () (fun _ -> Tick)
+            | Valid _ -> Running { m with CurrentDuration = nextDuration }, cmds.Step()
             | Invalid _ -> (DrawingStopped.create >> Stopped) m.Settings, Cmd.none
 
-        | SetFrames (_) -> failwith "Not Implemented"
-        | SetDuration (_) -> failwith "Not Implemented"
-        | SetInterval (_) -> failwith "Not Implemented"
-        | SetPlayListFilePath (_) -> failwith "Not Implemented"
-        | SetSnapShotFolderPath (_) -> failwith "Not Implemented"
-        | PickPlayList (_) -> failwith "Not Implemented"
-        | PickSnapshotFolder (_) -> failwith "Not Implemented"
+        | SetFrames (_)
+        | SetDuration (_)
+        | SetInterval (_)
+        | SetPlayListFilePath (_)
+        | SetSnapShotFolderPath (_)
+        | PickPlayList (_)
+        | PickSnapshotFolder (_) -> Running m, Cmd.none

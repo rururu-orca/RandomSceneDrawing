@@ -6,6 +6,7 @@ open Expecto.Accuracy
 open Utils
 
 open RandomSceneDrawing.Types
+open RandomSceneDrawing.Types.ErrorTypes
 open RandomSceneDrawing.Drawing
 open RandomSceneDrawing.Drawing.ValueTypes
 
@@ -14,8 +15,8 @@ open FsToolkit.ErrorHandling
 
 let api =
     { step = fun _ -> async { do! Async.Sleep 2 }
-      pickPlayList = fun _ -> task { return "Test" }
-      pickSnapshotFolder = fun _ -> task { return "Foo" } }
+      pickPlayList = fun _ -> task { return Ok "Test" }
+      pickSnapshotFolder = fun _ -> task { return Ok "Foo" } }
 
 let update = update api
 
@@ -30,11 +31,11 @@ let updateValidatedValueTest testLabel msg valid invalid mapper =
         testLabel
         [ testAsync "Set Valid" {
 
-              let expect =
+              let expectState =
                   stopped.WithSettings(fun m -> mapper m valid)
                   |> Stopped
 
-              do! expectUpdate "should be changed" (msg valid) expect []
+              do! expectUpdate "should be changed" (msg valid) expectState []
           }
           testAsync "Set Invalid" {
               let expect =
@@ -44,36 +45,58 @@ let updateValidatedValueTest testLabel msg valid invalid mapper =
               do! expectUpdate "should be changed." (msg invalid) expect []
           } ]
 
-let updateFilePathValueTest testLabel msg valid invalid mapper api =
-    let settings = Settings.Default()
-    let state = (DrawingStopped.create >> Stopped) settings
-
-    testList
-        testLabel
-        [ updateValidatedValueTest testLabel msg valid invalid mapper
-
-          testTask "Set None" {
-              let! ret = api ()
-              let expectMsg = msg ret
-
-              do!
-                  Expect.elmishUpdate update "should be changed." state (PickPlayList Started) id state [ expectMsg ]
-                  |> Async.StartAsTask
-          } ]
-
-let testFileSystemPickerCommand testMessage msg mapper =
+let testFileSystemPickerCommand testMessage msg mapper settingsMapper apiFunc =
     let expectUpdate testMessage init msg expectModel expectMsg =
-        Expect.elmishUpdate update testMessage init msg mapper expectModel expectMsg
+        Expect.elmishUpdate update testMessage init msg id expectModel expectMsg
 
-    let settings = Settings.Default()
-    let state = (DrawingStopped.create >> Stopped) settings
+    let stopped = Settings.Default() |> DrawingStopped.create
+    let state = Stopped stopped
 
     testList
         testMessage
-        [ ptestAsync "Started" { do! expectUpdate "First" state (msg Started) state [] }
-          ptestAsync "Started when ..." { do! expectUpdate "First" state (msg Started) state [] } ]
+        [ testAsync "Started" {
+              let expect = mapper stopped InProgress |> Stopped
 
-[<FTests>]
+              let! expectMsg =
+                  apiFunc ()
+                  |> Task.map (Finished >> msg)
+                  |> Async.AwaitTask
+
+              do! expectUpdate "should run PickPlayList cmd" state (msg Started) expect [ expectMsg ]
+          }
+          testAsync "Started when InProgress" {
+              let state = mapper stopped InProgress |> Stopped
+              do! expectUpdate "should be no change" state (msg Started) state []
+          }
+          testAsync "Finished when Ok" {
+              let stopped = mapper stopped InProgress
+              let state = Stopped stopped
+              let returnValue = "test"
+              let result = Ok returnValue
+              let msg' = (Finished >> msg) result
+
+              let expect =
+                  fun m -> settingsMapper m returnValue
+                  |> DrawingStopped.withSettings (mapper stopped (Resolved result))
+                  |> Stopped
+
+
+              do! expectUpdate "should be change" state msg' expect []
+          }
+          testAsync "Finished when Error" {
+              let stopped = mapper stopped InProgress
+              let state = Stopped stopped
+              let result = Error Canceled
+              let msg' = (Finished >> msg) result
+
+              let expect = (mapper stopped (Resolved result)) |> Stopped
+
+              do! expectUpdate "should be change" state msg' expect []
+          }
+
+          ]
+
+[<Tests>]
 let tests =
     testList
         "Drawing Model"
@@ -92,10 +115,30 @@ let tests =
                       settings.PlayListFilePath
                       |> playListFilePath.Update newValue })
 
-          testFileSystemPickerCommand $"{PickPlayList}" PickPlayList id
+          testFileSystemPickerCommand
+              "PickPlayList"
+              PickPlayList
+              (fun stopped newValue -> { stopped with PickedPlayListPath = newValue })
+              (fun settings newValue ->
+                  { settings with
+                      PlayListFilePath =
+                          settings.PlayListFilePath
+                          |> playListFilePath.Update newValue })
+              api.pickPlayList
 
           updateValidatedValueTest "Model SnapShotFolderPath" SetSnapShotFolderPath "" "-1" (fun settings newValue ->
               { settings with
                   SnapShotFolderPath =
                       settings.SnapShotFolderPath
-                      |> snapShotFolderPath.Update newValue }) ]
+                      |> snapShotFolderPath.Update newValue })
+
+          testFileSystemPickerCommand
+              "PickSnapshotFolder"
+              PickSnapshotFolder
+              (fun stopped newValue -> { stopped with PickedSnapShotFolderPath = newValue })
+              (fun settings newValue ->
+                  { settings with
+                      SnapShotFolderPath =
+                          settings.SnapShotFolderPath
+                          |> snapShotFolderPath.Update newValue })
+              api.pickSnapshotFolder ]
