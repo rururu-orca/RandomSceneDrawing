@@ -9,7 +9,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Player.fs" />
-    <Compile Include="Drawing.fs" />
+    <Compile Include="DrawingSettings.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="PlayerLib.fs" />
     <Compile Include="Program.fs" />
