@@ -50,14 +50,40 @@ type Settings =
           PlayListFilePath = playListFilePath.Create config.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
 
-type DrawingInfo =
+type DrawingStopped =
+    { Settings: Settings
+      PickedPlayListPath: Deferred<Result<string, FilePickerError>>
+      PickedSnapShotFolderPath: Deferred<Result<string, FilePickerError>> }
+
+    member inline x.WithSettings([<InlineIfLambda>] f) = { x with Settings = f x.Settings }
+
+module DrawingStopped =
+    let create settings =
+        { Settings = settings
+          PickedPlayListPath = HasNotStartedYet
+          PickedSnapShotFolderPath = HasNotStartedYet }
+
+    let inline withSettings (x: DrawingStopped) ([<InlineIfLambda>] f) = x.WithSettings f
+
+type DrawingRunning =
     { CurrentDuration: Validated<TimeSpan, Duration, string>
       CurrentFrames: Validated<int, Frames, string>
       Settings: Settings }
 
+    member inline x.WithSettings([<InlineIfLambda>] f) = { x with Settings = f x.Settings }
+
+module DrawingRunning =
+    let ofStopped (x: DrawingStopped) =
+        { CurrentDuration = x.Settings.Duration
+          CurrentFrames = x.Settings.Frames
+          Settings = x.Settings }
+
+    let inline withSettings (x: DrawingRunning) ([<InlineIfLambda>] f) = x.WithSettings f
+
+
 type Model =
-    | Stopped of Settings
-    | Running of DrawingInfo
+    | Stopped of DrawingStopped
+    | Running of DrawingRunning
 
 type Msg =
     | Tick
@@ -74,7 +100,11 @@ type Api =
       pickPlayList: unit -> Task<string>
       pickSnapshotFolder: unit -> Task<string> }
 
-let init () = Settings.Default() |> Stopped
+let init () =
+    { Settings = Settings.Default()
+      PickedPlayListPath = HasNotStartedYet
+      PickedSnapShotFolderPath = HasNotStartedYet }
+    |> Stopped
 
 open Elmish
 open Elmish.Cmd.OfAsync
@@ -84,18 +114,23 @@ let update api msg m =
     | Stopped m ->
         match msg with
         | Tick -> Stopped m, Cmd.none
-        | SetFrames x -> Stopped { m with Frames = m.Frames |> frames.Update x }, Cmd.none
-        | SetDuration x -> Stopped { m with Duration = m.Duration |> duration.Update x }, Cmd.none
-        | SetInterval x -> Stopped { m with Interval = m.Interval |> interval.Update x }, Cmd.none
+        | SetFrames x ->
+            (m.WithSettings >> Stopped) (fun m -> { m with Frames = m.Frames |> frames.Update x }), Cmd.none
+        | SetDuration x ->
+            (m.WithSettings >> Stopped) (fun m -> { m with Duration = m.Duration |> duration.Update x }), Cmd.none
+        | SetInterval x ->
+            (m.WithSettings >> Stopped) (fun m -> { m with Interval = m.Interval |> interval.Update x }), Cmd.none
         | SetPlayListFilePath x ->
-            Stopped { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }, Cmd.none
+            (m.WithSettings >> Stopped) (fun m ->
+                { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }),
+            Cmd.none
         | PickPlayList (_) -> failwith "Not Implemented"
         | SetSnapShotFolderPath x ->
-            Stopped
+            (m.WithSettings >> Stopped) (fun m ->
                 { m with
                     SnapShotFolderPath =
                         m.SnapShotFolderPath
-                        |> snapShotFolderPath.Update x },
+                        |> snapShotFolderPath.Update x }),
             Cmd.none
         | PickSnapshotFolder (_) -> failwith "Not Implemented"
     | Running m ->
@@ -107,7 +142,7 @@ let update api msg m =
 
             match nextDuration with
             | Valid _ -> Running { m with CurrentDuration = nextDuration }, perform api.step () (fun _ -> Tick)
-            | Invalid _ -> (Stopped m.Settings), Cmd.none
+            | Invalid _ -> (DrawingStopped.create >> Stopped) m.Settings, Cmd.none
 
         | SetFrames (_) -> failwith "Not Implemented"
         | SetDuration (_) -> failwith "Not Implemented"

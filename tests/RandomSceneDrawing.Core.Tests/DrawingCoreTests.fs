@@ -20,8 +20,8 @@ let api =
 let update = update api
 
 let updateValidatedValueTest testLabel msg valid invalid mapper =
-    let settings = Settings.Default()
-    let state = Stopped settings
+    let stopped = Settings.Default() |> DrawingStopped.create
+    let state = Stopped stopped
 
     let expectUpdate testMessage msg expectModel expectMsgs =
         Expect.elmishUpdate update testMessage state msg id expectModel expectMsgs
@@ -29,18 +29,24 @@ let updateValidatedValueTest testLabel msg valid invalid mapper =
     testList
         testLabel
         [ testAsync "Set Valid" {
-              let expect = mapper settings valid
+
+              let expect =
+                  stopped.WithSettings(fun m -> mapper m valid)
+                  |> Stopped
 
               do! expectUpdate "should be changed" (msg valid) expect []
           }
           testAsync "Set Invalid" {
-              let expect = mapper settings invalid
+              let expect =
+                  stopped.WithSettings(fun m -> mapper m invalid)
+                  |> Stopped
+
               do! expectUpdate "should be changed." (msg invalid) expect []
           } ]
 
 let updateFilePathValueTest testLabel msg valid invalid mapper api =
     let settings = Settings.Default()
-    let state = Stopped settings
+    let state = (DrawingStopped.create >> Stopped) settings
 
     testList
         testLabel
@@ -55,29 +61,41 @@ let updateFilePathValueTest testLabel msg valid invalid mapper api =
                   |> Async.StartAsTask
           } ]
 
-[<Tests>]
+let testFileSystemPickerCommand testMessage msg mapper =
+    let expectUpdate testMessage init msg expectModel expectMsg =
+        Expect.elmishUpdate update testMessage init msg mapper expectModel expectMsg
+
+    let settings = Settings.Default()
+    let state = (DrawingStopped.create >> Stopped) settings
+
+    testList
+        testMessage
+        [ ptestAsync "Started" { do! expectUpdate "First" state (msg Started) state [] }
+          ptestAsync "Started when ..." { do! expectUpdate "First" state (msg Started) state [] } ]
+
+[<FTests>]
 let tests =
     testList
         "Drawing Model"
         [ updateValidatedValueTest "Model Frames" SetFrames 1 -1 (fun settings newValue ->
-              Stopped { settings with Frames = settings.Frames |> frames.Update newValue })
+              { settings with Frames = settings.Frames |> frames.Update newValue })
 
           updateValidatedValueTest "Model Duration" SetDuration TimeSpan.Zero (TimeSpan -1) (fun settings newValue ->
-              Stopped { settings with Duration = settings.Duration |> duration.Update newValue })
+              { settings with Duration = settings.Duration |> duration.Update newValue })
 
           updateValidatedValueTest "Model Interval" SetInterval TimeSpan.Zero (TimeSpan -1) (fun settings newValue ->
-              Stopped { settings with Interval = settings.Interval |> interval.Update newValue })
+              { settings with Interval = settings.Interval |> interval.Update newValue })
 
           updateValidatedValueTest "Model PlayListFilePath" SetPlayListFilePath "" "-1" (fun settings newValue ->
-              Stopped
-                  { settings with
-                      PlayListFilePath =
-                          settings.PlayListFilePath
-                          |> playListFilePath.Update newValue })
+              { settings with
+                  PlayListFilePath =
+                      settings.PlayListFilePath
+                      |> playListFilePath.Update newValue })
+
+          testFileSystemPickerCommand $"{PickPlayList}" PickPlayList id
 
           updateValidatedValueTest "Model SnapShotFolderPath" SetSnapShotFolderPath "" "-1" (fun settings newValue ->
-              Stopped
-                  { settings with
-                      SnapShotFolderPath =
-                          settings.SnapShotFolderPath
-                          |> snapShotFolderPath.Update newValue }) ]
+              { settings with
+                  SnapShotFolderPath =
+                      settings.SnapShotFolderPath
+                      |> snapShotFolderPath.Update newValue }) ]
