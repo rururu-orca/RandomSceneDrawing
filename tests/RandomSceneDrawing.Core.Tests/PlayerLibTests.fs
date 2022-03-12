@@ -1,4 +1,4 @@
-module RandomSceneDrawing.Tests.PlayerLib
+module RandomSceneDrawing.Tests.Player.Lib
 
 open System
 open Expecto
