@@ -206,3 +206,22 @@ let subs (window: HostWindow) model =
         Cmd.ofSub (PlayerLib.timeChanged model.Player)
         Cmd.ofSub (PlayerLib.playerBuffering model.Player)
     ]
+
+open Main
+
+let mainApi (window: MainWindow) =
+
+    { Api.mockOk () with
+        step = fun _ -> async { do! Async.Sleep 1000 }
+        showInfomation =
+            fun msg ->
+                task {
+                    match msg with
+                    | InfoMsg info ->
+                        let mgr = window.NotificationManager 
+                        Notification("Info", info, NotificationType.Information)
+                        |> window.NotificationManager.Show
+                    | ErrorMsg err ->
+                        Notification("Error!!", err, NotificationType.Error)
+                        |> window.NotificationManager.Show
+                } }

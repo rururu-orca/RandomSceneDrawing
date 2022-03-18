@@ -295,15 +295,60 @@ module MainView =
             ]
         ]
 
+open Main
+
+module Drawing =
+    let view model dispatch =
+        Button.create [
+            let s = model.Settings.Settings
+
+            match model.State with
+            | Setting ->
+                Button.content "⏲ Start Drawing"
+                Button.onClick (fun _ -> StartDrawing Started |> dispatch)
+
+                match s.PlayListFilePath, s.SnapShotFolderPath with
+                | Valid _, Valid _ -> true
+                | _ -> false
+                |> Button.isEnabled
+
+            | _ ->
+                Button.content "Stop Drawing"
+                Button.onClick (fun _ -> StopDrawing |> dispatch)
+            // if model.RandomDrawingState = RandomDrawingState.Stop then
+            //     Button.content "⏲ Start Drawing"
+            //     Button.onClick (fun _ -> dispatch RequestStartDrawing)
+
+            //     [ model.PlayListFilePath
+            //       model.SnapShotFolderPath ]
+            //     |> List.forall (String.IsNullOrEmpty >> not)
+            //     |> Button.isEnabled
+            // else
+            //     Button.content "Stop Drawing"
+            //     Button.onClick (fun _ -> dispatch RequestStopDrawing)
+            ]
+
+module MainPlayerView =
+    let view model dispatch = ()
+
+module Re =
+    let view (model: Model<'player>) dispatch =
+        DockPanel.create [
+            DockPanel.children [
+                Drawing.view model dispatch
+            ]
+        ]
+
 open Avalonia.Controls.Notifications
 open Avalonia.FuncUI.Hosts
 
-type MainWindow(floatingWindow) =
+type MainWindow(floatingWindow) as this =
     inherit HostWindow(Title = "Random Pause  動画のシーンがランダムで表示されます", Height = 720.0, Width = 1280.0)
 
     // Setup NotificationManager
     // To avoid the Airspace problem, host is configured with FloatingContent.floating.
     let notificationManager =
-        WindowNotificationManager(floatingWindow, Position = NotificationPosition.BottomRight, MaxItems = 3)
+        WindowNotificationManager(this, Position = NotificationPosition.BottomRight, MaxItems = 3)
+        // WindowNotificationManager(floatingWindow, Position = NotificationPosition.BottomRight, MaxItems = 3)
 
     member _.NotificationManager = notificationManager

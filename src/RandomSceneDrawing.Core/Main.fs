@@ -266,6 +266,10 @@ let update api settingsApi playerApi msg m =
         cmds.ShowInfomation(ErrorMsg error)
 
         { m with State = Setting }, Cmd.none
-    | StartDrawing (Finished (Ok _)) -> m, cmds.Step()
+    | StartDrawing (Finished (Ok _)) ->
+        InfoMsg "Drawing Started." |> cmds.ShowInfomation
+        m, cmds.Step()
     | StopDrawing when m.State = Setting -> m, Cmd.none
-    | StopDrawing -> { m with State = Setting }, Cmd.none
+    | StopDrawing ->
+        InfoMsg "Drawing Stoped." |> cmds.ShowInfomation
+        { m with State = Setting }, Cmd.none
