@@ -17,12 +17,29 @@ open FsToolkit.ErrorHandling
 
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Util
+open RandomSceneDrawing.DrawingSettings
+open RandomSceneDrawing.Player
 open RandomSceneDrawing.Main
 open RandomSceneDrawing.AvaloniaExtensions
 
-let headerView model dispatch =
+
+let subPlayerView model =
+    VideoView.create [
+        VideoView.height config.SubPlayer.Height
+        VideoView.width config.SubPlayer.Width
+        VideoView.verticalAlignment VerticalAlignment.Top
+        VideoView.horizontalAlignment HorizontalAlignment.Right
+        match model.SubPlayer with
+        | Resolved player ->
+            VideoView.mediaPlayer player.Player
+
+            Deferred.resolved player.Media
+            |> VideoView.isVideoVisible
+        | _ -> ()
+    ]
+
+let drawingSwtchBotton model dispatch =
     Button.create [
-        DockPanel.dock Dock.Top
         let s = model.Settings.Settings
 
         match model.State with
@@ -34,23 +51,34 @@ let headerView model dispatch =
             | Valid _, Valid _ -> true
             | _ -> false
             |> Button.isEnabled
-
         | _ ->
             Button.content "Stop Drawing"
             Button.onClick (fun _ -> StopDrawing |> dispatch)
-        // if model.RandomDrawingState = RandomDrawingState.Stop then
-        //     Button.content "⏲ Start Drawing"
-        //     Button.onClick (fun _ -> dispatch RequestStartDrawing)
+    ]
 
-        //     [ model.PlayListFilePath
-        //       model.SnapShotFolderPath ]
-        //     |> List.forall (String.IsNullOrEmpty >> not)
-        //     |> Button.isEnabled
-        // else
-        //     Button.content "Stop Drawing"
-        //     Button.onClick (fun _ -> dispatch RequestStopDrawing)
+
+let headerView model dispatch =
+    DockPanel.create [
+        DockPanel.dock Dock.Top
+        DockPanel.children [
+            StackPanel.create [
+                StackPanel.dock Dock.Left
+                StackPanel.orientation Orientation.Vertical
+                StackPanel.children [
+                    drawingSwtchBotton model dispatch
+                    Button.create [
+                        Button.content "Play"
+                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
+                    ]
+                    Button.create [
+                        Button.content "Stop"
+                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Stop Started)) |> dispatch)
+                    ]
+                ]
+            ]
+            subPlayerView model
         ]
-
+    ]
 
 let floatingContent model dispatch =
     Panel.create [

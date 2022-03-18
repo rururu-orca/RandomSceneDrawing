@@ -53,8 +53,8 @@ type App() =
         let mainApi =
             Platform.mainApi mainWindow
 
-        let settingsApi = Platform.settingsApi
-        let playerApi = Platform.playerApi
+        let settingsApi = Platform.settingsApi mainWindow
+        let playerApi = Platform.playerApi mainWindow
         let update = Main.update mainApi settingsApi playerApi
 
         Program.mkProgram init update View.view

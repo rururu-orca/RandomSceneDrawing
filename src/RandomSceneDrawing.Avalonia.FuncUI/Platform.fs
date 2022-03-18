@@ -93,6 +93,39 @@ let playAsync player media =
     }
     |> Task.map Finished
 
+let selectMediaAsync window =
+    task {
+        let dialog =
+            OpenFileDialog(
+                Title = "Open Video File",
+                AllowMultiple = false,
+                Directory = GetFolderPath(SpecialFolder.MyVideos),
+                Filters =
+                    list [
+                        FileDialogFilter(Name = "Video", Extensions = list [ "mp4"; "mkv" ])
+                    ]
+            )
+
+        match! dialog.ShowAsync window with
+        | [| path |] -> return (Uri >> Ok) path
+        | _ -> return Error "Conceled"
+    }
+
+let getMediaAndPlay (player: MediaPlayer) uri =
+    task {
+        let media = PlayerLib.getMediaFromUri uri
+        player.Media <- media
+
+        match! player.PlayAsync() with
+        | true ->
+            return
+                Ok
+                    { Title = media.Meta MetadataType.Title
+                      Duration = float media.Duration |> TimeSpan.FromMilliseconds }
+        | false -> return Error "play failed."
+    }
+
+
 let selectMediaAndPlayAsync window player =
     task {
         let dialog =
@@ -209,22 +242,96 @@ let subs (window: HostWindow) model =
 
 open Main
 
+let showInfomation (window: MainWindow) msg =
+    task {
+        match msg with
+        | InfoMsg info ->
+            Notification("Info", info, NotificationType.Information)
+            |> window.NotificationManager.Show
+        | ErrorMsg err ->
+            Notification("Error!!", err, NotificationType.Error)
+            |> window.NotificationManager.Show
+    }
 
-let settingsApi = DrawingSettings.ApiMock.api
-let playerApi = Player.ApiMock.apiOk
+open RandomSceneDrawing.Types.ErrorTypes
 
-let mainApi (window: MainWindow) =
+let pickPlayListAsync window () =
+    task {
+        let dialog =
+            OpenFileDialog(
+                Title = "Open Playlist",
+                AllowMultiple = false,
+                Directory = GetFolderPath(SpecialFolder.MyVideos),
+                Filters =
+                    list [
+                        FileDialogFilter(Name = "Playlist", Extensions = list [ "xspf" ])
+                    ]
+            )
 
-    { Api.mockOk () with
-        step = fun _ -> async { do! Async.Sleep 1000 }
-        showInfomation =
-            fun msg ->
-                task {
-                    match msg with
-                    | InfoMsg info ->
-                        Notification("Info", info, NotificationType.Information)
-                        |> window.NotificationManager.Show
-                    | ErrorMsg err ->
-                        Notification("Error!!", err, NotificationType.Error)
-                        |> window.NotificationManager.Show
-                } }
+        match! dialog.ShowAsync window with
+        | [| path |] -> return Ok path
+
+        | _ -> return Error Canceled
+    }
+
+let pickSnapshotFolderAsync window () =
+    task {
+
+        let dialog =
+            OpenFolderDialog(
+                Title = "Select SnapShot save root folder",
+                Directory = GetFolderPath(SpecialFolder.MyPictures)
+            )
+
+        match! dialog.ShowAsync window with
+        | notSelect when String.IsNullOrEmpty notSelect -> return Error Canceled
+        | folderPath -> return Ok folderPath
+
+    }
+
+let settingsApi (window: MainWindow) : DrawingSettings.Api =
+    { pickPlayList = pickPlayListAsync window
+      pickSnapshotFolder = pickSnapshotFolderAsync window
+      showInfomation = showInfomation window }
+
+open Player
+
+let playAsync' window (player: MediaPlayer) =
+    taskResult {
+        let! uri = selectMediaAsync window
+        return! getMediaAndPlay player uri
+    }
+
+let pauseAsync' (player: MediaPlayer) =
+    task {
+        do! player.PauseAsync()
+
+        return
+            Ok
+                { Title = player.Media.Meta MetadataType.Title
+                  Duration =
+                    float player.Media.Duration
+                    |> TimeSpan.FromMilliseconds }
+    }
+
+let stopAsync' (player: MediaPlayer) =
+    task {
+        match! player.StopAsync() with
+        | true -> return Ok()
+        | false -> return Error "stop failed."
+    }
+
+
+let playerApi (window: MainWindow) =
+    { playAsync = playAsync' window
+      pauseAsync = pauseAsync'
+      stopAsync = stopAsync'
+      showInfomation = showInfomation window }
+
+
+let mainApi (window: MainWindow) : Main.Api<'player> =
+    { step = fun _ -> async { do! Async.Sleep 1000 }
+      randomize = fun _ _ -> task { return Ok() }
+      createSnapShotFolder = fun _ -> task { return Ok() }
+      takeSnapshot = fun _ _ -> task { return Ok() }
+      showInfomation = showInfomation window }
