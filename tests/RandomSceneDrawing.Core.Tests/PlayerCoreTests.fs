@@ -8,12 +8,9 @@ open RandomSceneDrawing.Types
 open RandomSceneDrawing.Tests.Utils
 
 open RandomSceneDrawing.Player
+open RandomSceneDrawing.Player.ApiMock
 
 let stateStopped = init ()
-
-let errorResult = Error "Not Implemented"
-let errorFinished = Finished errorResult
-let errorResolved = Resolved errorResult
 
 let statePlayInProgress =
     { stateStopped with
@@ -24,8 +21,6 @@ let statePlayError =
     { stateStopped with
         Media = errorResolved
         State = errorFinished }
-
-let okMediaInfo = Ok { Title = ""; Duration = TimeSpan.Zero }
 
 let stateMediaPlaying =
     { stateStopped with
@@ -41,16 +36,6 @@ let statePauseError = { statePauseInProgress with State = errorFinished }
 let stateStopInProgress = statePauseInProgress
 
 let stateStopError = statePauseError
-
-let apiOk =
-    { playAsync = fun _ -> task { return Play(Finished okMediaInfo) }
-      pauseAsync = fun _ -> task { return Pause(Finished okMediaInfo) }
-      stopAsync = fun _ -> task { return Stop(Finished(Ok())) } }
-
-let apiError =
-    { playAsync = fun _ -> task { return Play errorFinished }
-      pauseAsync = fun _ -> task { return Pause errorFinished }
-      stopAsync = fun _ -> task { return Stop errorFinished } }
 
 let msgTestSet label model modelMapper msgMapper update =
 

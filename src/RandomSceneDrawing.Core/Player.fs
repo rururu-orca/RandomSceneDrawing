@@ -1,5 +1,6 @@
 module RandomSceneDrawing.Player
 
+open System
 open System.Threading.Tasks
 open RandomSceneDrawing.Types
 
@@ -22,6 +23,24 @@ type api<'player> =
     { playAsync: 'player -> Task<Msg>
       pauseAsync: 'player -> Task<Msg>
       stopAsync: 'player -> Task<Msg> }
+
+module ApiMock =
+    let okMediaInfo = Ok { Title = ""; Duration = TimeSpan.Zero }
+
+    let apiOk =
+        { playAsync = fun _ -> task { return Play(Finished okMediaInfo) }
+          pauseAsync = fun _ -> task { return Pause(Finished okMediaInfo) }
+          stopAsync = fun _ -> task { return Stop(Finished(Ok())) } }
+
+    let errorResult = Error "Not Implemented"
+    let errorFinished = Finished errorResult
+    let errorResolved = Resolved errorResult
+
+    let apiError =
+        { playAsync = fun _ -> task { return Play errorFinished }
+          pauseAsync = fun _ -> task { return Pause errorFinished }
+          stopAsync = fun _ -> task { return Stop errorFinished } }
+
 
 open Elmish
 open Elmish.Cmd.OfTask

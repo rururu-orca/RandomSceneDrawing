@@ -38,7 +38,7 @@ let subPlayerTest =
         updatePlayer
 
 let updateSettings settingsApi =
-    update apiOk settingsApi Player.Core.apiOk
+    update apiOk settingsApi RandomSceneDrawing.Player.ApiMock.apiOk
 
 let settingTest =
     DrawingSettings.msgTestSet
@@ -53,7 +53,7 @@ let settingTest =
 let stateSetting = init
 
 let update api =
-    update api DrawingSettings.api Player.Core.apiOk
+    update api DrawingSettings.api RandomSceneDrawing.Player.ApiMock.apiOk
 
 
 let expectNoChange initModel msg =
