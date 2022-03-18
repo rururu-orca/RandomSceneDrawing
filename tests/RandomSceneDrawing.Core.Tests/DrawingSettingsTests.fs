@@ -151,21 +151,40 @@ let msgTestSet label model modelMapper msgMapper update =
                           |> snapShotFolderPath.Update newValue })
               api.pickSnapshotFolder
 
-          testAsync "Save Settings" {
-              do!
-                  Expect.elmishUpdate
-                      update
-                      "Model no Changed."
-                      (Settings.Default()
-                       |> Model.create
-                       |> modelMapper model)
-                      []
-                      msgMapper
-                      (Settings.Default()
-                       |> Model.create
-                       |> modelMapper model)
-                      []
+          let currentDefaultSettingModel () = Settings.Default() |> Model.create
 
+          testAsync "Save and Reset Settings" {
+
+              let defaultSetting =
+                  Settings.reset ()
+                  |> (fun s ->
+                      Settings.save s
+                      s)
+                  |> Model.create
+
+              let init = modelMapper model defaultSetting
+
+              let msg = [ SetFrames 10; SaveSettings ]
+
+              let expectSettings =
+                  defaultSetting.WithSettings(fun s -> { s with Frames = frames.Create 10 })
+
+              let expectModel = expectSettings |> modelMapper model
+
+              do! Expect.elmishUpdate update "Model no Changed." init msg msgMapper expectModel []
+              let actualSetting = Settings.Default()
+
+              Expect.equal actualSetting expectSettings.Settings "Should be Equal"
+
+              let resetSetting =
+                  Settings.reset ()
+                  |> (fun s ->
+                      Settings.save s
+                      s)
+                  |> Model.create
+
+              Expect.equal resetSetting defaultSetting "Should be Equal"
+              Expect.notEqual resetSetting expectSettings "Should be Not Equal"
           } ]
 
 [<Tests>]

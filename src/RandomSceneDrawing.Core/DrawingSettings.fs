@@ -60,6 +60,15 @@ module Settings =
         config.SnapShotFolderPath <- snapShotFolderPath.Dto settings.SnapShotFolderPath
         config.Save changedConfigPath
 
+    let reset () =
+        let origin = Config()
+
+        { Frames = frames.Create origin.Frames
+          Duration = duration.Create origin.Duration
+          Interval = interval.Create origin.Interval
+          PlayListFilePath = playListFilePath.Create origin.PlayListFilePath
+          SnapShotFolderPath = snapShotFolderPath.Create origin.SnapShotFolderPath }
+
 type Model =
     { Settings: Settings
       PickedPlayListPath: Deferred<Result<string, FilePickerError>>
@@ -84,17 +93,18 @@ type Msg =
     | SetSnapShotFolderPath of string
     | PickSnapshotFolder of AsyncOperationStatus<Result<string, FilePickerError>>
     | SaveSettings
+    | ResetSettings
 
 type Api =
     { pickPlayList: unit -> Task<Result<string, FilePickerError>>
       pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>>
-      showInfomation: NotifyMessage -> Task<unit>}
+      showInfomation: NotifyMessage -> Task<unit> }
 
 module ApiMock =
     let api =
         { pickPlayList = fun _ -> task { return Ok "Test" }
           pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
-          showInfomation = fun _ -> task { () }}
+          showInfomation = fun _ -> task { () } }
 
 open Elmish
 open FsToolkit.ErrorHandling
@@ -104,9 +114,9 @@ type Cmds(api: Api) =
         task { do! api.showInfomation info } |> ignore
 
     let teeFileSystemError result =
-        result  |> TaskResult.teeError (
-            sprintf "%A" >>  ErrorMsg >> showInfomation)
-        
+        result
+        |> TaskResult.teeError (sprintf "%A" >> ErrorMsg >> showInfomation)
+
     member _.ShowInfomation info = showInfomation info
 
     member _.PickPlayList() =
@@ -168,3 +178,4 @@ let update api msg (m: Model) =
     | SaveSettings ->
         Settings.save m.Settings
         m, Cmd.none
+    | ResetSettings -> { m with Settings = Settings.reset () }, Cmd.none
