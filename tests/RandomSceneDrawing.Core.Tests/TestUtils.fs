@@ -29,7 +29,7 @@ module Expect =
         async {
             let actualMsgs = System.Collections.Generic.List()
             List.iteri (fun i sub -> sub (fun msg -> actualMsgs.Add msg)) actualCmd
-            let! w = waitWith 1000 (fun _ -> actualMsgs.Count <> actualCmd.Length)
+            let! w = waitWith 5000 (fun _ -> actualMsgs.Count <> actualCmd.Length)
             do! w
 
             Expect.sequenceEqual actualMsgs expectMsgs $"{testMessage}"
@@ -40,7 +40,7 @@ module Expect =
 
         let actualModel, actualCmd =
             update
-            |> Elmish.foldMessages initModel [ msg ] msgMapper
+            |> Elmish.foldMessages initModel  msg msgMapper
 
         Expect.equal actualModel expectModel testMessage
 

@@ -4,92 +4,191 @@ open System
 open System.Threading.Tasks
 open LibVLCSharp
 
-[<Struct>]
-type Validated<'value, 'wrapped, 'error> =
+
+type InvalidType<'dto, 'domain, 'error> =
+    | CreateFailed of 'dto * 'error list
+    | UpdateFailed of 'domain voption * 'dto * 'error list
+    | MargedError of InvalidType<obj, obj, 'error> list
+
+type Validated<'dto, 'domain, 'error> =
     private
-    | Valid of wrapped: 'wrapped
-    | Invalid of current: 'wrapped voption * arg: 'value * error: 'error
+    | Valid of domain: 'domain
+    | Invalid of error: InvalidType<'dto, 'domain, 'error>
 
-[<Struct>]
-type UnwrapInvalid<'value, 'error> =
-    { Current: 'value voption
-      Arg: 'value
-      Error: 'error }
+let invalidCreateFailed dto errors = (CreateFailed >> Invalid) (dto, errors)
 
-let (|Valid|Invalid|) (validated: Validated<'value, 'wrapped, 'error>) =
+let invalidUpdateFailed domain dto errors =
+    (UpdateFailed >> Invalid) (domain, dto, errors)
+
+let boxInvalid (validated: Validated<'dto, 'domain, 'error>) =
     match validated with
-    | Valid value -> Valid value
-    | Invalid (current, arg, error) -> Invalid(current, arg, error)
+    | Valid _ -> []
+    | Invalid ex ->
+        [ match ex with
+          | CreateFailed (dto, errors) -> CreateFailed(box dto, errors)
+          | UpdateFailed (domain, dto, errors) -> UpdateFailed(ValueOption.map box domain, box dto, errors)
+          | MargedError marged -> MargedError marged ]
 
-type Validator<'value, 'wrapped, 'error>(wrap, unwrap, validate) =
-    let validate: 'value -> Result<'value, 'error> = validate
-    let wrap: 'value -> 'wrapped = wrap
-    let unwrap: 'wrapped -> 'value = unwrap
+let (|BoxInvalid|) = boxInvalid
 
-    member _.Create value =
-        match validate value with
-        | Ok v -> Valid(wrap v)
-        | Error error -> Invalid(ValueNone, value, error)
+let invaidStringList (invalid:InvalidType<'dto, 'domain, 'error>) = $"%A{invalid}"
 
-    member _.Update newValueArg (currentValue: Validated<'value, 'wrapped, 'error>) =
+
+let margeInvalids validateds =
+    [ for v in validateds do
+          yield! boxInvalid v ]
+
+let invalidMargedErrors invalids = (MargedError >> Invalid) invalids
+
+/// Controls `Validated<'dto, 'domain, 'error>`.
+type Domain<'dto, 'domain, 'error>
+    (
+        fromDto: 'dto -> 'domain,
+        toDto: 'domain -> 'dto,
+        validate: 'dto -> Result<'dto, 'error list>
+    ) =
+
+    member _.Create dto : Validated<'dto, 'domain, 'error> =
+        match validate dto with
+        | Ok v -> Valid(fromDto v)
+        | Error error -> invalidCreateFailed dto error
+
+    member this.ofDomain domain = toDto domain |> this.Create
+
+
+    member _.Update newValueArg (currentValue: Validated<'dto, 'domain, 'error>) =
         match (validate newValueArg), currentValue with
-        | Ok v, _ -> Valid(wrap v)
-        | Error error, Valid c -> Invalid(ValueSome c, newValueArg, error)
-        | Error error, Invalid _ -> Invalid(ValueNone, newValueArg, error)
+        | Ok v, _ -> Valid(fromDto v)
+        | Error error, Valid c -> invalidUpdateFailed (ValueSome c) newValueArg error
+        | Error error, Invalid _ -> invalidUpdateFailed ValueNone newValueArg error
 
 
-    member _.Fold onValid onInvalid (validated: Validated<'value, 'wrapped, 'error>) =
-        match validated with
-        | Valid x -> onValid x
-        | Invalid e -> onInvalid e
-
-    member this.UnwrapFold onValid onInvalid (validated: Validated<'value, 'wrapped, 'error>) =
-        this.Fold
-            (unwrap >> onValid)
-            ((fun (v, invalid, error) ->
-                { Current = ValueOption.map unwrap v
-                  Arg = invalid
-                  Error = error })
-             >> onInvalid)
-            validated
-
-    member this.Map (f: 'value -> 'value) validated =
-        match validated with
-        | Valid v -> validated |> this.Update(f (unwrap v))
-        | invalid -> invalid
-
-    member this.UnwrapWith (f: 'value -> 'a) (validated: Validated<'value, 'wrapped, 'error>) =
-        this.UnwrapFold(f >> Ok) (id >> Error) validated
-
-    member this.UnwrapOr f (validated: Validated<'value, 'wrapped, 'error>) =
-        this.UnwrapFold(id >> Ok) (f >> Error) validated
-
-    member this.Unwrap(validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapWith id validated
-
-    member this.ValueOr f (validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapFold id f validated
-
-    member this.DefaultWith f (validated: Validated<'value, 'wrapped, 'error>) = this.ValueOr(ignore >> f) validated
-
-    member this.DefaultValue value (validated: Validated<'value, 'wrapped, 'error>) =
-        this.DefaultWith(fun () -> value) validated
-
-    member this.Tee f (validated: Validated<'value, 'wrapped, 'error>) = this.Fold f ignore validated
-
-    member this.UnwrapTee f (validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapFold f ignore validated
-
-    member this.TeeInvalid f (validated: Validated<'value, 'wrapped, 'error>) = this.Fold ignore f validated
-
-    member this.UnwrapTeeInvalid f (validated: Validated<'value, 'wrapped, 'error>) = this.UnwrapFold ignore f validated
-
-    member _.IsValid(validated: Validated<'value, 'wrapped, 'error>) =
+    member _.IsValid(validated: Validated<'dto, 'domain, 'error>) =
         match validated with
         | Valid _ -> true
         | Invalid _ -> false
 
-    member _.IsInvalid(validated: Validated<'value, 'wrapped, 'error>) =
+    member _.IsInvalid(validated: Validated<'dto, 'domain, 'error>) =
         match validated with
         | Valid _ -> false
         | Invalid _ -> true
+
+    member _.Fold onValid onInvalid (validated: Validated<'dto, 'domain, 'error>) =
+        match validated with
+        | Valid x -> onValid x
+        | Invalid ex -> onInvalid ex
+
+    member this.ToResult validated = this.Fold(toDto >> Ok) Error validated
+
+    member _.ValueWith f (domain: 'domain) = f domain
+    member _.DtoWith f (dto: 'dto) = f dto
+
+    member this.ValueOr f validated = this.Fold id f validated
+    member this.DtoOr f validated = this.Fold toDto f validated
+
+    member this.Value validated =
+        this.ValueOr(fun ex -> invalidOp $"This value is Invalid.\n{ex}") validated
+
+    member this.Dto validated =
+        this.DtoOr(fun ex -> invalidOp $"This value is Invalid.\n{ex}") validated
+
+    member this.DefaultWith f validated = this.Fold id (ignore >> f) validated
+
+    member this.DefaultDtoWith f validated = this.Fold toDto (ignore >> f) validated
+
+    member this.DefaultValue value validated =
+        this.DefaultWith(fun _ -> value) validated
+
+    member this.DefaultDto value validated =
+        this.DefaultDtoWith(fun _ -> value) validated
+
+    member this.Tee f validated = this.Fold f ignore validated
+
+    member this.TeeDto f validated = this.Fold(toDto >> f) ignore validated
+
+    member this.TeeInvalid f validated = this.Fold ignore f validated
+
+    member _.Map f validated : Validated<'dto, 'domain, 'error> =
+        match validated with
+        | Valid x ->
+            let x' = (f >> toDto) x
+
+            match validate x' with
+            | Ok v -> Valid(fromDto v)
+            | Error error -> invalidUpdateFailed (ValueSome x) x' error
+        | invalid -> invalid
+
+    member this.MapDto f validated =
+        match validated with
+        | Valid x -> this.Update((toDto >> f) x) validated
+        | invalid -> invalid
+
+    member _.MapInvalid f validated : Validated<'dto, 'domain, 'error> =
+        match validated with
+        | Invalid ex -> f ex |> Invalid
+        | valid -> valid
+
+    member private _.Lift2Proto
+        f
+        (xValidated: Validated<'dto, 'domain, 'error>)
+        (yValidated: Validated<'dto, 'domain, 'error>)
+        =
+        match xValidated, yValidated with
+        | Valid x, Valid y ->
+            let x' = f x y
+
+            match validate x' with
+            | Ok v -> Valid(fromDto v)
+            | Error error -> invalidUpdateFailed (ValueSome x) x' error
+        | (Invalid _ as ex), Valid _ -> ex
+        | Valid _, (Invalid _ as ex) -> ex
+        | (BoxInvalid v), (BoxInvalid v') -> invalidMargedErrors (v @ v')
+
+    member this.Lift2 f (xValidated: Validated<'dto, 'domain, 'error>) (yValidated: Validated<'dto, 'domain, 'error>) =
+        this.Lift2Proto(fun x y -> f x y |> toDto) xValidated yValidated
+
+    member this.Lift2Dto
+        f
+        (xValidated: Validated<'dto, 'domain, 'error>)
+        (yValidated: Validated<'dto, 'domain, 'error>)
+        =
+        this.Lift2Proto(fun x y -> f (toDto x) (toDto y)) xValidated yValidated
+
+    member private _.ApplyProto
+        onValid
+        (fValidated: Validated<'dto, _ -> _, 'error>)
+        (xValidated: Validated<'dto, 'domain, 'error>)
+        =
+        match fValidated, xValidated with
+        | Valid f, Valid x -> onValid f x
+        | (BoxInvalid v), Valid _ -> invalidMargedErrors v
+        | Valid _, (Invalid _ as ex) -> ex
+        | (BoxInvalid v), (BoxInvalid v') -> invalidMargedErrors (v @ v')
+
+    member this.Apply
+        (fValidated: Validated<'dto, 'domain -> 'domain, 'error>)
+        (xValidated: Validated<'dto, 'domain, 'error>)
+        =
+        this.ApplyProto
+            (fun f x ->
+                let x' = (f >> toDto) x
+
+                match validate x' with
+                | Ok v -> Valid(fromDto v)
+                | Error error -> invalidUpdateFailed (ValueSome x) x' error)
+            fValidated
+            xValidated
+
+    member this.ApplyDto
+        (fValidated: Validated<'dto, 'dto -> 'dto, 'error>)
+        (xValidated: Validated<'dto, 'domain, 'error>)
+        : Validated<'dto, 'domain, 'error> =
+        this.ApplyProto(fun f x -> this.Update((toDto >> f) x) xValidated) fValidated xValidated
+
+let (|Valid|Invalid|) (validated: Validated<'dto, 'domain, 'error>) =
+    match validated with
+    | Valid value -> Valid value
+    | Invalid ex -> Invalid ex
 
 
 module ErrorTypes =
@@ -98,15 +197,16 @@ module ErrorTypes =
         | FileSystemError of string
 
 module Validator =
+
     let validateIfPositiveNumber num =
         if num < 0 then
-            Error "Must be a positive number."
+            Error ["Must be a positive number."]
         else
             Ok num
 
     let validateIfPositiveTime time =
         if time < TimeSpan.Zero then
-            Error "Must be a positive number."
+            Error ["Must be a positive number."]
         else
             Ok time
 
@@ -120,13 +220,16 @@ module Validator =
         match label with
         | File when File.Exists path -> Ok path
         | Directory when Directory.Exists path -> Ok path
-        | _ -> Error $"{path} is not exsists."
+        | _ -> Error [$"{path} is not exsists."]
 
     let validatePathString label path =
         if String.IsNullOrEmpty path then
             Ok path
         else
             validateExists label path
+
+let resultOr (domain:Domain<'dto, 'domain, 'error>) value =
+    domain.ToResult value |> Result.mapError invaidStringList
 
 type AsyncOperationStatus<'t> =
     | Started

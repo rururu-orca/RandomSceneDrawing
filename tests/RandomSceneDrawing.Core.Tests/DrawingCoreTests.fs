@@ -21,7 +21,7 @@ let testUpdateValidatedValue testLabel model modelMapper msg msgMapper update va
     let state = modelMapper model sttings
 
     let expectUpdate testMessage msg expectModel expectMsgs =
-        Expect.elmishUpdate update testMessage state msg msgMapper expectModel expectMsgs
+        Expect.elmishUpdate update testMessage state [ msg ] msgMapper expectModel expectMsgs
 
     testList
         testLabel
@@ -60,37 +60,38 @@ let testFileSystemPickerCommand testMessage model modelMapper msg msgMapper mapp
                   |> Task.map (Finished >> msg >> msgMapper)
                   |> Async.AwaitTask
 
-              do! expectUpdate "should run PickPlayList cmd" state ((msg) Started) expect [ expectMsg ]
+              do! expectUpdate "should run PickPlayList cmd" state [ msg Started ] expect [ expectMsg ]
           }
           testAsync "Started when InProgress" {
-                let state = mapper sttings InProgress |> modelMapper model
-                do! expectUpdate "should be no change" state (msg Started) state []
-            }
+              let state = mapper sttings InProgress |> modelMapper model
+              do! expectUpdate "should be no change" state [ msg Started ] state []
+          }
           testAsync "Finished when Ok" {
-                let settings = mapper sttings InProgress 
-                let state =  modelMapper model settings
-                let returnValue = "test"
-                let result = Ok returnValue
-                let msg' = msg (Finished result)
+              let settings = mapper sttings InProgress
+              let state = modelMapper model settings
+              let returnValue = "test"
+              let result = Ok returnValue
+              let msg' = msg (Finished result)
 
-                let expect =
-                    fun m -> settingsMapper m returnValue
-                    |> Model.withSettings (mapper sttings (Resolved result) )
-                    |> modelMapper model
+              let expect =
+                  fun m -> settingsMapper m returnValue
+                  |> Model.withSettings (mapper sttings (Resolved result))
+                  |> modelMapper model
 
-                do! expectUpdate "should be change" state msg' expect []
-            }
+              do! expectUpdate "should be change" state [ msg' ] expect []
+          }
           testAsync "Finished when Error" {
-                let settings = mapper sttings InProgress 
-                let state =  modelMapper model settings
-                let result = Error Canceled
-                let msg' = (Finished >> msg) result
+              let settings = mapper sttings InProgress
+              let state = modelMapper model settings
+              let result = Error Canceled
+              let msg' = (Finished >> msg) result
 
-                let expect = (mapper settings (Resolved result)) |> modelMapper model
+              let expect =
+                  (mapper settings (Resolved result))
+                  |> modelMapper model
 
-                do! expectUpdate "should be change" state msg' expect []
-            }
-          ]
+              do! expectUpdate "should be change" state [ msg' ] expect []
+          } ]
 
 let msgTestSet label model modelMapper msgMapper update =
     let update = update api
@@ -138,20 +139,36 @@ let msgTestSet label model modelMapper msgMapper update =
                       |> snapShotFolderPath.Update newValue })
 
           testFileSystemPickerCommand
-                "PickSnapshotFolder"
-                model
-                modelMapper
-                PickSnapshotFolder
-                msgMapper
-                (fun model newValue -> { model with PickedSnapShotFolderPath = newValue })
-                update
-                (fun settings newValue ->
-                    { settings with
-                        SnapShotFolderPath =
-                            settings.SnapShotFolderPath
-                            |> snapShotFolderPath.Update newValue })
-                api.pickSnapshotFolder
-          ]
+              "PickSnapshotFolder"
+              model
+              modelMapper
+              PickSnapshotFolder
+              msgMapper
+              (fun model newValue -> { model with PickedSnapShotFolderPath = newValue })
+              update
+              (fun settings newValue ->
+                  { settings with
+                      SnapShotFolderPath =
+                          settings.SnapShotFolderPath
+                          |> snapShotFolderPath.Update newValue })
+              api.pickSnapshotFolder
+
+          testAsync "Save Settings" {
+              do!
+                  Expect.elmishUpdate
+                      update
+                      "Model no Changed."
+                      (Settings.Default()
+                       |> Model.create
+                       |> modelMapper model)
+                      []
+                      msgMapper
+                      (Settings.Default()
+                       |> Model.create
+                       |> modelMapper model)
+                      []
+
+          } ]
 
 [<Tests>]
 let settingTest = msgTestSet "DrawingSettings" () (fun _ s -> s) id update

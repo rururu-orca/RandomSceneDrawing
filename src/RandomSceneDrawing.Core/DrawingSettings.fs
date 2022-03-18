@@ -11,27 +11,27 @@ open Types.Validator
 module ValueTypes =
     type Frames = private Frames of int
     let (|Frames|) (Frames i) = i
-    let frames = Validator(Frames, (fun (Frames i) -> i), validateIfPositiveNumber)
+    let frames = Domain(Frames, (fun (Frames i) -> i), validateIfPositiveNumber)
 
     type Duration = private Duration of TimeSpan
     let (|Duration|) (Duration d) = d
-    let duration = Validator(Duration, (fun (Duration d) -> d), validateIfPositiveTime)
+    let duration = Domain(Duration, (fun (Duration d) -> d), validateIfPositiveTime)
 
     type Interval = private Interval of TimeSpan
     let (|Interval|) (Interval i) = i
-    let interval = Validator(Interval, (fun (Interval d) -> d), validateIfPositiveTime)
+    let interval = Domain(Interval, (fun (Interval d) -> d), validateIfPositiveTime)
 
     type PlayListFilePath = private PlayListFilePath of string
     let (|PlayListFilePath|) (PlayListFilePath p) = p
 
     let playListFilePath =
-        Validator(PlayListFilePath, (fun (PlayListFilePath p) -> p), validatePathString File)
+        Domain(PlayListFilePath, (fun (PlayListFilePath p) -> p), validatePathString File)
 
     type SnapShotFolderPath = private SnapShotFolderPath of string
     let (|SnapShotFolderPath|) (SnapShotFolderPath p) = p
 
     let snapShotFolderPath =
-        Validator(SnapShotFolderPath, (fun (SnapShotFolderPath p) -> p), validatePathString Directory)
+        Domain(SnapShotFolderPath, (fun (SnapShotFolderPath p) -> p), validatePathString Directory)
 
 open ValueTypes
 
@@ -50,6 +50,15 @@ type Settings =
           Interval = interval.Create config.Interval
           PlayListFilePath = playListFilePath.Create config.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
+
+module Settings =
+    let save settings =
+        config.Frames <- frames.Dto settings.Frames
+        config.Duration <- duration.Dto settings.Duration
+        config.Interval <- interval.Dto settings.Interval
+        config.PlayListFilePath <- playListFilePath.Dto settings.PlayListFilePath
+        config.SnapShotFolderPath <- snapShotFolderPath.Dto settings.SnapShotFolderPath
+        config.Save changedConfigPath
 
 type Model =
     { Settings: Settings
@@ -74,6 +83,7 @@ type Msg =
     | PickPlayList of AsyncOperationStatus<Result<string, FilePickerError>>
     | SetSnapShotFolderPath of string
     | PickSnapshotFolder of AsyncOperationStatus<Result<string, FilePickerError>>
+    | SaveSettings
 
 type Api =
     { pickPlayList: unit -> Task<Result<string, FilePickerError>>
@@ -98,8 +108,7 @@ type Cmds(api: Api) =
         |> Cmd.OfTask.result
 
 
-let init () =
-    Settings.Default() |> Model.create
+let init () = Settings.Default() |> Model.create
 
 let update api msg (m: Model) =
     let cmds = Cmds api
@@ -140,3 +149,6 @@ let update api msg (m: Model) =
         m', Cmd.none
     | PickSnapshotFolder (Finished (Error _ as result)) ->
         { m with PickedSnapShotFolderPath = Resolved result }, Cmd.none
+    | SaveSettings ->
+        Settings.save m.Settings
+        m, Cmd.none
