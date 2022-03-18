@@ -2,8 +2,6 @@ module RandomSceneDrawing.Tests.Player.Core
 
 open Expecto
 
-open System
-
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Tests.Utils
 

@@ -31,7 +31,7 @@ let boxInvalid (validated: Validated<'dto, 'domain, 'error>) =
 
 let (|BoxInvalid|) = boxInvalid
 
-let invaidStringList (invalid:InvalidType<'dto, 'domain, 'error>) = $"%A{invalid}"
+let invaidStringList (invalid: InvalidType<'dto, 'domain, 'error>) = $"%A{invalid}"
 
 
 let margeInvalids validateds =
@@ -46,7 +46,8 @@ type Domain<'dto, 'domain, 'error>
         fromDto: 'dto -> 'domain,
         toDto: 'domain -> 'dto,
         validate: 'dto -> Result<'dto, 'error list>
-    ) =
+    )
+     =
 
     member _.Create dto : Validated<'dto, 'domain, 'error> =
         match validate dto with
@@ -182,7 +183,8 @@ type Domain<'dto, 'domain, 'error>
     member this.ApplyDto
         (fValidated: Validated<'dto, 'dto -> 'dto, 'error>)
         (xValidated: Validated<'dto, 'domain, 'error>)
-        : Validated<'dto, 'domain, 'error> =
+        : Validated<'dto, 'domain, 'error>
+        =
         this.ApplyProto(fun f x -> this.Update((toDto >> f) x) xValidated) fValidated xValidated
 
 let (|Valid|Invalid|) (validated: Validated<'dto, 'domain, 'error>) =
@@ -190,6 +192,10 @@ let (|Valid|Invalid|) (validated: Validated<'dto, 'domain, 'error>) =
     | Valid value -> Valid value
     | Invalid ex -> Invalid ex
 
+
+type NotifyMessage =
+    | InfoMsg of string
+    | ErrorMsg of string
 
 module ErrorTypes =
     type FilePickerError =
@@ -200,13 +206,13 @@ module Validator =
 
     let validateIfPositiveNumber num =
         if num < 0 then
-            Error ["Must be a positive number."]
+            Error [ "Must be a positive number." ]
         else
             Ok num
 
     let validateIfPositiveTime time =
         if time < TimeSpan.Zero then
-            Error ["Must be a positive number."]
+            Error [ "Must be a positive number." ]
         else
             Ok time
 
@@ -220,7 +226,7 @@ module Validator =
         match label with
         | File when File.Exists path -> Ok path
         | Directory when Directory.Exists path -> Ok path
-        | _ -> Error [$"{path} is not exsists."]
+        | _ -> Error [ $"{path} is not exsists." ]
 
     let validatePathString label path =
         if String.IsNullOrEmpty path then
@@ -228,8 +234,9 @@ module Validator =
         else
             validateExists label path
 
-let resultOr (domain:Domain<'dto, 'domain, 'error>) value =
-    domain.ToResult value |> Result.mapError invaidStringList
+let resultOr (domain: Domain<'dto, 'domain, 'error>) value =
+    domain.ToResult value
+    |> Result.mapError invaidStringList
 
 type AsyncOperationStatus<'t> =
     | Started

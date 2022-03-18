@@ -4,7 +4,6 @@ open System
 open System.Threading.Tasks
 open Elmish
 open RandomSceneDrawing.Types
-open FsToolkit
 open FsToolkit.ErrorHandling
 
 
@@ -102,10 +101,6 @@ type Msg =
     | Tick
     | Exit
 
-type NotifyMessage =
-    | InfoMsg of string
-    | ErrorMsg of string
-
 type Api<'player> =
     { step: unit -> Async<unit>
       randomize: 'player -> 'player -> Task<Result<unit, string>>
@@ -138,6 +133,11 @@ type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
         | Resolved (Error e) -> Error e
         | _ -> Error "Not Resolved."
 
+    let showInfomation info =
+        task { do! api.showInfomation info } |> ignore
+
+    member _.ShowInfomation info = showInfomation info
+
     member _.Step() =
         async {
             do! api.step ()
@@ -147,6 +147,7 @@ type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
 
     member _.Randomize() =
         task { return! api.randomize mainPlayer subPlayer }
+        |> TaskResult.teeError (ErrorMsg >> showInfomation)
 
     member this.RandomizeCmd() =
         task {
@@ -160,6 +161,7 @@ type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
             let! path' = resultOr snapShotFolderPath path
             do! api.createSnapShotFolder path'
         }
+        |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> Task.map (Finished >> StartDrawing)
         |> Cmd.OfTask.result
 
@@ -177,10 +179,9 @@ type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
 
             return! api.takeSnapshot mainPlayer path
         }
+        |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> ignore
 
-    member _.ShowInfomation info =
-        task { do! api.showInfomation info } |> ignore
 
 
 let init player subPlayer onExitHandler =

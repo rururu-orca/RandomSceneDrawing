@@ -87,22 +87,38 @@ type Msg =
 
 type Api =
     { pickPlayList: unit -> Task<Result<string, FilePickerError>>
-      pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>> }
+      pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>>
+      showInfomation: NotifyMessage -> Task<unit>}
+
+module ApiMock =
+    let api =
+        { pickPlayList = fun _ -> task { return Ok "Test" }
+          pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
+          showInfomation = fun _ -> task { () }}
 
 open Elmish
+open FsToolkit.ErrorHandling
 
 type Cmds(api: Api) =
+    let showInfomation info =
+        task { do! api.showInfomation info } |> ignore
+
+    let teeFileSystemError result =
+        result  |> TaskResult.teeError (
+            sprintf "%A" >>  ErrorMsg >> showInfomation)
+        
+    member _.ShowInfomation info = showInfomation info
 
     member _.PickPlayList() =
         task {
-            let! result = api.pickPlayList ()
+            let! result = api.pickPlayList () |> teeFileSystemError
             return (Finished >> PickPlayList) result
         }
         |> Cmd.OfTask.result
 
     member _.PickSnapshotFolder() =
         task {
-            let! result = api.pickSnapshotFolder ()
+            let! result = api.pickSnapshotFolder () |> teeFileSystemError
             return (Finished >> PickSnapshotFolder) result
         }
         |> Cmd.OfTask.result

@@ -12,9 +12,7 @@ open RandomSceneDrawing.DrawingSettings.ValueTypes
 
 open FsToolkit.ErrorHandling
 
-let api =
-    { pickPlayList = fun _ -> task { return Ok "Test" }
-      pickSnapshotFolder = fun _ -> task { return Ok "Foo" } }
+let api = RandomSceneDrawing.DrawingSettings.ApiMock.api
 
 let testUpdateValidatedValue testLabel model modelMapper msg msgMapper update valid invalid mapper =
     let sttings = Settings.Default() |> Model.create
