@@ -295,74 +295,6 @@ module MainView =
             ]
         ]
 
-open Main
-
-module Drawing =
-    let view model dispatch =
-        Button.create [
-            DockPanel.dock Dock.Top
-            let s = model.Settings.Settings
-
-            match model.State with
-            | Setting ->
-                Button.content "⏲ Start Drawing"
-                Button.onClick (fun _ -> StartDrawing Started |> dispatch)
-
-                match s.PlayListFilePath, s.SnapShotFolderPath with
-                | Valid _, Valid _ -> true
-                | _ -> false
-                |> Button.isEnabled
-
-            | _ ->
-                Button.content "Stop Drawing"
-                Button.onClick (fun _ -> StopDrawing |> dispatch)
-            // if model.RandomDrawingState = RandomDrawingState.Stop then
-            //     Button.content "⏲ Start Drawing"
-            //     Button.onClick (fun _ -> dispatch RequestStartDrawing)
-
-            //     [ model.PlayListFilePath
-            //       model.SnapShotFolderPath ]
-            //     |> List.forall (String.IsNullOrEmpty >> not)
-            //     |> Button.isEnabled
-            // else
-            //     Button.content "Stop Drawing"
-            //     Button.onClick (fun _ -> dispatch RequestStopDrawing)
-            ]
-
-open FsToolkit.ErrorHandling
-
-module VideoViewContent =
-    let view model dispatch =
-        Panel.create [
-            Panel.children [
-                Rectangle.create [
-                    Rectangle.classes [ "videoViewBlind" ]
-                    model.MainPlayer.Media
-                    |> Deferred.exists Result.isError
-                    |> Rectangle.isVisible
-                ]
-            ]
-        ]
-
-
-module MainPlayerView =
-    let view model dispatch =
-        VideoView.create [
-            VideoView.mediaPlayer model.MainPlayer.Player
-            VideoView.isVideoVisible model.MainPlayer.Player.IsSeekable
-            VideoView.hasFloating true
-            VideoView.content (VideoViewContent.view model dispatch)
-        ]
-
-module Re =
-    let view (model: Model<'player>) dispatch =
-        DockPanel.create [
-            DockPanel.children [
-                Drawing.view model dispatch
-                MainPlayerView.view model dispatch
-            ]
-        ]
-
 open Avalonia.Controls.Notifications
 open Avalonia.FuncUI.Hosts
 
@@ -372,6 +304,9 @@ type MainWindow(floatingWindow) =
     // Setup NotificationManager
     // To avoid the Airspace problem, host is configured with FloatingContent.floating.
     let notificationManager =
+        if isNull floatingWindow then
+            invalidArg "floatingWindow" "Null Window!!"
+
         WindowNotificationManager(floatingWindow, Position = NotificationPosition.BottomRight, MaxItems = 3)
 
     member _.NotificationManager = notificationManager

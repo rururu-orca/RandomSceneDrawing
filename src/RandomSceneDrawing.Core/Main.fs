@@ -57,8 +57,8 @@ type PlayerId =
     | SubPlayer
 
 type Model<'player> =
-    { MainPlayer: Player.Model<'player>
-      SubPlayer: Player.Model<'player>
+    { MainPlayer: Deferred<Player.Model<'player>>
+      SubPlayer: Deferred<Player.Model<'player>>
       Settings: DrawingSettings.Model
       State: RandomDrawingState
       RandomizeState: Deferred<Result<unit, string>> }
@@ -92,7 +92,9 @@ module Model =
         DrawingRunning.toInterval drawingRunning model
         |> model.WithState
 
-type Msg =
+type Msg<'player> =
+    | InitMainPlayer of AsyncOperationStatus<'player>
+    | InitSubPlayer of AsyncOperationStatus<'player>
     | PlayerMsg of PlayerId * Player.Msg
     | SettingsMsg of DrawingSettings.Msg
     | Randomize of AsyncOperationStatus<Result<unit, string>>
@@ -126,12 +128,29 @@ module Api =
 
 open System.IO
 
-type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
+type Cmds<'player>
+    (
+        api: Api<'player>,
+        mainPlayer: Deferred<Player.Model<'player>>,
+        subPlayer: Deferred<Player.Model<'player>>
+    )
+     =
     let getMediaTitle (media: Deferred<Result<MediaInfo, string>>) =
         match media with
         | Resolved (Ok info) -> Ok info.Title
         | Resolved (Error e) -> Error e
         | _ -> Error "Not Resolved."
+
+    let askMainPlayer () =
+        match mainPlayer with
+        | Resolved mp -> Ok mp.Player
+        | _ -> Error "Main player has not loading."
+
+    let askSubPlayer () =
+        match subPlayer with
+        | Resolved mp -> Ok mp.Player
+        | _ -> Error "Sub player has not loading."
+
 
     let showInfomation info =
         task { do! api.showInfomation info } |> ignore
@@ -146,7 +165,11 @@ type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
         |> Cmd.OfAsync.result
 
     member _.Randomize() =
-        task { return! api.randomize mainPlayer subPlayer }
+        task {
+            match askMainPlayer (), askSubPlayer () with
+            | Ok mainPlayer, Ok subPlayer -> return! api.randomize mainPlayer subPlayer
+            | _ -> return Error "Media has not loaded."
+        }
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
 
     member this.RandomizeCmd() =
@@ -167,7 +190,8 @@ type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
 
     member _.TakeSnapshot path currentFrames media =
         taskResult {
-            let! path' = resultOr snapShotFolderPath path
+            let! mainPlayer = askMainPlayer ()
+            and! path' = resultOr snapShotFolderPath path
             and! frames = resultOr frames currentFrames
             and! title = getMediaTitle media
 
@@ -185,34 +209,60 @@ type Cmds<'player>(api: Api<'player>, mainPlayer, subPlayer) =
 
 
 let init player subPlayer onExitHandler =
-    { MainPlayer = Player.init player
-      SubPlayer = Player.init subPlayer
+    let initMainPlayer =
+        task { return (player >> Finished >> InitMainPlayer) () }
+        |> Cmd.OfTask.result
+
+    let initSubPlayer =
+        task { return (subPlayer >> Finished >> InitSubPlayer) () }
+        |> Cmd.OfTask.result
+
+    let onExit =
+        fun dispatch ->
+            onExitHandler
+            |> Observable.add (fun e -> dispatch Exit)
+        |> Cmd.ofSub
+
+    { MainPlayer = HasNotStartedYet
+      SubPlayer = HasNotStartedYet
       Settings = DrawingSettings.init ()
       State = Setting
       RandomizeState = HasNotStartedYet },
+    Cmd.batch [
+        initMainPlayer
+        initSubPlayer
+        onExit
+    ]
 
-    fun dispatch ->
-        onExitHandler
-        |> Observable.add (fun e -> dispatch Exit)
-    |> Cmd.ofSub
 
 let update api settingsApi playerApi msg m =
-    let cmds = Cmds(api, m.MainPlayer.Player, m.SubPlayer.Player)
     let settingUpdate = DrawingSettings.update settingsApi
     let playerUpdate = Player.update playerApi
 
     let settings = m.Settings.Settings
+    let cmds = Cmds(api, m.MainPlayer, m.SubPlayer)
 
     match msg with
+    | InitMainPlayer (Finished player) -> { m with MainPlayer = (Player.init >> Resolved) player }, Cmd.none
+    | InitMainPlayer _ -> m, Cmd.none
+    | InitSubPlayer (Finished player) -> { m with SubPlayer = (Player.init >> Resolved) player }, Cmd.none
+    | InitSubPlayer _ -> m, Cmd.none
     | PlayerMsg (MainPlayer, msg) ->
-        let mainPlayer', cmd' = playerUpdate msg m.MainPlayer
+        match m.MainPlayer with
+        | Resolved mainPlayer ->
+            let mainPlayer', cmd' = playerUpdate msg mainPlayer
 
-        { m with MainPlayer = mainPlayer' }, Cmd.map ((fun m -> MainPlayer, m) >> PlayerMsg) cmd'
+            { m with MainPlayer = Resolved mainPlayer' }, Cmd.map ((fun m -> MainPlayer, m) >> PlayerMsg) cmd'
+        | _ -> m, Cmd.none
 
     | PlayerMsg (SubPlayer, msg) ->
-        let player', cmd' = playerUpdate msg m.SubPlayer
+        match m.SubPlayer with
+        | Resolved subPlayer ->
+            let player', cmd' = playerUpdate msg subPlayer
 
-        { m with SubPlayer = player' }, Cmd.map ((fun m -> SubPlayer, m) >> PlayerMsg) cmd'
+            { m with SubPlayer = Resolved player' }, Cmd.map ((fun m -> SubPlayer, m) >> PlayerMsg) cmd'
+        | _ -> m, Cmd.none
+
     | SettingsMsg msg when m.State = Setting ->
         let settings', cmd' = settingUpdate msg m.Settings
         { m with Settings = settings' }, Cmd.map SettingsMsg cmd'
@@ -249,16 +299,17 @@ let update api settingsApi playerApi msg m =
             | CountDownInterval x -> m.WithState { s with Interval = x }, cmds.Step()
             | Zero -> Model.setRunning s m, cmds.Step()
         | Running s ->
-            match s, settings.Frames with
-            | CountDownDrawing x -> m.WithState { s with Duration = x }, cmds.Step()
-            | Continue ->
-                cmds.TakeSnapshot settings.SnapShotFolderPath s.Frames m.MainPlayer.Media
+            match (s, settings.Frames), m.MainPlayer with
+            | CountDownDrawing x, Resolved _ -> m.WithState { s with Duration = x }, cmds.Step()
+            | Continue, Resolved mainPlayer ->
+                cmds.TakeSnapshot settings.SnapShotFolderPath s.Frames mainPlayer.Media
                 Model.setInterval s m, cmds.Step()
 
-            | AtLast ->
-                cmds.TakeSnapshot settings.SnapShotFolderPath s.Frames m.MainPlayer.Media
+            | AtLast, Resolved mainPlayer ->
+                cmds.TakeSnapshot settings.SnapShotFolderPath s.Frames mainPlayer.Media
 
                 { m with State = Setting }, Cmd.none
+            | _ -> m, cmds.Step()
     | StartDrawing Started when m.State = Setting ->
         Model.initInterval m, cmds.StartDrawingCmd settings.SnapShotFolderPath
     | StartDrawing Started -> m, Cmd.none

@@ -209,6 +209,10 @@ let subs (window: HostWindow) model =
 
 open Main
 
+
+let settingsApi = DrawingSettings.ApiMock.api
+let playerApi = Player.ApiMock.apiOk
+
 let mainApi (window: MainWindow) =
 
     { Api.mockOk () with
@@ -218,7 +222,6 @@ let mainApi (window: MainWindow) =
                 task {
                     match msg with
                     | InfoMsg info ->
-                        let mgr = window.NotificationManager 
                         Notification("Info", info, NotificationType.Information)
                         |> window.NotificationManager.Show
                     | ErrorMsg err ->

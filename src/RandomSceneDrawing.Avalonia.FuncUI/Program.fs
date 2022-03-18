@@ -46,18 +46,18 @@ type App() =
         app.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
 
         // startMainLoop mainWindow
-        let mainPlayer = PlayerLib.initPlayer()
-        let subPlayer = PlayerLib.initSubPlayer()
+        let mainPlayer = PlayerLib.initPlayer
+        let subPlayer = PlayerLib.initSubPlayer
         let init () = Main.init mainPlayer subPlayer mainWindow.Closed
 
         let mainApi =
             Platform.mainApi mainWindow
 
-        let settingsApi = DrawingSettings.ApiMock.api
-        let playerApi = Player.ApiMock.apiOk
+        let settingsApi = Platform.settingsApi
+        let playerApi = Platform.playerApi
         let update = Main.update mainApi settingsApi playerApi
 
-        Program.mkProgram init update Re.view
+        Program.mkProgram init update View.view
         |> Program.withHost mainWindow
 #if DEBUG
         |> Program.withConsoleTrace

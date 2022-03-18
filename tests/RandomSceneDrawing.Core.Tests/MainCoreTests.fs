@@ -6,6 +6,7 @@ open Utils
 open RandomSceneDrawing.Types
 open RandomSceneDrawing.Main
 open System
+open System.Collections.Generic
 
 let apiOk = Api.mockOk ()
 let apiError: Api<unit> = Api.mockError ()
@@ -16,8 +17,21 @@ let onExitMock =
             { new IDisposable with
                 member _.Dispose() = () } }
 
-let init = init () () onExitMock |> fst
-let updatePlayer = update apiOk DrawingSettings.api
+let mock = fun () -> ()
+let onInit, initCmd = init mock mock onExitMock
+
+let init =
+    let update =
+        update apiOk DrawingSettings.api RandomSceneDrawing.Player.ApiMock.apiOk
+
+    onInit
+    |> update ((Finished >> InitMainPlayer) ())
+    |> fst
+    |> update ((Finished >> InitSubPlayer) ())
+    |> fst
+
+let updatePlayer playerApi =
+    update apiOk DrawingSettings.api playerApi
 
 // Sub Model Test
 
@@ -25,7 +39,7 @@ let mainPlayerTest =
     Player.Core.msgTestSet
         "Model.MainPlayer"
         init
-        (fun model state -> { model with MainPlayer = state })
+        (fun model state -> { model with MainPlayer = Resolved state })
         (fun msg -> PlayerMsg(MainPlayer, msg))
         updatePlayer
 
@@ -33,7 +47,7 @@ let subPlayerTest =
     Player.Core.msgTestSet
         "Model.SubPlayer"
         init
-        (fun model state -> { model with SubPlayer = state })
+        (fun model state -> { model with SubPlayer = Resolved state })
         (fun msg -> PlayerMsg(SubPlayer, msg))
         updatePlayer
 
@@ -61,6 +75,24 @@ let expectNoChange initModel msg =
 
 let expectWhenOkApi initModel msg expectModel expectMsgs =
     Expect.elmishUpdate (update apiOk) "Should be changed." initModel msg id expectModel expectMsgs
+
+let testOnInit =
+    testList
+        "Main Model on Init"
+        [ testAsync "InitMainPlayer" {
+              let expectModel =
+                  { onInit with MainPlayer = (RandomSceneDrawing.Player.init >> Resolved) () }
+
+              let expectMsg = []
+              do! expectWhenOkApi onInit [ (Finished >> InitMainPlayer) () ] expectModel expectMsg
+          }
+          testAsync "InitSubPlayer" {
+              let expectModel =
+                  { onInit with SubPlayer = (RandomSceneDrawing.Player.init >> Resolved) () }
+
+              let expectMsg = []
+              do! expectWhenOkApi onInit [ (Finished >> InitSubPlayer) () ] expectModel expectMsg
+          } ]
 
 let testRandomize =
     testList
@@ -145,8 +177,6 @@ let stateInitRunning =
             Running
                 { Duration = stateSetting.Settings.Settings.Duration
                   Frames = ValueTypes.frames.Create 1 } }
-
-open System
 
 let testWhenRunning =
     testList
@@ -344,6 +374,7 @@ let mainTest =
           settingTest
 
           // main test
+          testOnInit
           testRandomize
           testWhenSetting
           testWhenRunning
