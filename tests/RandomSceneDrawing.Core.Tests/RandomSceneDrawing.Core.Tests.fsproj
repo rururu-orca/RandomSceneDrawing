@@ -10,7 +10,7 @@
     <Compile Include="TestUtils.fs" />
     <Compile Include="CoreTests.fs" />
     <Compile Include="PlayerCoreTests.fs" />
-    <Compile Include="DrawingCoreTests.fs" />
+    <Compile Include="DrawingSettingsTests.fs" />
     <Compile Include="MainCoreTests.fs" />
     <Compile Include="PlayerLibTests.fs" />
     <Compile Include="Program.fs" />
