@@ -44,8 +44,13 @@ module ValueTypes =
             | Valid _ as c -> CountDownInterval c
             | Invalid _ -> Zero
 
+    type RandomizeSource = PlayList of PlayListFilePath
 
 open ValueTypes
+
+let (|PlayListFilePath|) rs =
+    match rs with
+    | PlayList (DrawingSettings.ValueTypes.PlayListFilePath pl) -> pl
 
 type RandomDrawingState =
     | Setting
@@ -105,7 +110,7 @@ type Msg<'player> =
 
 type Api<'player> =
     { step: unit -> Async<unit>
-      randomize: 'player -> 'player -> Task<Result<unit, string>>
+      randomize: RandomizeSource -> 'player -> 'player -> Task<Result<unit, string>>
       createSnapShotFolder: string -> Task<Result<unit, string>>
       takeSnapshot: 'player -> string -> Task<Result<unit, string>>
       showInfomation: NotifyMessage -> Task<unit> }
@@ -113,14 +118,14 @@ type Api<'player> =
 module Api =
     let mockOk () =
         { step = fun _ -> async { do! Async.Sleep 1 }
-          randomize = fun _ _ -> task { return Ok() }
+          randomize = fun _ _ _ -> task { return Ok() }
           createSnapShotFolder = fun _ -> task { return Ok() }
           takeSnapshot = fun _ _ -> task { return Ok() }
           showInfomation = fun _ -> task { () } }
 
     let mockError () =
         { step = fun _ -> async { do! Async.Sleep 1 }
-          randomize = fun _ _ -> task { return Error "Mock." }
+          randomize = fun _ _ _ -> task { return Error "Mock." }
           createSnapShotFolder = fun _ -> task { return Error "Mock." }
           takeSnapshot = fun _ _ -> task { return Error "Mock." }
           showInfomation = fun _ -> task { () } }
@@ -151,6 +156,8 @@ type Cmds<'player>
         | Resolved mp -> Ok mp.Player
         | _ -> Error "Sub player has not loading."
 
+    let tryToRandomizeSource domain pl =
+        resultDomainOr domain pl |> Result.map PlayList
 
     let showInfomation info =
         task { do! api.showInfomation info } |> ignore
@@ -164,24 +171,26 @@ type Cmds<'player>
         }
         |> Cmd.OfAsync.result
 
-    member _.Randomize() =
-        task {
-            match askMainPlayer (), askSubPlayer () with
-            | Ok mainPlayer, Ok subPlayer -> return! api.randomize mainPlayer subPlayer
-            | _ -> return Error "Media has not loaded."
+    member _.Randomize domain randomizeSource =
+        taskResult {
+            let! mainPlayer = askMainPlayer ()
+            and! subPlayer = askSubPlayer ()
+            and! rs = tryToRandomizeSource domain randomizeSource
+
+            return! api.randomize rs mainPlayer subPlayer
         }
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
 
-    member this.RandomizeCmd() =
+    member this.RandomizeCmd domain randomizeSource =
         task {
-            let! result = this.Randomize()
+            let! result = this.Randomize domain randomizeSource
             return (Finished >> Randomize) result
         }
         |> Cmd.OfTask.result
 
     member this.StartDrawingCmd path =
         taskResult {
-            let! path' = resultOr snapShotFolderPath path
+            let! path' = resultDtoOr snapShotFolderPath path
             do! api.createSnapShotFolder path'
         }
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
@@ -191,8 +200,8 @@ type Cmds<'player>
     member _.TakeSnapshot path currentFrames media =
         taskResult {
             let! mainPlayer = askMainPlayer ()
-            and! path' = resultOr snapShotFolderPath path
-            and! frames = resultOr frames currentFrames
+            and! path' = resultDtoOr snapShotFolderPath path
+            and! frames = resultDtoOr frames currentFrames
             and! title = getMediaTitle media
 
             let path =
@@ -271,7 +280,8 @@ let update api settingsApi playerApi msg m =
         let settings', cmd' = settingUpdate DrawingSettings.Msg.SaveSettings m.Settings
         { m with Settings = settings' }, Cmd.map SettingsMsg cmd'
     | Randomize Started when m.RandomizeState = InProgress -> m, Cmd.none
-    | Randomize Started -> { m with RandomizeState = InProgress }, cmds.RandomizeCmd()
+    | Randomize Started ->
+        { m with RandomizeState = InProgress }, cmds.RandomizeCmd playListFilePath settings.PlayListFilePath
     | Randomize (Finished result) ->
         match result, m.State with
         | Ok (), Interval i when i.Init = InProgress ->
@@ -283,7 +293,7 @@ let update api settingsApi playerApi msg m =
         let updateRamdomize (model: Model<'player>) =
             { model with RandomizeState = InProgress },
             Cmd.batch [
-                cmds.RandomizeCmd()
+                cmds.RandomizeCmd playListFilePath settings.PlayListFilePath
                 cmds.Step()
             ]
 

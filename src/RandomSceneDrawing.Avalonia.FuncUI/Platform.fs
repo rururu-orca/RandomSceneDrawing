@@ -331,7 +331,7 @@ let playerApi (window: MainWindow) =
 
 let mainApi (window: MainWindow) : Main.Api<'player> =
     { step = fun _ -> async { do! Async.Sleep 1000 }
-      randomize = fun _ _ -> task { return Ok() }
+      randomize = fun _ _ _ -> task { return Ok() }
       createSnapShotFolder = fun _ -> task { return Ok() }
       takeSnapshot = fun _ _ -> task { return Ok() }
       showInfomation = showInfomation window }

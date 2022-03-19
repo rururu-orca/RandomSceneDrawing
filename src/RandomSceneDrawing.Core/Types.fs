@@ -234,8 +234,12 @@ module Validator =
         else
             validateExists label path
 
-let resultOr (domain: Domain<'dto, 'domain, 'error>) value =
+let resultDtoOr (domain: Domain<'dto, 'domain, 'error>) value =
     domain.ToResult value
+    |> Result.mapError invaidStringList
+
+let resultDomainOr (domain: Domain<'dto, 'domain, 'error>) value =
+    domain.Fold Ok Error value
     |> Result.mapError invaidStringList
 
 type AsyncOperationStatus<'t> =
