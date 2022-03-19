@@ -94,6 +94,8 @@ let testOnInit =
               do! expectWhenOkApi onInit [ (Finished >> InitSubPlayer) () ] expectModel expectMsg
           } ]
 
+let randomizeOkResultMock = Ok ValueTypes.RandomizeResult.mock
+
 let testRandomize =
     testList
         "Main Model Randomize Cmd"
@@ -104,15 +106,17 @@ let testRandomize =
 
           testAsync "Randomize Started" {
               let expectModel = { stateSetting with RandomizeState = InProgress }
-              let expectMsg = [ (Ok >> Finished >> Randomize) () ]
+              let expectMsg = [ (Finished >> Randomize) randomizeOkResultMock ]
               do! expectWhenOkApi stateSetting [ Randomize Started ] expectModel expectMsg
           }
 
           testAsync "Randomize Finished" {
               let stateInprogress = { stateSetting with RandomizeState = InProgress }
-              let msg = [ (Ok >> Finished >> Randomize) () ]
+              let msg = [ (Finished >> Randomize) randomizeOkResultMock ]
 
-              let expectModel = { stateInprogress with RandomizeState = Resolved(Ok()) }
+              let expectModel =
+                  Model.withRandomizeResult ignore stateInprogress randomizeOkResultMock
+
               let expectMsg = []
               do! expectWhenOkApi stateInprogress msg expectModel expectMsg
           } ]
@@ -126,16 +130,14 @@ let testWhenSetting =
           testAsync "StartDrawing Started" {
               let msg = [ StartDrawing Started ]
 
-              let expectModel = Model.initInterval stateSetting
-
-              let expectMsg = [ (Ok >> Finished >> StartDrawing) () ]
-              do! expectWhenOkApi stateSetting msg expectModel expectMsg
+              let expectMsg = [ (Ok >> Finished >> StartDrawing) "test" ]
+              do! expectWhenOkApi stateSetting msg stateSetting expectMsg
           }
 
           testAsync "StartDrawing Finished Error" {
               let msg = [ (Error >> Finished >> StartDrawing) "Mock" ]
 
-              let stateStarted = Model.initInterval stateSetting
+              let stateStarted = Model.initInterval stateSetting "test"
 
               let expectModel = stateSetting
 
@@ -143,9 +145,9 @@ let testWhenSetting =
               do! expectWhenOkApi stateStarted msg expectModel expectMsg
           }
           testAsync "StartDrawing Finished Ok" {
-              let msg = [ (Ok >> Finished >> StartDrawing) () ]
+              let msg = [ (Ok >> Finished >> StartDrawing) "test" ]
 
-              let stateStarted = Model.initInterval stateSetting
+              let stateStarted = Model.initInterval stateSetting "test"
 
               do! expectWhenOkApi stateStarted msg stateStarted [ Tick ]
           }
@@ -154,7 +156,7 @@ let testWhenSetting =
 
           ]
 
-let stateInitInterval = Model.initInterval stateSetting
+let stateInitInterval = Model.initInterval stateSetting "test"
 
 let toInterval state =
     (match state with
@@ -172,10 +174,11 @@ let toRunning state =
 
 let stateInitRunning =
     { stateSetting with
-        RandomizeState = Resolved(Ok())
+        RandomizeState = Resolved randomizeOkResultMock
         State =
             Running
                 { Duration = stateSetting.Settings.Settings.Duration
+                  SnapShotPath = ValueTypes.snapShotPath.Create "test"
                   Frames = ValueTypes.frames.Create 1 } }
 
 let testWhenRunning =
@@ -200,7 +203,7 @@ let testWhenRunning =
               let expectModel = { stateInitRunning with RandomizeState = InProgress }
 
               let expectMsg =
-                  [ (Ok >> Finished >> Randomize) ()
+                  [ (Finished >> Randomize) randomizeOkResultMock
                     Tick ]
 
               do! expectWhenOkApi initState msg expectModel expectMsg
@@ -288,7 +291,7 @@ let testWhenInterval =
                       .WithState
 
               let expectMsg =
-                  [ (Ok >> Finished >> Randomize) ()
+                  [ (Finished >> Randomize) randomizeOkResultMock
                     Tick ]
 
               do! expectWhenOkApi stateInitInterval msg expectModel expectMsg
@@ -302,7 +305,7 @@ let testWhenInterval =
               let expectModel = { stateInitInterval with RandomizeState = InProgress }
 
               let expectMsg =
-                  [ (Ok >> Finished >> Randomize) ()
+                  [ (Finished >> Randomize) randomizeOkResultMock
                     Tick ]
 
               do! expectWhenOkApi initState msg expectModel expectMsg
@@ -318,7 +321,7 @@ let testWhenInterval =
                     // ignored
                     Tick
                     // Init Resolve
-                    (Ok >> Finished >> Randomize) ()
+                    (Finished >> Randomize) randomizeOkResultMock
                     // CountDown
                     Tick ]
 
@@ -328,13 +331,13 @@ let testWhenInterval =
                   { i with
                       Init = Resolved()
                       Interval = ValueTypes.countDown ValueTypes.interval i.Interval }
-                  |> { stateInitInterval with RandomizeState = (Ok >> Resolved) () }
+                  |> (Model.withRandomizeResult ignore stateInitInterval randomizeOkResultMock)
                       .WithState
 
               let expectMsg =
                   [
                     // At First
-                    (Ok >> Finished >> Randomize) ()
+                    (Finished >> Randomize) randomizeOkResultMock
                     Tick
                     // Resolvad
                     Tick
@@ -352,7 +355,7 @@ let testWhenInterval =
                   { i with
                       Init = Resolved()
                       Interval = ValueTypes.interval.Create TimeSpan.Zero }
-                  |> { stateInitInterval with RandomizeState = (Ok >> Resolved) () }
+                  |> { stateInitInterval with RandomizeState = Resolved randomizeOkResultMock }
                       .WithState
 
               let msg = [ Tick ]

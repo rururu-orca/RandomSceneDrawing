@@ -26,7 +26,8 @@ type Api<'player> =
       showInfomation: NotifyMessage -> Task<unit> }
 
 module ApiMock =
-    let okMediaInfo = Ok { Title = ""; Duration = TimeSpan.Zero }
+    let mediaInfo = { Title = ""; Duration = TimeSpan.Zero }
+    let okMediaInfo = Ok mediaInfo
 
     let apiOk =
         { playAsync = fun _ -> task { return okMediaInfo }

@@ -84,11 +84,7 @@ let selectSnapShotFolderAsync window =
 let playAsync player media =
     task {
         match! PlayerLib.playAsync player () media with
-        | Ok _ ->
-            return
-                Ok
-                    { Title = media.Meta MetadataType.Title
-                      Duration = float media.Duration |> TimeSpan.FromMilliseconds }
+        | Ok _ -> return! PlayerLib.MediaInfo.ofPlayer player
         | Error ex -> return Error ex.Message
     }
     |> Task.map Finished
@@ -117,11 +113,7 @@ let getMediaAndPlay (player: MediaPlayer) uri =
         player.Media <- media
 
         match! player.PlayAsync() with
-        | true ->
-            return
-                Ok
-                    { Title = media.Meta MetadataType.Title
-                      Duration = float media.Duration |> TimeSpan.FromMilliseconds }
+        | true -> return! PlayerLib.MediaInfo.ofPlayer player
         | false -> return Error "play failed."
     }
 

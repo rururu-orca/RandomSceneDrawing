@@ -29,7 +29,8 @@ module ValueTypes =
 
     type DrawingRunning =
         { Frames: Validated<int, Frames, string>
-          Duration: Validated<TimeSpan, Duration, string> }
+          Duration: Validated<TimeSpan, Duration, string>
+          SnapShotPath: Validated<string, SnapShotPath, string> }
 
     let (|CountDownDrawing|Continue|AtLast|) (modelRunning, setting) =
         match countDown duration modelRunning.Duration with
@@ -43,6 +44,7 @@ module ValueTypes =
     type DrawingInterval =
         { Frames: Validated<int, Frames, string>
           Interval: Validated<TimeSpan, Interval, string>
+          SnapShotPath: Validated<string, SnapShotPath, string>
           Init: Deferred<unit> }
 
     let (|AtFirst|CountDownInterval|Zero|) (modelInterval) =
@@ -54,6 +56,33 @@ module ValueTypes =
             | Invalid _ -> Zero
 
     type RandomizeSource = PlayList of PlayListFilePath
+
+    type RandomizedInfo = { MediaInfo: MediaInfo; Path: string }
+
+    type RandomizeResult =
+        { Main: RandomizedInfo
+          Sub: RandomizedInfo }
+
+    module RandomizeResult =
+        let mock =
+            let mediaInfo = Player.ApiMock.mediaInfo
+            let info = { MediaInfo = mediaInfo; Path = "" }
+            { Main = info; Sub = info }
+
+        let syncMediaInfo (main: Deferred<Player.Model<'player>>) (sub: Deferred<Player.Model<'player>>) result =
+            {| Main =
+                main
+                |> Deferred.map (fun player ->
+                    { player with
+                        Media = (Ok >> Resolved) result.Main.MediaInfo
+                        State = (Ok >> Finished) Player.State.Paused })
+               Sub =
+                sub
+                |> Deferred.map (fun player ->
+                    { player with
+                        Media = (Ok >> Resolved) result.Sub.MediaInfo
+                        State = (Ok >> Finished) Player.State.Playing }) |}
+
 
 open ValueTypes
 
@@ -75,7 +104,7 @@ type Model<'player> =
       SubPlayer: Deferred<Player.Model<'player>>
       Settings: DrawingSettings.Model
       State: RandomDrawingState
-      RandomizeState: Deferred<Result<unit, string>> }
+      RandomizeState: Deferred<Result<RandomizeResult, string>> }
 
     member inline x.WithState s = { x with State = Running s }
     member inline x.WithState s = { x with State = Interval s }
@@ -84,18 +113,21 @@ module DrawingRunning =
     let toInterval (r: DrawingRunning) (model: Model<'player>) =
         { Interval = model.Settings.Settings.Interval
           Frames = frames.MapDto((+) 1) r.Frames
+          SnapShotPath = r.SnapShotPath
           Init = HasNotStartedYet }
 
 module DrawingInterval =
     let toRunning i (model: Model<'player>) =
         { Duration = model.Settings.Settings.Duration
+          SnapShotPath = i.SnapShotPath
           Frames = i.Frames }
 
 module Model =
-    let initInterval (model: Model<'player>) =
+    let initInterval (model: Model<'player>) snapShotPathStr =
         model.WithState
             { Interval = model.Settings.Settings.Interval
               Frames = frames.Create 1
+              SnapShotPath = snapShotPath.Create snapShotPathStr
               Init = HasNotStartedYet }
 
     let setRunning (drawingInterval: DrawingInterval) (model: Model<'player>) =
@@ -106,20 +138,33 @@ module Model =
         DrawingRunning.toInterval drawingRunning model
         |> model.WithState
 
+    let withRandomizeResult onError (model: Model<'player>) result =
+        match result with
+        | Ok ok ->
+            let synced = RandomizeResult.syncMediaInfo model.MainPlayer model.SubPlayer ok
+
+            { model with
+                RandomizeState = Resolved result
+                MainPlayer = synced.Main
+                SubPlayer = synced.Sub }
+        | Error ex ->
+            onError ex
+            { model with RandomizeState = Resolved result }
+
 type Msg<'player> =
     | InitMainPlayer of AsyncOperationStatus<'player>
     | InitSubPlayer of AsyncOperationStatus<'player>
     | PlayerMsg of PlayerId * Player.Msg
     | SettingsMsg of DrawingSettings.Msg
-    | Randomize of AsyncOperationStatus<Result<unit, string>>
-    | StartDrawing of AsyncOperationStatus<Result<unit, string>>
+    | Randomize of AsyncOperationStatus<Result<RandomizeResult, string>>
+    | StartDrawing of AsyncOperationStatus<Result<string, string>>
     | StopDrawing
     | Tick
     | Exit
 
 type Api<'player> =
     { step: unit -> Async<unit>
-      randomize: RandomizeSource -> 'player -> 'player -> Task<Result<unit, string>>
+      randomize: RandomizeSource -> 'player -> 'player -> Task<Result<RandomizeResult, string>>
       createSnapShotFolder: string -> Task<Result<string, string>>
       takeSnapshot: 'player -> string -> Task<Result<unit, string>>
       copySubVideo: string -> Task<Result<unit, string>>
@@ -128,7 +173,7 @@ type Api<'player> =
 module Api =
     let mockOk () =
         { step = fun _ -> async { do! Async.Sleep 1 }
-          randomize = fun _ _ _ -> task { return Ok() }
+          randomize = fun _ _ _ -> task { return Ok RandomizeResult.mock }
           createSnapShotFolder = fun _ -> task { return Ok "test" }
           takeSnapshot = fun _ _ -> task { return Ok() }
           copySubVideo = fun _ -> task { return Ok() }
@@ -152,8 +197,6 @@ type Cmds<'player>
         subPlayer: Deferred<Player.Model<'player>>
     )
      =
-
-    let mutable snapShotFolder = Error "Has not set yet."
 
     let getMediaTitle (media: Deferred<Result<MediaInfo, string>>) =
         match media with
@@ -206,20 +249,16 @@ type Cmds<'player>
     member this.StartDrawingCmd path =
         taskResult {
             let! path' = resultDtoOr snapShotFolderPath path
-            let! path'' = api.createSnapShotFolder path'
-
-            snapShotFolder <-
-                snapShotPath.Create path''
-                |> resultDomainOr snapShotPath
+            return! api.createSnapShotFolder path'
         }
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> Task.map (Finished >> StartDrawing)
         |> Cmd.OfTask.result
 
-    member _.TakeSnapshot currentFrames media =
+    member _.TakeSnapshot snapShotFolder currentFrames media =
         taskResult {
             let! mainPlayer = askMainPlayer ()
-            and! (SnapShotPath path') = snapShotFolder
+            and! path' = resultDtoOr snapShotPath snapShotFolder
             and! frames = resultDtoOr frames currentFrames
             and! title = getMediaTitle media
 
@@ -234,9 +273,9 @@ type Cmds<'player>
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> ignore
 
-    member _.CopySubVideo currentFrames media =
+    member _.CopySubVideo snapShotFolder currentFrames media =
         taskResult {
-            let! (SnapShotPath path') = snapShotFolder
+            let! path' = resultDtoOr snapShotPath snapShotFolder
             and! frames = resultDtoOr frames currentFrames
             and! title = getMediaTitle media
 
@@ -318,11 +357,11 @@ let update api settingsApi playerApi msg m =
         { m with RandomizeState = InProgress }, cmds.RandomizeCmd playListFilePath settings.PlayListFilePath
     | Randomize (Finished result) ->
         match result, m.State with
-        | Ok (), Interval i when i.Init = InProgress ->
-            { m with RandomizeState = Resolved result }
+        | Ok _, Interval i when i.Init = InProgress ->
+            (Model.withRandomizeResult ignore m result)
                 .WithState { i with Init = Resolved() },
             Cmd.none
-        | _ -> { m with RandomizeState = Resolved result }, Cmd.none
+        | _ -> Model.withRandomizeResult ignore m result, Cmd.none
     | Tick ->
         let updateRamdomize (model: Model<'player>) =
             { model with RandomizeState = InProgress },
@@ -346,26 +385,25 @@ let update api settingsApi playerApi msg m =
             match (s, settings.Frames), m.MainPlayer, m.SubPlayer with
             | CountDownDrawing x, Resolved _, Resolved _ -> m.WithState { s with Duration = x }, cmds.Step()
             | Continue, Resolved mainPlayer, Resolved subPlayer ->
-                cmds.TakeSnapshot s.Frames mainPlayer.Media
-                cmds.CopySubVideo s.Frames subPlayer.Media
+                cmds.TakeSnapshot s.SnapShotPath s.Frames mainPlayer.Media
+                cmds.CopySubVideo s.SnapShotPath s.Frames subPlayer.Media
                 Model.setInterval s m, cmds.Step()
 
             | AtLast, Resolved mainPlayer, Resolved subPlayer ->
-                cmds.TakeSnapshot s.Frames mainPlayer.Media
-                cmds.CopySubVideo s.Frames subPlayer.Media
+                cmds.TakeSnapshot s.SnapShotPath s.Frames mainPlayer.Media
+                cmds.CopySubVideo s.SnapShotPath s.Frames subPlayer.Media
 
                 { m with State = Setting }, Cmd.none
             | _ -> m, cmds.Step()
-    | StartDrawing Started when m.State = Setting ->
-        Model.initInterval m, cmds.StartDrawingCmd settings.SnapShotFolderPath
+    | StartDrawing Started when m.State = Setting -> m, cmds.StartDrawingCmd settings.SnapShotFolderPath
     | StartDrawing Started -> m, Cmd.none
     | StartDrawing (Finished (Error error)) ->
         cmds.ShowInfomation(ErrorMsg error)
 
         { m with State = Setting }, Cmd.none
-    | StartDrawing (Finished (Ok _)) ->
+    | StartDrawing (Finished (Ok snapShotPathStr)) ->
         InfoMsg "Drawing Started." |> cmds.ShowInfomation
-        m, cmds.Step()
+        Model.initInterval m snapShotPathStr, cmds.Step()
     | StopDrawing when m.State = Setting -> m, Cmd.none
     | StopDrawing ->
         InfoMsg "Drawing Stoped." |> cmds.ShowInfomation

@@ -84,6 +84,24 @@ let isPlayingOrPaused (player: MediaPlayer) =
 
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
+module MediaInfo =
+    let inline ofMedia (media: Media) =
+        taskResult {
+            return
+                { Title = media.Meta MetadataType.Title
+                  Duration = float media.Duration |> TimeSpan.FromMilliseconds }
+        }
+
+    let inline ofPlayer (player: MediaPlayer) =
+        taskResult {
+            let! media =
+                match player.Media with
+                | null -> Error "Player is not set Media."
+                | md -> Ok md
+
+            return! ofMedia media
+        }
+
 let loadPlayList source =
     task {
         let playList = new Media(libVLC, uri = source)
@@ -315,7 +333,7 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
     }
     |> TaskResult.foldResult id RandomizeFailed
 
-
+open Main.ValueTypes
 
 let randomize' (Main.PlayListFilePath playListPath) (player: MediaPlayer) (subPlayer: MediaPlayer) =
     let runFFmpeg args =
@@ -375,6 +393,21 @@ let randomize' (Main.PlayListFilePath playListPath) (player: MediaPlayer) (subPl
           $"-vf \"hwupload,libplacebo={rescaleParam}:p010le,hwupload_cuda\""
           $"-c:v hevc_nvenc -an \"{destinationPath}\"" ]
         |> runFFmpeg
+
+    let getRandomizeResult (mainMedia: Media) mainPath (subMedia: Media) subPath =
+        taskResult {
+            let! mainInfo = MediaInfo.ofMedia mainMedia
+            and! subInfo = MediaInfo.ofMedia subMedia
+
+            return
+                { Main =
+                    { MediaInfo = mainInfo
+                      Path = mainPath }
+                  Sub =
+                    { MediaInfo = subInfo
+                      Path = subPath } }
+        }
+
 
     taskResult {
         // すでに再生済みなら停止
@@ -437,8 +470,10 @@ let randomize' (Main.PlayListFilePath playListPath) (player: MediaPlayer) (subPl
         media.AddOption $":start-time=%.2f{time}"
 
         player.Media <- media
-        do! player.PlayAsync() |> TaskResult.requireTrue "Main Player: Play failed."
-        // do! player.Pla
+
+        do!
+            player.PlayAsync()
+            |> TaskResult.requireTrue "Main Player: Play failed."
 
         // サブプレイヤーの設定、再生
         media'.AddOption ":no-start-paused"
@@ -446,7 +481,11 @@ let randomize' (Main.PlayListFilePath playListPath) (player: MediaPlayer) (subPl
         media'.AddOption ":clock-synchro=0"
         media'.AddOption $":input-repeat=65535"
         subPlayer.Media <- media'
-        do! subPlayer.PlayAsync() |> TaskResult.requireTrue "Sub Player: Play failed."
+
+        do!
+            subPlayer.PlayAsync()
+            |> TaskResult.requireTrue "Sub Player: Play failed."
+
         do! Async.Sleep 50 |> Async.Ignore
 
         if player.State = VLCState.Buffering then
@@ -456,6 +495,8 @@ let randomize' (Main.PlayListFilePath playListPath) (player: MediaPlayer) (subPl
                 |> Async.Ignore
 
         do! Async.Sleep 50 |> Async.Ignore
+
+        return! getRandomizeResult media destination media' destination'
     }
 
 
