@@ -20,6 +20,22 @@ let onExitMock =
 let mock = fun () -> ()
 let onInit, initCmd = init mock mock onExitMock
 
+let tempFilePath = IO.Path.GetTempFileName()
+let tempFolderPath = IO.Path.GetTempPath()
+
+let deleteTempFile () = IO.File.Delete tempFilePath
+
+let setTempFile model =
+    let settings =
+        model.Settings.WithSettings (fun s ->
+            { s with
+                PlayListFilePath = ValueTypes.playListFilePath.Create tempFilePath
+                SnapShotFolderPath = ValueTypes.snapShotFolderPath.Create tempFolderPath }
+
+        )
+
+    { model with Settings = settings }
+
 let init =
     let update =
         update apiOk DrawingSettings.api RandomSceneDrawing.Player.ApiMock.apiOk
@@ -29,6 +45,7 @@ let init =
     |> fst
     |> update ((Finished >> InitSubPlayer) ())
     |> fst
+    |> setTempFile
 
 let updatePlayer playerApi =
     update apiOk DrawingSettings.api playerApi
@@ -62,8 +79,9 @@ let settingTest =
         SettingsMsg
         updateSettings
 
-// Main Test
 
+
+// Main Test
 let stateSetting = init
 
 let update api =
@@ -369,6 +387,10 @@ let testWhenInterval =
 
 [<Tests>]
 let mainTest =
+    use temp =
+        { new IDisposable with
+            member _.Dispose() = deleteTempFile () }
+
     testList
         "Main"
         [ // sub model

@@ -52,12 +52,18 @@ type Settings =
           SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
 
 module Settings =
+    let dtoOrEmptyString (domain:Domain<string,_,_>) value =
+        domain.DtoOr (function
+            | UpdateFailed ((ValueSome c),_,_) -> (domain.ofDomain >> domain.Dto) c
+            | _ -> ""
+        ) value
+
     let save settings =
         config.Frames <- frames.Dto settings.Frames
         config.Duration <- duration.Dto settings.Duration
         config.Interval <- interval.Dto settings.Interval
-        config.PlayListFilePath <- playListFilePath.Dto settings.PlayListFilePath
-        config.SnapShotFolderPath <- snapShotFolderPath.Dto settings.SnapShotFolderPath
+        config.PlayListFilePath <- dtoOrEmptyString playListFilePath settings.PlayListFilePath
+        config.SnapShotFolderPath <- dtoOrEmptyString snapShotFolderPath settings.SnapShotFolderPath
         config.Save changedConfigPath
 
     let reset () =

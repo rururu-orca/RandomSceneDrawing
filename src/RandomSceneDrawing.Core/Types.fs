@@ -230,7 +230,7 @@ module Validator =
 
     let validatePathString label path =
         if String.IsNullOrEmpty path then
-            Ok path
+            Error ["NullOrEmpty"]
         else
             validateExists label path
 
