@@ -56,11 +56,13 @@ type Domain<'dto, 'domain, 'error>
 
     member this.ofDomain domain = toDto domain |> this.Create
 
+    member _.ToDto domain = toDto domain
 
     member _.Update newValueArg (currentValue: Validated<'dto, 'domain, 'error>) =
         match (validate newValueArg), currentValue with
         | Ok v, _ -> Valid(fromDto v)
         | Error error, Valid c -> invalidUpdateFailed (ValueSome c) newValueArg error
+        | Error error, Invalid (UpdateFailed (ValueSome c, _, _)) -> invalidUpdateFailed (ValueSome c) newValueArg error
         | Error error, Invalid _ -> invalidUpdateFailed ValueNone newValueArg error
 
 
