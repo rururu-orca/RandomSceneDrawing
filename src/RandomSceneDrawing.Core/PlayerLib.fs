@@ -316,6 +316,149 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
     |> TaskResult.foldResult id RandomizeFailed
 
 
+
+let randomize' (Main.PlayListFilePath playListPath) (player: MediaPlayer) (subPlayer: MediaPlayer) =
+    let runFFmpeg args =
+        task {
+            let args' = String.concat " " args
+            let startInfo = ProcessStartInfo(config.PlayerLib.FFmpegPath, Arguments = args')
+
+            try
+                let struct (_, stdout, stderr) = ProcessX.GetDualAsyncEnumerable(startInfo)
+
+                do!
+                    [| stdout.WriteLineAllAsync()
+                       stderr.WriteLineAllAsync() |]
+                    |> Task.WhenAll
+
+                return Ok()
+            with
+            | :? ProcessErrorException as ex ->
+                let msg = $"%A{ex.ErrorOutput}\n\n{stderr}\n"
+                return Error msg
+        }
+
+    let parseAsync (media: Media) =
+        taskResult {
+            match! media.ParseAsync MediaParseOptions.ParseNetwork with
+            | MediaParsedStatus.Done -> return! Ok()
+            | other -> return! Error $"Media Parse %A{other}"
+        }
+
+    let getRescaleParam (media: Media) =
+        taskResult {
+            let! originWidth, originHeight =
+                match media.TrackList TrackType.Video with
+                | t when t.Count = 1u ->
+                    let t = t[0u]
+                    Ok(t.Data.Video.Width, t.Data.Video.Height)
+                | _ -> Error "Target is Not Video."
+
+            if float originWidth / float originHeight
+               <= float config.SubPlayer.Width
+                  / float config.SubPlayer.Height then
+                return $"-1:{config.SubPlayer.Height}"
+            else
+                return $"{config.SubPlayer.Width}:-1"
+        }
+
+    let replace pattern replacement input =
+        Text.RegularExpressions.Regex.Replace(input, pattern, replacement = replacement)
+
+    let trimMediaAsync startTime endTime inputPath destinationPath =
+        [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -i \"{inputPath}\" -c:v copy -an \"{destinationPath}\"" ]
+        |> runFFmpeg
+
+    let resizeMediaAsync inputPath rescaleParam destinationPath =
+        [ "-loglevel warning -y -hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
+          $"-i \"{inputPath}\""
+          $"-vf \"hwupload,libplacebo={rescaleParam}:p010le,hwupload_cuda\""
+          $"-c:v hevc_nvenc -an \"{destinationPath}\"" ]
+        |> runFFmpeg
+
+    taskResult {
+        // すでに再生済みなら停止
+        for p in [ player; subPlayer ] do
+            if p.IsPlaying then do! stopAsync p ()
+
+        // 再生動画、時間を設定
+        let random = Random()
+
+        let! playList = (Uri >> loadPlayList) playListPath
+
+        let media =
+            playList.SubItems
+            |> Seq.item (random.Next playList.SubItems.Count)
+
+        do! parseAsync media
+
+        let! rescaleParam = getRescaleParam media
+
+        let randomizeTime =
+            random.Next(config.Randomize.MinStartMsec, int media.Duration - config.Randomize.MaxEndMsec)
+            |> int64
+
+        let repeatOffset = int64 config.SubPlayer.RepeatDuration / 2L
+
+        let startTime = randomizeTime - repeatOffset |> max 0L |> toSecf
+
+        let endTime =
+            randomizeTime + repeatOffset
+            |> min media.Duration
+            |> toSecf
+
+        // キャプチャ設定
+        let mrl = Uri(media.Mrl)
+
+        let path =
+            if mrl.IsFile then
+                mrl.LocalPath
+            else
+                mrl.AbsoluteUri
+            |> replace @"^/" ""
+
+        // メディア生成
+        do! trimMediaAsync startTime endTime path destination
+
+        do! resizeMediaAsync destination rescaleParam destination'
+
+        /// 生成した一時ファイルのMedia
+        let media = new Media(libVLC, destination, FromType.FromPath)
+        /// サブプレイヤー用一時ファイル
+        let media' = new Media(libVLC, destination', FromType.FromPath)
+
+
+        // メインプレイヤーの設定、再生
+        media.AddOption ":no-audio"
+        media.AddOption ":start-paused"
+        media.AddOption ":clock-jitter=0"
+        media.AddOption ":clock-synchro=0"
+        let time = Math.Round((endTime - startTime) / 2.0, 2)
+        media.AddOption $":start-time=%.2f{time}"
+
+        player.Media <- media
+        do! player.PlayAsync() |> TaskResult.requireTrue "Main Player: Play failed."
+        // do! player.Pla
+
+        // サブプレイヤーの設定、再生
+        media'.AddOption ":no-start-paused"
+        media'.AddOption ":clock-jitter=0"
+        media'.AddOption ":clock-synchro=0"
+        media'.AddOption $":input-repeat=65535"
+        subPlayer.Media <- media'
+        do! subPlayer.PlayAsync() |> TaskResult.requireTrue "Sub Player: Play failed."
+        do! Async.Sleep 50 |> Async.Ignore
+
+        if player.State = VLCState.Buffering then
+            do!
+                player.Media.StateChanged
+                |> Async.AwaitEvent
+                |> Async.Ignore
+
+        do! Async.Sleep 50 |> Async.Ignore
+    }
+
+
 let getSize (player: MediaPlayer) num =
     let mutable px, py = 0u, 0u
 

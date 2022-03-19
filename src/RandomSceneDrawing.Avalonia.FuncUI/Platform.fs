@@ -170,6 +170,26 @@ let createCurrentSnapShotFolder root =
     |> Seq.last
     |> CreateCurrentSnapShotFolderSuccess
 
+let createCurrentSnapShotFolder' root =
+    let unfolder state =
+        match state with
+        | -1 -> None
+        | _ ->
+            let path =
+                [| root
+                   DateTime.Now.ToString "yyyyMMdd"
+                   $"%03i{state}" |]
+                |> Path.Combine
+
+            match Directory.Exists path with
+            | true -> Some(path, state + 1)
+            | false ->
+                Directory.CreateDirectory path |> ignore
+                Some(path, -1)
+
+    taskResult { return Seq.unfold unfolder 0 |> Seq.last }
+
+
 let showErrorNotification (notificationManager: IManagedNotificationManager) info msg =
     async {
         Notification("Error!!", info, NotificationType.Error)
@@ -328,10 +348,23 @@ let playerApi (window: MainWindow) =
       stopAsync = stopAsync'
       showInfomation = showInfomation window }
 
+let step () = async { do! Async.Sleep 1000 }
+
+let takeSnapShot player path =
+    taskResult {
+        do!
+            PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path
+            |> Result.requireSome "Snapshot failed."
+            |> Result.ignore
+    }
+
+let copySubVideo dest =
+    taskResult { File.Copy(PlayerLib.destination', dest) }
 
 let mainApi (window: MainWindow) : Main.Api<'player> =
-    { step = fun _ -> async { do! Async.Sleep 1000 }
-      randomize = fun _ _ _ -> task { return Ok() }
-      createSnapShotFolder = fun _ -> task { return Ok() }
-      takeSnapshot = fun _ _ -> task { return Ok() }
+    { step = step
+      randomize = PlayerLib.randomize'
+      createSnapShotFolder = createCurrentSnapShotFolder'
+      takeSnapshot = takeSnapShot
+      copySubVideo = copySubVideo
       showInfomation = showInfomation window }

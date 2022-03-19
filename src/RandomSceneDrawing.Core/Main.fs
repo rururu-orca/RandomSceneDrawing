@@ -9,11 +9,20 @@ open FsToolkit.ErrorHandling
 
 module ValueTypes =
     open DrawingSettings.ValueTypes
+    open Validator
+
     let frames = frames
     let duration = duration
     let interval = interval
     let playListFilePath = playListFilePath
     let snapShotFolderPath = snapShotFolderPath
+
+    type SnapShotPath = private SnapShotPath of string
+
+    let snapShotPath =
+        Domain(SnapShotPath, (fun (SnapShotPath p) -> p), validatePathString Directory)
+
+    let (|SnapShotPath|) (SnapShotPath sp) = sp
 
     let countDown (domain: Domain<TimeSpan, _, _>) x =
         domain.MapDto(fun ts -> ts - TimeSpan.FromSeconds 1.0) x
@@ -111,16 +120,18 @@ type Msg<'player> =
 type Api<'player> =
     { step: unit -> Async<unit>
       randomize: RandomizeSource -> 'player -> 'player -> Task<Result<unit, string>>
-      createSnapShotFolder: string -> Task<Result<unit, string>>
+      createSnapShotFolder: string -> Task<Result<string, string>>
       takeSnapshot: 'player -> string -> Task<Result<unit, string>>
+      copySubVideo: string -> Task<Result<unit, string>>
       showInfomation: NotifyMessage -> Task<unit> }
 
 module Api =
     let mockOk () =
         { step = fun _ -> async { do! Async.Sleep 1 }
           randomize = fun _ _ _ -> task { return Ok() }
-          createSnapShotFolder = fun _ -> task { return Ok() }
+          createSnapShotFolder = fun _ -> task { return Ok "test" }
           takeSnapshot = fun _ _ -> task { return Ok() }
+          copySubVideo = fun _ -> task { return Ok() }
           showInfomation = fun _ -> task { () } }
 
     let mockError () =
@@ -128,6 +139,7 @@ module Api =
           randomize = fun _ _ _ -> task { return Error "Mock." }
           createSnapShotFolder = fun _ -> task { return Error "Mock." }
           takeSnapshot = fun _ _ -> task { return Error "Mock." }
+          copySubVideo = fun _ -> task { return Error "Mock." }
           showInfomation = fun _ -> task { () } }
 
 
@@ -140,6 +152,9 @@ type Cmds<'player>
         subPlayer: Deferred<Player.Model<'player>>
     )
      =
+
+    let mutable snapShotFolder = Error "Has not set yet."
+
     let getMediaTitle (media: Deferred<Result<MediaInfo, string>>) =
         match media with
         | Resolved (Ok info) -> Ok info.Title
@@ -191,16 +206,20 @@ type Cmds<'player>
     member this.StartDrawingCmd path =
         taskResult {
             let! path' = resultDtoOr snapShotFolderPath path
-            do! api.createSnapShotFolder path'
+            let! path'' = api.createSnapShotFolder path'
+
+            snapShotFolder <-
+                snapShotPath.Create path''
+                |> resultDomainOr snapShotPath
         }
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> Task.map (Finished >> StartDrawing)
         |> Cmd.OfTask.result
 
-    member _.TakeSnapshot path currentFrames media =
+    member _.TakeSnapshot currentFrames media =
         taskResult {
             let! mainPlayer = askMainPlayer ()
-            and! path' = resultDtoOr snapShotFolderPath path
+            and! (SnapShotPath path') = snapShotFolder
             and! frames = resultDtoOr frames currentFrames
             and! title = getMediaTitle media
 
@@ -215,7 +234,22 @@ type Cmds<'player>
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> ignore
 
+    member _.CopySubVideo currentFrames media =
+        taskResult {
+            let! (SnapShotPath path') = snapShotFolder
+            and! frames = resultDtoOr frames currentFrames
+            and! title = getMediaTitle media
 
+            let path =
+                Path.Combine [|
+                    path'
+                    $"%03i{frames} {title}.mp4"
+                |]
+
+            do! api.copySubVideo path
+        }
+        |> TaskResult.teeError (ErrorMsg >> showInfomation)
+        |> ignore
 
 let init player subPlayer onExitHandler =
     let initMainPlayer =
@@ -309,14 +343,16 @@ let update api settingsApi playerApi msg m =
             | CountDownInterval x -> m.WithState { s with Interval = x }, cmds.Step()
             | Zero -> Model.setRunning s m, cmds.Step()
         | Running s ->
-            match (s, settings.Frames), m.MainPlayer with
-            | CountDownDrawing x, Resolved _ -> m.WithState { s with Duration = x }, cmds.Step()
-            | Continue, Resolved mainPlayer ->
-                cmds.TakeSnapshot settings.SnapShotFolderPath s.Frames mainPlayer.Media
+            match (s, settings.Frames), m.MainPlayer, m.SubPlayer with
+            | CountDownDrawing x, Resolved _, Resolved _ -> m.WithState { s with Duration = x }, cmds.Step()
+            | Continue, Resolved mainPlayer, Resolved subPlayer ->
+                cmds.TakeSnapshot s.Frames mainPlayer.Media
+                cmds.CopySubVideo s.Frames subPlayer.Media
                 Model.setInterval s m, cmds.Step()
 
-            | AtLast, Resolved mainPlayer ->
-                cmds.TakeSnapshot settings.SnapShotFolderPath s.Frames mainPlayer.Media
+            | AtLast, Resolved mainPlayer, Resolved subPlayer ->
+                cmds.TakeSnapshot s.Frames mainPlayer.Media
+                cmds.CopySubVideo s.Frames subPlayer.Media
 
                 { m with State = Setting }, Cmd.none
             | _ -> m, cmds.Step()
