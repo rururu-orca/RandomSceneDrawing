@@ -22,6 +22,21 @@ open RandomSceneDrawing.Player
 open RandomSceneDrawing.Main
 open RandomSceneDrawing.AvaloniaExtensions
 
+let inline notFunc ([<InlineIfLambda>] f) x = not (f x)
+
+let inline isNotInterval state =
+    match state with
+    | Interval _ -> false
+    | _ -> true
+
+let inline isNotRandomizeInProgress model =
+    notFunc Deferred.inProgress model.RandomizeState
+
+let inline isMediaResolved player =
+    match player with
+    | Resolved p -> Deferred.resolved p.Media
+    | _ -> false
+
 
 let subPlayerView model =
     VideoView.create [
@@ -33,7 +48,9 @@ let subPlayerView model =
         | Resolved player ->
             VideoView.mediaPlayer player.Player
 
-            Deferred.resolved player.Media
+            (Deferred.resolved player.Media
+             && isNotInterval model.State
+             && isNotRandomizeInProgress model)
             |> VideoView.isVideoVisible
         | _ -> ()
     ]
@@ -56,6 +73,40 @@ let drawingSwtchBotton model dispatch =
             Button.onClick (fun _ -> StopDrawing |> dispatch)
     ]
 
+let randomizeButton model dispatch =
+    let settings = model.Settings.Settings
+
+    Button.create [
+        Button.content "🔀 Show Random 🔀"
+        (ValueTypes.playListFilePath.IsValid settings.PlayListFilePath
+         && notFunc Deferred.inProgress model.RandomizeState)
+        |> Button.isEnabled
+        Button.onClick (fun _ -> Randomize Started |> dispatch)
+    ]
+
+let mediaPlayerControler model dispatch =
+
+    StackPanel.create [
+        StackPanel.children [
+            randomizeButton model dispatch
+            Button.create [
+                Button.content "Play"
+                Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
+            ]
+            Button.create [
+                Button.content "Pause"
+                isMediaResolved model.MainPlayer |> Button.isEnabled
+                Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
+            ]
+            Button.create [
+                Button.content "Stop"
+                isMediaResolved model.MainPlayer |> Button.isEnabled
+                Button.onClick (fun _ ->
+                    PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
+                    PlayerMsg(SubPlayer, (Stop Started)) |> dispatch)
+            ]
+        ]
+    ]
 
 let headerView model dispatch =
     DockPanel.create [
@@ -66,14 +117,7 @@ let headerView model dispatch =
                 StackPanel.orientation Orientation.Vertical
                 StackPanel.children [
                     drawingSwtchBotton model dispatch
-                    Button.create [
-                        Button.content "Play"
-                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
-                    ]
-                    Button.create [
-                        Button.content "Stop"
-                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Stop Started)) |> dispatch)
-                    ]
+                    mediaPlayerControler model dispatch
                 ]
             ]
             subPlayerView model
@@ -97,14 +141,20 @@ let floatingContent model dispatch =
 
 let mainPlayerView model dispatch =
     VideoView.create [
-        VideoView.hasFloating true
-        floatingContent model dispatch
-        |> VideoView.content
+
         match model.MainPlayer with
         | Resolved mainPlayer ->
             VideoView.mediaPlayer mainPlayer.Player
-            VideoView.isVideoVisible mainPlayer.Player.IsSeekable
+
+            (Deferred.resolved mainPlayer.Media
+             && isNotInterval model.State
+             && isNotRandomizeInProgress model)
+            |> VideoView.isVideoVisible
         | _ -> ()
+
+        VideoView.hasFloating true
+        floatingContent model dispatch
+        |> VideoView.content
     ]
 
 let view (model: Model<'player>) dispatch =
