@@ -62,25 +62,6 @@ let validatedTextBox (domain: Domain<string, _, _>) value addAttrs dispatchSetVa
         TextBox.onTextChanged dispatchSetValueMsg
     ]
 
-let subPlayerView model =
-    VideoView.create [
-        VideoView.height config.SubPlayer.Height
-        VideoView.width config.SubPlayer.Width
-        VideoView.margin (Avalonia.Thickness(4,4,0,4))
-        VideoView.dock Dock.Right
-        VideoView.verticalAlignment VerticalAlignment.Top
-        VideoView.horizontalAlignment HorizontalAlignment.Right
-        match model.SubPlayer with
-        | Resolved player ->
-            VideoView.mediaPlayer player.Player
-
-            (Deferred.resolved player.Media
-             && isNotInterval model.State
-             && isNotRandomizeInProgress model)
-            |> VideoView.isVideoVisible
-        | _ -> ()
-    ]
-
 let drawingSwtchBotton model dispatch =
     Button.create [
         let s = model.Settings.Settings
@@ -97,6 +78,104 @@ let drawingSwtchBotton model dispatch =
         | _ ->
             Button.content "Stop Drawing"
             Button.onClick (fun _ -> StopDrawing |> dispatch)
+    ]
+
+let durationSecs =
+    [ 10.0
+      30.0
+      45.0
+      60.0
+      90.0
+      120.0
+      180.0
+      300.0
+      600.0
+      1200.0
+      1800.0 ]
+    |> List.map TimeSpan.FromSeconds
+
+let durationBox model dispatch =
+    let settings = model.Settings.Settings
+
+    let selected =
+        settings.Duration
+        |> duration.DefaultDto durationSecs[0]
+
+    let template ts =
+        TextBlock.create [
+            TextBlock.text $"{ts}"
+        ]
+
+    StackPanel.create [
+        StackPanel.children [
+            ComboBox.create [
+                ComboBox.dataItems durationSecs
+                ComboBox.selectedItem selected
+                ComboBox.itemTemplate (DataTemplateView<TimeSpan>.create template)
+                ComboBox.onSelectedItemChanged (function
+                    | :? TimeSpan as ts -> (SetDuration >> SettingsMsg) ts |> dispatch
+                    | _ -> ())
+            ]
+        ]
+    ]
+
+let framesSettingView model dispatch =
+    let settings = model.Settings.Settings
+
+    NumericUpDown.create [
+        NumericUpDown.minimum 1.0
+        frames.Dto settings.Frames |> NumericUpDown.value
+        NumericUpDown.onValueChanged (int >> SetFrames >> SettingsMsg >> dispatch)
+    ]
+
+let headerTopItems model dispatch =
+    let framesText f =
+        TextBlock.create [
+            TextBlock.width 100.0
+            TextBlock.text $"%i{frames.Dto f}"
+        ]
+
+    let timeText (ts: TimeSpan) =
+        TextBlock.create [
+            if notFunc Deferred.inProgress model.RandomizeState then
+                ts.ToString @"hh\:mm\:ss" |> TextBlock.text
+            else
+                TextBlock.text "Media Loading..."
+        ]
+
+    StackPanel.create [
+        StackPanel.children [
+            drawingSwtchBotton model dispatch
+            match model.State with
+            | Setting ->
+                durationBox model dispatch
+                framesSettingView model dispatch
+            | Interval s ->
+                framesText s.Frames
+                interval.Dto s.Interval |> timeText
+            | Running s ->
+                framesText s.Frames
+                duration.Dto s.Duration |> timeText
+        ]
+    ]
+
+let subPlayerView model =
+    VideoView.create [
+        VideoView.height config.SubPlayer.Height
+        VideoView.width config.SubPlayer.Width
+        VideoView.margin (4, 4, 0, 4)
+        VideoView.dock Dock.Right
+        VideoView.verticalAlignment VerticalAlignment.Top
+        VideoView.horizontalAlignment HorizontalAlignment.Right
+        match model.SubPlayer with
+        | Resolved player ->
+            VideoView.mediaPlayer player.Player
+
+            (Deferred.resolved player.Media
+             && isNotInterval model.State
+             && isNotRandomizeInProgress model)
+            |> VideoView.isVideoVisible
+        | _ -> ()
     ]
 
 let randomizeButton model dispatch =
@@ -124,13 +203,15 @@ let mediaPlayerControler model dispatch =
             ]
             Button.create [
                 Button.content "Pause"
-                isMediaResolved model.MainPlayer
+                (isMediaResolved model.MainPlayer
+                 && notFunc Deferred.inProgress model.RandomizeState)
                 |> Button.isEnabled
                 Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
             ]
             Button.create [
                 Button.content "Stop"
-                isMediaResolved model.MainPlayer
+                (isMediaResolved model.MainPlayer
+                 && notFunc Deferred.inProgress model.RandomizeState)
                 |> Button.isEnabled
                 Button.onClick (fun _ ->
                     PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
@@ -150,6 +231,7 @@ let playListFilePathView model dispatch =
     Grid.create [
         Grid.rowDefinitions "*"
         Grid.columnDefinitions "Auto,*"
+        Grid.margin (0, 0, 4, 0)
         Grid.column 0
         Grid.children [
             Button.create [
@@ -171,6 +253,7 @@ let snapShotFolderPathView model dispatch =
     Grid.create [
         Grid.rowDefinitions "*"
         Grid.columnDefinitions "Auto,*"
+        Grid.margin (0, 0, 4, 0)
         Grid.column 1
         Grid.children [
             Button.create [
@@ -198,14 +281,14 @@ let pathSettings model dispatch =
 
 let headerView model dispatch =
     DockPanel.create [
-        DockPanel.margin (Avalonia.Thickness(4,0,0,0))
+        DockPanel.margin (4, 0, 0, 0)
         DockPanel.dock Dock.Top
         DockPanel.children [
             subPlayerView model
             StackPanel.create [
                 StackPanel.orientation Orientation.Vertical
                 StackPanel.children [
-                    drawingSwtchBotton model dispatch
+                    headerTopItems model dispatch
                     if model.State = Setting then
                         mediaPlayerControler model dispatch
                         pathSettings model dispatch
