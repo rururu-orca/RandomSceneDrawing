@@ -16,6 +16,9 @@ nuget ProcessX
 nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console
 
+nuget JaggerJo.Avalonia.FuncUI
+nuget JaggerJo.Avalonia.FuncUI.DSL
+nuget JaggerJo.Avalonia.FuncUI.Elmish
 nuget Avalonia
 nuget Avalonia.Desktop
 nuget Avalonia.Diagnostics
@@ -33,6 +36,3 @@ source https://f.feedz.io/videolan/preview/nuget/index.json
 nuget VideoLAN.LibVLC.Windows prerelease
 nuget LibVLCSharp prerelease
 nuget LibVLCSharp.WPF prerelease
-
-storage: packages
-github fsprojects/Avalonia.FuncUI:master

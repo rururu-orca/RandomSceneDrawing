@@ -7,5 +7,9 @@ Avalonia.Desktop
 Avalonia.Diagnostics
 FluentAvaloniaUI
 
+JaggerJo.Avalonia.FuncUI
+JaggerJo.Avalonia.FuncUI.DSL
+JaggerJo.Avalonia.FuncUI.Elmish
+
 LibVLCSharp
 VideoLAN.LibVLC.Windows
