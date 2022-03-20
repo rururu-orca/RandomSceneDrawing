@@ -392,12 +392,12 @@ module Randomize =
         Text.RegularExpressions.Regex.Replace(input, pattern, replacement = replacement)
 
     let inline trimMediaAsync startTime endTime inputPath destinationPath =
-        [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -i \"{inputPath}\" -c:v copy -an \"{destinationPath}\"" ]
+        [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -copyts -i \"{inputPath}\" -c:v copy -an \"{destinationPath}\"" ]
         |> runFFmpeg
 
     let inline resizeMediaAsync inputPath rescaleParam destinationPath =
         [ "-loglevel warning -y -hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
-          $"-i \"{inputPath}\""
+          $"-copyts -i \"{inputPath}\""
           $"-vf \"hwupload,libplacebo={rescaleParam}:p010le,hwupload_cuda\""
           $"-c:v hevc_nvenc -an \"{destinationPath}\"" ]
         |> runFFmpeg
