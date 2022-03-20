@@ -220,53 +220,55 @@ let mediaPlayerControler model dispatch =
         ]
     ]
 
+let pathSelectorView domain value (buttonText: string) buttonCallback dispatchSetValueMsg addAttrs =
 
+    Grid.create [
+        Grid.rowDefinitions "Auto,*"
+        Grid.columnDefinitions "Auto,*"
+        Grid.margin (0, 0, 4, 0)
+        yield! addAttrs
+        Grid.children [
+            Button.create [
+                Button.column 0
+                Button.row 0
+                Button.content buttonText
+                Button.onClick buttonCallback
+            ]
+            validatedTextBox
+                domain
+                value
+                [ TextBox.column 1
+                  TextBox.row 0
+                  TextBox.rowSpan 2
+                  TextBox.verticalAlignment VerticalAlignment.Top ]
+                dispatchSetValueMsg
+        ]
+    ]
 
 let playListFilePathView model dispatch =
-    let settings = model.Settings.Settings
+    let value = model.Settings.Settings.PlayListFilePath
+
+    let buttonCallback _ =
+        (PickPlayList >> SettingsMsg) Started |> dispatch
 
     let dispatchSetValueMsg s =
         (SetPlayListFilePath >> SettingsMsg) s |> dispatch
 
-    Grid.create [
-        Grid.rowDefinitions "*"
-        Grid.columnDefinitions "Auto,*"
-        Grid.margin (0, 0, 4, 0)
-        Grid.column 0
-        Grid.children [
-            Button.create [
-                StackPanel.column 0
-                Button.content "PlayList"
-                Button.onClick (fun _ -> (PickPlayList >> SettingsMsg) Started |> dispatch)
-            ]
-            validatedTextBox playListFilePath settings.PlayListFilePath [ StackPanel.column 1 ] dispatchSetValueMsg
-        ]
-    ]
+    pathSelectorView playListFilePath value "PlayList" buttonCallback dispatchSetValueMsg [ Grid.column 0 ]
+
 
 let snapShotFolderPathView model dispatch =
-    let settings = model.Settings.Settings
+    let value = model.Settings.Settings.SnapShotFolderPath
+
+    let buttonCallback _ =
+        (PickSnapshotFolder >> SettingsMsg) Started
+        |> dispatch
 
     let dispatchSetValueMsg s =
         (SetSnapShotFolderPath >> SettingsMsg) s
         |> dispatch
 
-    Grid.create [
-        Grid.rowDefinitions "*"
-        Grid.columnDefinitions "Auto,*"
-        Grid.margin (0, 0, 4, 0)
-        Grid.column 1
-        Grid.children [
-            Button.create [
-                StackPanel.column 0
-                Button.content "SnapShotFolder"
-                Button.onClick (fun _ ->
-                    (PickSnapshotFolder >> SettingsMsg) Started
-                    |> dispatch)
-            ]
-            validatedTextBox snapShotFolderPath settings.SnapShotFolderPath [ StackPanel.column 1 ] dispatchSetValueMsg
-        ]
-    ]
-
+    pathSelectorView snapShotFolderPath value "SnapShotFolder" buttonCallback dispatchSetValueMsg [ Grid.column 1 ]
 
 let pathSettings model dispatch =
     Grid.create [
