@@ -355,7 +355,7 @@ let copySubVideo dest =
 
 let mainApi (window: MainWindow) : Main.Api<'player> =
     { step = step
-      randomize = PlayerLib.randomize'
+      randomize = PlayerLib.Randomize.run
       createSnapShotFolder = createCurrentSnapShotFolder'
       takeSnapshot = takeSnapShot
       copySubVideo = copySubVideo
