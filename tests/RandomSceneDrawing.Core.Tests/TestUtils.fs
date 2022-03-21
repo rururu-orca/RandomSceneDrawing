@@ -16,35 +16,38 @@ module Elmish =
             (initialState, Cmd.none)
 
 module Expect =
-    let waitWith timeout predicate =
-        Async.StartChild(
-            async {
-                while predicate () do
-                    do! Async.Sleep 10
-            },
-            timeout
-        )
 
     let elmishCmdMsgAsync testMessage expectMsgs (actualCmd: Cmd<'msg>) =
         async {
             let actualMsgs = System.Collections.Generic.List()
-            List.iteri (fun i sub -> sub (fun msg -> actualMsgs.Add msg)) actualCmd
-            let! w = waitWith 5000 (fun _ -> actualMsgs.Count <> actualCmd.Length)
-            do! w
 
-            Expect.sequenceEqual actualMsgs expectMsgs $"{testMessage}"
+            for sub in actualCmd do
+                sub (fun msg ->
+                    let count = actualMsgs.Count
+                    actualMsgs.Add msg
+
+                    while actualMsgs.Count <> count do
+                        let wait = System.Threading.Tasks.Task.Delay 1
+                        wait.Wait())
+
+
+            while actualCmd.Length <> actualMsgs.Count do
+                do! Async.Sleep 1
+
+            Expect.sequenceEqual (actualMsgs) expectMsgs $"{testMessage}"
         }
 
 
     let elmishUpdate (update: Update<'msg, 'model>) testMessage initModel msg msgMapper expectModel expectMsgs =
+        async {
+            let actualModel, actualCmd =
+                update
+                |> Elmish.foldMessages initModel msg msgMapper
 
-        let actualModel, actualCmd =
-            update
-            |> Elmish.foldMessages initModel  msg msgMapper
+            Expect.equal actualModel expectModel testMessage
 
-        Expect.equal actualModel expectModel testMessage
-
-        elmishCmdMsgAsync "Msg" expectMsgs actualCmd
+            do! elmishCmdMsgAsync "Msg" expectMsgs actualCmd
+        }
 
 
     let model update testMessage initModel msg msgMapper expectedUpdatedModel =
