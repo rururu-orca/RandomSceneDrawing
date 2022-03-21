@@ -212,6 +212,13 @@ type Cmds<'player>
         | Resolved (Error e) -> Error e
         | _ -> Error "Not Resolved."
 
+    let tryDeferredResult deferred =
+        match deferred with
+        | Resolved r -> r
+        | other -> Error $"Not Resolved:%A{other}"
+
+    let timeSpanText (ts: TimeSpan) = ts.ToString "hh\_mm\_ss\_ff"
+
     let askMainPlayer () =
         match mainPlayer with
         | Resolved mp -> Ok mp.Player
@@ -263,17 +270,17 @@ type Cmds<'player>
         |> Task.map (Finished >> StartDrawing)
         |> Cmd.OfTask.result
 
-    member _.TakeSnapshot snapShotFolder currentFrames media =
+    member _.TakeSnapshot snapShotFolder currentFrames info =
         taskResult {
             let! mainPlayer = askMainPlayer ()
             and! path' = resultDtoOr snapShotPath snapShotFolder
             and! frames = resultDtoOr frames currentFrames
-            and! title = getMediaTitle media
+            and! info = tryDeferredResult info
 
             let path =
                 Path.Combine [|
                     path'
-                    $"%03i{frames} {title}.png"
+                    $"%03i{frames}_{info.Main.MediaInfo.Title}_{timeSpanText info.Position}.png"
                 |]
 
             return! api.takeSnapshot mainPlayer path
@@ -281,16 +288,16 @@ type Cmds<'player>
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> ignore
 
-    member _.CopySubVideo snapShotFolder currentFrames media =
+    member _.CopySubVideo snapShotFolder currentFrames info =
         taskResult {
             let! path' = resultDtoOr snapShotPath snapShotFolder
             and! frames = resultDtoOr frames currentFrames
-            and! title = getMediaTitle media
+            and! info = tryDeferredResult info
 
             let path =
                 Path.Combine [|
                     path'
-                    $"%03i{frames} {title}.mp4"
+                    $"%03i{frames}_{info.Sub.MediaInfo.Title}_{timeSpanText info.StartTime}-{timeSpanText info.EndTime}.mp4"
                 |]
 
             do! api.copySubVideo path
@@ -397,13 +404,13 @@ let update api settingsApi playerApi msg m =
             match (s, settings.Frames), m.MainPlayer, m.SubPlayer with
             | CountDownDrawing x, Resolved _, Resolved _ -> m.WithState { s with Duration = x }, cmds.Step()
             | Continue, Resolved mainPlayer, Resolved subPlayer ->
-                cmds.TakeSnapshot s.SnapShotPath s.Frames mainPlayer.Media
-                cmds.CopySubVideo s.SnapShotPath s.Frames subPlayer.Media
+                cmds.TakeSnapshot s.SnapShotPath s.Frames m.RandomizeState
+                cmds.CopySubVideo s.SnapShotPath s.Frames m.RandomizeState
                 Model.setInterval s m, cmds.Step()
 
             | AtLast, Resolved mainPlayer, Resolved subPlayer ->
-                cmds.TakeSnapshot s.SnapShotPath s.Frames mainPlayer.Media
-                cmds.CopySubVideo s.SnapShotPath s.Frames subPlayer.Media
+                cmds.TakeSnapshot s.SnapShotPath s.Frames m.RandomizeState
+                cmds.CopySubVideo s.SnapShotPath s.Frames m.RandomizeState
 
                 { m with State = Setting }, Cmd.none
             | _ -> m, cmds.Step()
