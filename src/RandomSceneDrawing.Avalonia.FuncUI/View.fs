@@ -128,6 +128,7 @@ let framesSettingView model dispatch =
 let headerTopItems model dispatch =
     let framesText current =
         let setting = model.Settings.Settings.Frames
+
         TextBlock.create [
             TextBlock.width 100.0
             TextBlock.text $"%i{frames.Dto current} / {frames.Dto setting}"
@@ -150,7 +151,7 @@ let headerTopItems model dispatch =
                 durationBox model dispatch
                 framesSettingView model dispatch
             | Interval s ->
-                framesText s.Frames 
+                framesText s.Frames
                 interval.Dto s.Interval |> timeText
             | Running s ->
                 framesText s.Frames
@@ -406,20 +407,32 @@ let toolWindow model dispatch =
     ]
 
 let drawingProgressView model =
+    let progressValue (domain: Domain<TimeSpan, _, _>) current setting =
+        let current = domain.Dto current
+        let settings = domain.Dto setting
+
+        (settings - current) / settings * 100.0
+        |> ProgressBar.value
+
+    let settings = model.Settings.Settings
+
     ProgressBar.create [
         ProgressBar.dock Dock.Top
-        ProgressBar.classes ["drawingProgress"]
+        ProgressBar.classes [
+            "drawingProgress"
+        ]
         match model.State with
-        | Setting -> 0.0
+        | _  when Deferred.inProgress model.RandomizeState ->
+            ProgressBar.foreground "LemonChiffon"
+            ProgressBar.isIndeterminate true
+        | Setting ->
+            ProgressBar.value 0.0
         | Interval i ->
-            let current = interval.Dto i.Interval
-            let settings = interval.Dto model.Settings.Settings.Interval
-            (settings - current) / settings * 100.0
+            ProgressBar.foreground "LightBlue"
+            progressValue interval i.Interval settings.Interval
         | Running r ->
-            let current = duration.Dto r.Duration
-            let settings = duration.Dto model.Settings.Settings.Duration
-            (settings - current) / settings * 100.0
-        |> ProgressBar.value
+            ProgressBar.foreground "DodgerBlue"
+            progressValue duration r.Duration settings.Duration
     ]
 
 let view model dispatch =
