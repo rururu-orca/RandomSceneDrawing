@@ -126,10 +126,11 @@ let framesSettingView model dispatch =
     ]
 
 let headerTopItems model dispatch =
-    let framesText f =
+    let framesText current =
+        let setting = model.Settings.Settings.Frames
         TextBlock.create [
             TextBlock.width 100.0
-            TextBlock.text $"%i{frames.Dto f}"
+            TextBlock.text $"%i{frames.Dto current} / {frames.Dto setting}"
         ]
 
     let timeText (ts: TimeSpan) =
@@ -149,7 +150,7 @@ let headerTopItems model dispatch =
                 durationBox model dispatch
                 framesSettingView model dispatch
             | Interval s ->
-                framesText s.Frames
+                framesText s.Frames 
                 interval.Dto s.Interval |> timeText
             | Running s ->
                 framesText s.Frames
