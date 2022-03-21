@@ -133,12 +133,6 @@ let playerBuffering (player: MediaPlayer) dispatch =
     |> Async.StartImmediate
 
 
-let pickMediaState chooser (media: Media) =
-    media.StateChanged
-    |> AsyncSeq.ofObservableBuffered
-    |> AsyncSeq.map (fun e -> e.State)
-    |> AsyncSeq.pick chooser
-
 let (|AlreadyBufferingCompleted|_|) (m, msg) =
     if m.RandomizeState = WaitBuffering
        && m.Player.State <> VLCState.Buffering then
@@ -160,42 +154,19 @@ let playAsync (player: MediaPlayer) onSuccess (media: Media) =
             return Error(PlayFailedException msg)
     }
 
-let pauseAsync (player: MediaPlayer) onSuccess =
-    async {
-        let result =
-            player.Media
-            |> pickMediaState (function
-                | VLCState.Paused -> Some onSuccess
-                | _ -> None)
+let pauseAsync (player: MediaPlayer) onSuccess = async { return player.SetPause true }
 
-        player.SetPause true
-        return! result
-    }
-
-let resumeAsync (player: MediaPlayer) onSuccess =
-    async {
-        let result =
-            player.Media
-            |> pickMediaState (function
-                | VLCState.Playing -> Some onSuccess
-                | _ -> None)
-
-        player.SetPause false
-        return! result
-    }
+let resumeAsync (player: MediaPlayer) onSuccess = async { return player.SetPause false }
 
 let togglePauseAsync (player: MediaPlayer) (onPlaying, onPaused) =
     async {
 
-        let result =
-            player.Media
-            |> pickMediaState (function
-                | VLCState.Playing -> Some onPlaying
-                | VLCState.Paused -> Some onPaused
-                | _ -> None)
-
         player.Pause()
-        return! result
+
+        if player.State = VLCState.Paused then
+            return onPaused
+        else
+            return onPlaying
     }
 
 let stopAsync (player: MediaPlayer) onSuccess =
@@ -321,11 +292,8 @@ let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) 
         do! playAsync subPlayer () media'
         do! Async.Sleep 50 |> Async.Ignore
 
-        if player.State = VLCState.Buffering then
-            do!
-                player.Media.StateChanged
-                |> Async.AwaitEvent
-                |> Async.Ignore
+        while player.State = VLCState.Buffering do
+            do! Async.Sleep 1 |> Async.Ignore
 
         do! Async.Sleep 50 |> Async.Ignore
 
@@ -492,11 +460,8 @@ module Randomize =
 
             do! Async.Sleep 50 |> Async.Ignore
 
-            if player.State = VLCState.Buffering then
-                do!
-                    player.Media.StateChanged
-                    |> Async.AwaitEvent
-                    |> Async.Ignore
+            while player.State = VLCState.Buffering do
+                do! Async.Sleep 1 |> Async.Ignore
 
             do! Async.Sleep 50 |> Async.Ignore
 

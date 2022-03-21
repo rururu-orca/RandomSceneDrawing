@@ -273,7 +273,7 @@ NUGET
       FSharp.Core (>= 4.6)
       System.Collections.Immutable (>= 1.7.1)
   remote: https://f.feedz.io/videolan/preview/nuget/index.json
-    LibVLCSharp (4.0.0-alpha-20220316-5519)
-    LibVLCSharp.WPF (4.0.0-alpha-20220316-5519)
-      LibVLCSharp (>= 4.0.0-alpha-20220316-5519)
-    VideoLAN.LibVLC.Windows (4.0.0-alpha-20220320)
+    LibVLCSharp (4.0.0-alpha-20220321-5543)
+    LibVLCSharp.WPF (4.0.0-alpha-20220321-5543)
+      LibVLCSharp (>= 4.0.0-alpha-20220321-5543)
+    VideoLAN.LibVLC.Windows (4.0.0-alpha-20220321)
