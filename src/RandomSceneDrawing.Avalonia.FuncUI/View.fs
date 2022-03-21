@@ -305,7 +305,8 @@ let mediaInfoView (model: Model<LibVLCSharp.MediaPlayer>) =
             TextBlock.horizontalAlignment HorizontalAlignment.Stretch
             TextBlock.verticalAlignment VerticalAlignment.Center
             TextBlock.text "RandomizeState InProgress..."
-        ] :> IView
+        ]
+        :> IView
     else
         StackPanel.create [
             StackPanel.dock Dock.Right
@@ -403,12 +404,30 @@ let toolWindow model dispatch =
         )
     ]
 
+let drawingProgressView model =
+    ProgressBar.create [
+        ProgressBar.dock Dock.Top
+        ProgressBar.classes ["drawingProgress"]
+        match model.State with
+        | Setting -> 0.0
+        | Interval i ->
+            let current = interval.Dto i.Interval
+            let settings = interval.Dto model.Settings.Settings.Interval
+            (settings - current) / settings * 100.0
+        | Running r ->
+            let current = duration.Dto r.Duration
+            let settings = duration.Dto model.Settings.Settings.Duration
+            (settings - current) / settings * 100.0
+        |> ProgressBar.value
+    ]
+
 let view model dispatch =
     DockPanel.create [
         DockPanel.margin 8
         DockPanel.children [
             toolWindow model dispatch
             headerView model dispatch
+            drawingProgressView model
             mainPlayerView model dispatch
         ]
     ]
