@@ -5,15 +5,11 @@ VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Wpf", "src\RandomSceneDrawing.Wpf\RandomSceneDrawing.Wpf.fsproj", "{B54C652F-9BFB-4759-9542-E43B09792634}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Core", "src\RandomSceneDrawing.Core\RandomSceneDrawing.Core.fsproj", "{B77D8D04-6D66-4FE4-9049-F9D49784589E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{46B76148-8768-46F1-BC03-8B0CF4610F13}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Core.Tests", "tests\RandomSceneDrawing.Core.Tests\RandomSceneDrawing.Core.Tests.fsproj", "{F45D4173-B3C9-4507-B4EF-8E4AFF786974}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Wpf.Tests", "tests\RandomSceneDrawing.Wpf.Tests\RandomSceneDrawing.Wpf.Tests.fsproj", "{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Avalonia.FuncUI", "src\RandomSceneDrawing.Avalonia.FuncUI\RandomSceneDrawing.Avalonia.FuncUI.fsproj", "{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}"
 EndProject
@@ -26,10 +22,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B54C652F-9BFB-4759-9542-E43B09792634}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B54C652F-9BFB-4759-9542-E43B09792634}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B54C652F-9BFB-4759-9542-E43B09792634}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B54C652F-9BFB-4759-9542-E43B09792634}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B77D8D04-6D66-4FE4-9049-F9D49784589E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B77D8D04-6D66-4FE4-9049-F9D49784589E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B77D8D04-6D66-4FE4-9049-F9D49784589E}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -38,20 +30,14 @@ Global
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{B54C652F-9BFB-4759-9542-E43B09792634} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
 		{B77D8D04-6D66-4FE4-9049-F9D49784589E} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974} = {46B76148-8768-46F1-BC03-8B0CF4610F13}
-		{2307FC68-FA92-4A52-BDF6-A7A36EFB4DD5} = {46B76148-8768-46F1-BC03-8B0CF4610F13}
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
 	EndGlobalSection
 EndGlobal
