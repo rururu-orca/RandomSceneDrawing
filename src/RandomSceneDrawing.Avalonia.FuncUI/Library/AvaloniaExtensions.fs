@@ -49,3 +49,35 @@ module AvaloniaExtensions =
 
     module Panel =
         let create (attrs: IAttr<Panel> list) : IView<Panel> = ViewBuilder.Create<Panel>(attrs)
+
+[<AutoOpen>]
+module TemplatedControl =
+    open Avalonia
+    open Avalonia.Controls.Primitives
+    open Avalonia.FuncUI.Types
+    open Avalonia.FuncUI.Builder
+
+    type TemplatedControl with
+
+        static member cornerRadius<'t when 't :> TemplatedControl>(value: CornerRadius) : IAttr<'t> =
+            AttrBuilder<'t>.CreateProperty (TemplatedControl.CornerRadiusProperty, value, ValueNone)
+
+        static member cornerRadius<'t when 't :> TemplatedControl>(uniformRadius) : IAttr<'t> =
+            CornerRadius uniformRadius
+            |> TemplatedControl.cornerRadius
+
+        static member cornerRadius<'t when 't :> TemplatedControl>(top, bottom) : IAttr<'t> =
+            CornerRadius(top, bottom)
+            |> TemplatedControl.cornerRadius
+
+        static member cornerRadius<'t when 't :> TemplatedControl>
+            (
+                topLeft,
+                topRight,
+                bottomRight,
+                bottomLeft
+            )
+            : IAttr<'t>
+            =
+            CornerRadius(topLeft, topRight, bottomRight, bottomLeft)
+            |> TemplatedControl.cornerRadius

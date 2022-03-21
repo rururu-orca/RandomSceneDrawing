@@ -106,18 +106,15 @@ let durationBox model dispatch =
             TextBlock.text $"{ts}"
         ]
 
-    StackPanel.create [
-        StackPanel.children [
-            ComboBox.create [
-                ComboBox.dataItems durationSecs
-                ComboBox.selectedItem selected
-                ComboBox.itemTemplate (DataTemplateView<TimeSpan>.create template)
-                ComboBox.onSelectedItemChanged (function
-                    | :? TimeSpan as ts -> (SetDuration >> SettingsMsg) ts |> dispatch
-                    | _ -> ())
-            ]
-        ]
+    ComboBox.create [
+        ComboBox.dataItems durationSecs
+        ComboBox.selectedItem selected
+        ComboBox.itemTemplate (DataTemplateView<TimeSpan>.create template)
+        ComboBox.onSelectedItemChanged (function
+            | :? TimeSpan as ts -> (SetDuration >> SettingsMsg) ts |> dispatch
+            | _ -> ())
     ]
+
 
 let framesSettingView model dispatch =
     let settings = model.Settings.Settings
@@ -144,6 +141,7 @@ let headerTopItems model dispatch =
         ]
 
     StackPanel.create [
+        StackPanel.orientation Orientation.Horizontal
         StackPanel.children [
             drawingSwtchBotton model dispatch
             match model.State with
@@ -176,6 +174,8 @@ let subPlayerView model =
              && isNotRandomizeInProgress model)
             |> VideoView.isVideoVisible
         | _ -> ()
+        if Deferred.inProgress model.RandomizeState then
+            VideoView.content (ProgressBar.create [])
     ]
 
 let randomizeButton model dispatch =
@@ -193,37 +193,41 @@ let randomizeButton model dispatch =
 let mediaPlayerControler model dispatch =
 
     StackPanel.create [
+        StackPanel.orientation Orientation.Horizontal
         StackPanel.children [
             randomizeButton model dispatch
-            Button.create [
-                Button.content "Play"
-                notFunc Deferred.inProgress model.RandomizeState
-                |> Button.isEnabled
-                Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
-            ]
-            Button.create [
-                Button.content "Pause"
-                (isMediaResolved model.MainPlayer
-                 && notFunc Deferred.inProgress model.RandomizeState)
-                |> Button.isEnabled
-                Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
-            ]
-            Button.create [
-                Button.content "Stop"
-                (isMediaResolved model.MainPlayer
-                 && notFunc Deferred.inProgress model.RandomizeState)
-                |> Button.isEnabled
-                Button.onClick (fun _ ->
-                    PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
-                    PlayerMsg(SubPlayer, (Stop Started)) |> dispatch)
-            ]
+            if model.State = Setting then
+                Button.create [
+                    Button.content "Play"
+                    notFunc Deferred.inProgress model.RandomizeState
+                    |> Button.isEnabled
+                    Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
+                ]
+
+                Button.create [
+                    Button.content "Pause"
+                    (isMediaResolved model.MainPlayer
+                     && notFunc Deferred.inProgress model.RandomizeState)
+                    |> Button.isEnabled
+                    Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
+                ]
+
+                Button.create [
+                    Button.content "Stop"
+                    (isMediaResolved model.MainPlayer
+                     && notFunc Deferred.inProgress model.RandomizeState)
+                    |> Button.isEnabled
+                    Button.onClick (fun _ ->
+                        PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
+                        PlayerMsg(SubPlayer, (Stop Started)) |> dispatch)
+                ]
         ]
     ]
 
 let pathSelectorView domain value (buttonText: string) buttonCallback dispatchSetValueMsg addAttrs =
 
     Grid.create [
-        Grid.rowDefinitions "Auto,*"
+        Grid.rowDefinitions "Auto,28"
         Grid.columnDefinitions "Auto,*"
         Grid.margin (0, 0, 4, 0)
         yield! addAttrs
@@ -272,6 +276,7 @@ let snapShotFolderPathView model dispatch =
 
 let pathSettings model dispatch =
     Grid.create [
+        Grid.dock Dock.Bottom
         Grid.rowDefinitions "*"
         Grid.columnDefinitions "*,*"
         Grid.children [
@@ -280,6 +285,61 @@ let pathSettings model dispatch =
         ]
     ]
 
+let (|RandomizeResolved|PlayResolved|NotYet|) model =
+    match model.RandomizeState, model.MainPlayer, model.SubPlayer with
+    | Resolved (Ok rs), Resolved main, Resolved sub ->
+        match main.Media, sub.Media with
+        | Resolved (Ok mainInfo), Resolved (Ok subInfo) -> RandomizeResolved(rs, main, mainInfo, sub, subInfo)
+        | _ -> NotYet
+    | _, Resolved main, _ when model.RandomizeState <> InProgress ->
+        match main.Media with
+        | Resolved (Ok mainInfo) -> PlayResolved(main, mainInfo)
+        | _ -> NotYet
+    | _ -> NotYet
+
+let (|MediaResolved|Yet|) player =
+    match player with
+    | Resolved player ->
+        match player.Media with
+        | Resolved (Ok mediaInfo) -> MediaResolved mediaInfo
+        | _ -> Yet
+    | _ -> Yet
+
+let mediaInfoView (model: Model<LibVLCSharp.MediaPlayer>) =
+    let timeSpanText (ts: TimeSpan) = ts.ToString "hh\:mm\:ss\.ff"
+
+    StackPanel.create [
+        StackPanel.dock Dock.Right
+        StackPanel.children [
+            match model with
+            | RandomizeResolved (rs, main, mainInfo, sub, subInfo) ->
+                TextBlock.create [
+                    TextBlock.text mainInfo.Title
+                ]
+
+                TextBlock.create [
+                    match main.Player.Time with
+                    | 0L -> rs.Position |> timeSpanText
+                    | time ->
+                        PlayerLib.Helper.toSecf time
+                        |> TimeSpan.FromSeconds
+                        |> timeSpanText
+                    |> TextBlock.text
+                ]
+
+                TextBlock.create [
+                    let startTime = timeSpanText rs.StartTime
+                    let endTime = timeSpanText rs.EndTime
+
+                    TextBlock.text $"{startTime} ~ {endTime}"
+                ]
+            | PlayResolved (main, mainInfo) ->
+                TextBlock.create [
+                    TextBlock.text mainInfo.Title
+                ]
+            | NotYet -> ()
+        ]
+    ]
 
 let headerView model dispatch =
     DockPanel.create [
@@ -287,15 +347,16 @@ let headerView model dispatch =
         DockPanel.dock Dock.Top
         DockPanel.children [
             subPlayerView model
+            if model.State = Setting then
+                pathSettings model dispatch
             StackPanel.create [
-                StackPanel.orientation Orientation.Vertical
+                StackPanel.dock Dock.Left
                 StackPanel.children [
                     headerTopItems model dispatch
-                    if model.State = Setting then
-                        mediaPlayerControler model dispatch
-                        pathSettings model dispatch
+                    mediaPlayerControler model dispatch
                 ]
             ]
+            mediaInfoView model
         ]
     ]
 
@@ -305,11 +366,9 @@ let floatingContent model dispatch =
             Rectangle.create [
                 Rectangle.classes [ "videoViewBlind" ]
                 match model.MainPlayer with
-                | Resolved mainPlayer ->
-                    mainPlayer.Media
-                    |> Deferred.exists Result.isError
-                    |> Rectangle.isVisible
-                | _ -> ()
+                | MediaResolved _ -> false
+                | _ -> true
+                |> Rectangle.isVisible
             ]
         ]
     ]
@@ -332,7 +391,7 @@ let mainPlayerView model dispatch =
         |> VideoView.content
     ]
 
-let view (model: Model<'player>) dispatch =
+let view model dispatch =
     DockPanel.create [
         DockPanel.margin 8
         DockPanel.children [

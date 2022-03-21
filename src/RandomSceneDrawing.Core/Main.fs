@@ -61,13 +61,21 @@ module ValueTypes =
 
     type RandomizeResult =
         { Main: RandomizedInfo
-          Sub: RandomizedInfo }
+          Sub: RandomizedInfo
+          StartTime: TimeSpan
+          EndTime: TimeSpan
+          Position: TimeSpan }
 
     module RandomizeResult =
         let mock =
             let mediaInfo = Player.ApiMock.mediaInfo
             let info = { MediaInfo = mediaInfo; Path = "" }
-            { Main = info; Sub = info }
+
+            { Main = info
+              Sub = info
+              StartTime = TimeSpan.Zero
+              EndTime = TimeSpan.Zero
+              Position = TimeSpan.Zero }
 
         let syncMediaInfo (main: Deferred<Player.Model<'player>>) (sub: Deferred<Player.Model<'player>>) result =
             {| Main =
@@ -360,6 +368,10 @@ let update api settingsApi playerApi msg m =
         | Ok _, Interval i when i.Init = InProgress ->
             (Model.withRandomizeResult ignore m result)
                 .WithState { i with Init = Resolved() },
+            Cmd.none
+        | Ok _, Running r ->
+            (Model.withRandomizeResult ignore m result)
+                .WithState { r with Duration = settings.Duration },
             Cmd.none
         | _ -> Model.withRandomizeResult ignore m result, Cmd.none
     | Tick ->

@@ -402,7 +402,7 @@ module Randomize =
           $"-c:v hevc_nvenc -an \"{destinationPath}\"" ]
         |> runFFmpeg
 
-    let inline getRandomizeResult (mainMedia: Media) mainPath (subMedia: Media) subPath =
+    let inline getRandomizeResult (mainMedia: Media) mainPath (subMedia: Media) subPath startTime endTime position =
         taskResult {
             let! mainInfo = MediaInfo.ofMedia mainMedia
             and! subInfo = MediaInfo.ofMedia subMedia
@@ -411,7 +411,10 @@ module Randomize =
                 { Main =
                     { MediaInfo = mainInfo
                       Path = mainPath }
-                  Sub = { MediaInfo = subInfo; Path = subPath } }
+                  Sub = { MediaInfo = subInfo; Path = subPath }
+                  StartTime = TimeSpan.FromSeconds startTime
+                  EndTime = TimeSpan.FromSeconds endTime
+                  Position = TimeSpan.FromSeconds position }
         }
 
 
@@ -447,7 +450,9 @@ module Randomize =
                 |> min media.Duration
                 |> toSecf
 
-            let! path = getMediaPath media |> TaskResult.map (replace @"^/" "")
+            let! path =
+                getMediaPath media
+                |> TaskResult.map (replace @"^/" "")
 
             // メディア生成
             do! trimMediaAsync startTime endTime path destination
@@ -465,8 +470,8 @@ module Randomize =
             media.AddOption ":start-paused"
             media.AddOption ":clock-jitter=0"
             media.AddOption ":clock-synchro=0"
-            let time = Math.Round((endTime - startTime) / 2.0, 2)
-            media.AddOption $":start-time=%.2f{time}"
+            let positionTime = Math.Round(startTime + ((endTime - startTime) / 2.0), 2)
+            media.AddOption $":start-time=%.2f{positionTime}"
 
             player.Media <- media
 
@@ -495,7 +500,7 @@ module Randomize =
 
             do! Async.Sleep 50 |> Async.Ignore
 
-            return! getRandomizeResult media destination media' destination'
+            return! getRandomizeResult media destination media' destination' startTime endTime positionTime
         }
 
 
