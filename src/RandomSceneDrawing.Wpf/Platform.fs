@@ -111,7 +111,7 @@ let selectSnapShotFolder hwnd =
         | folder -> return SelectSnapShotFolderPathSuccess folder.Path
     }
 
-let createCurrentSnapShotFolder root =
+let createCurrentSnapShotFolderAsync root =
     let unfolder state =
         match state with
         | -1 -> None
@@ -153,7 +153,7 @@ let toCmd hwnd =
     // Cmd.OfAsyncImmediate.either (PlayerLib.randomize player subPlayer) (Uri pl) id RandomizeFailed
     | StartDrawing -> Cmd.OfAsync.either startTimer StartDrawingSuccess id StartDrawingFailed
     | StopDrawing -> Cmd.OfAsync.result <| stopTimer StopDrawingSuccess
-    | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
+    | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolderAsync root |> Cmd.ofMsg
     | TakeSnapshot (player, path) ->
         async {
             match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with

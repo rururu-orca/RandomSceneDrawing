@@ -23,15 +23,6 @@ type App() =
         app.Styles.Add fluentAvaloniaTheme
         fluentAvaloniaTheme.ForceWin32WindowToTheme mainWindow
 
-    let startMainLoop (mainWindow: MainWindow) =
-        Program.mkProgram Program.init (Platform.api mainWindow |> Program.updateProto) MainView.view
-        |> Program.withHost mainWindow
-        |> Program.withSubscription (Platform.subs mainWindow)
-#if DEBUG
-        |> Program.withConsoleTrace
-#endif
-        |> Program.run
-
     /// Core Logic
     let run (app: App) (desktopLifetime: IClassicDesktopStyleApplicationLifetime) =
         LibVLCSharp.Core.Initialize()
@@ -45,7 +36,6 @@ type App() =
         applyFluentTheme app mainWindow
         app.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
 
-        // startMainLoop mainWindow
         let mainPlayer = PlayerLib.initPlayer
         let subPlayer = PlayerLib.initSubPlayer
         let init () = Main.init mainPlayer subPlayer mainWindow.Closed
