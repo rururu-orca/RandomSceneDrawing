@@ -297,49 +297,48 @@ let (|RandomizeResolved|PlayResolved|NotYet|) model =
         | _ -> NotYet
     | _ -> NotYet
 
-let (|MediaResolved|Yet|) player =
-    match player with
-    | Resolved player ->
-        match player.Media with
-        | Resolved (Ok mediaInfo) -> MediaResolved mediaInfo
-        | _ -> Yet
-    | _ -> Yet
-
 let mediaInfoView (model: Model<LibVLCSharp.MediaPlayer>) =
     let timeSpanText (ts: TimeSpan) = ts.ToString "hh\:mm\:ss\.ff"
 
-    StackPanel.create [
-        StackPanel.dock Dock.Right
-        StackPanel.children [
-            match model with
-            | RandomizeResolved (rs, main, mainInfo, sub, subInfo) ->
-                TextBlock.create [
-                    TextBlock.text mainInfo.Title
-                ]
+    if model.RandomizeState = InProgress then
+        TextBlock.create [
+            TextBlock.horizontalAlignment HorizontalAlignment.Stretch
+            TextBlock.verticalAlignment VerticalAlignment.Center
+            TextBlock.text "RandomizeState InProgress..."
+        ] :> IView
+    else
+        StackPanel.create [
+            StackPanel.dock Dock.Right
+            StackPanel.children [
+                match model with
+                | RandomizeResolved (rs, main, mainInfo, sub, subInfo) ->
+                    TextBlock.create [
+                        TextBlock.text mainInfo.Title
+                    ]
 
-                TextBlock.create [
-                    match main.Player.Time with
-                    | 0L -> rs.Position |> timeSpanText
-                    | time ->
-                        PlayerLib.Helper.toSecf time
-                        |> TimeSpan.FromSeconds
-                        |> timeSpanText
-                    |> TextBlock.text
-                ]
+                    TextBlock.create [
+                        match main.Player.Time with
+                        | 0L -> rs.Position |> timeSpanText
+                        | time ->
+                            PlayerLib.Helper.toSecf time
+                            |> TimeSpan.FromSeconds
+                            |> timeSpanText
+                        |> TextBlock.text
+                    ]
 
-                TextBlock.create [
-                    let startTime = timeSpanText rs.StartTime
-                    let endTime = timeSpanText rs.EndTime
+                    TextBlock.create [
+                        let startTime = timeSpanText rs.StartTime
+                        let endTime = timeSpanText rs.EndTime
 
-                    TextBlock.text $"{startTime} ~ {endTime}"
-                ]
-            | PlayResolved (main, mainInfo) ->
-                TextBlock.create [
-                    TextBlock.text mainInfo.Title
-                ]
-            | NotYet -> ()
+                        TextBlock.text $"{startTime} ~ {endTime}"
+                    ]
+                | PlayResolved (main, mainInfo) ->
+                    TextBlock.create [
+                        TextBlock.text mainInfo.Title
+                    ]
+                | NotYet -> ()
+            ]
         ]
-    ]
 
 let headerView model dispatch =
     DockPanel.create [
@@ -365,9 +364,9 @@ let floatingContent model dispatch =
         Panel.children [
             Rectangle.create [
                 Rectangle.classes [ "videoViewBlind" ]
-                match model.MainPlayer with
-                | MediaResolved _ -> false
-                | _ -> true
+                match model with
+                | NotYet -> true
+                | _ -> false
                 |> Rectangle.isVisible
             ]
         ]
@@ -391,10 +390,24 @@ let mainPlayerView model dispatch =
         |> VideoView.content
     ]
 
+let toolWindow model dispatch =
+    SubWindow.create [
+        model.State <> Setting |> SubWindow.isVisible
+        SubWindow.content (
+            Panel.create [
+                Panel.margin 16
+                Panel.children [
+                    randomizeButton model dispatch
+                ]
+            ]
+        )
+    ]
+
 let view model dispatch =
     DockPanel.create [
         DockPanel.margin 8
         DockPanel.children [
+            toolWindow model dispatch
             headerView model dispatch
             mainPlayerView model dispatch
         ]

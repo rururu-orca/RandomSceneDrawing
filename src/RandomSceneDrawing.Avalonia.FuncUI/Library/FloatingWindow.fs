@@ -22,6 +22,8 @@ open FluentAvalonia.Styling
 type SubWindow() =
     inherit ContentControl()
 
+    static let undef = Unchecked.defaultof<SubWindow>
+
     let floatingDisposables = Disposable.Composite
 
     let floating =
@@ -34,7 +36,10 @@ type SubWindow() =
             Title = "Tool"
         )
         |> tap (fun w ->
-            AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>().ForceWin32WindowToTheme w
+            AvaloniaLocator
+                .Current
+                .GetService<FluentAvaloniaTheme>()
+                .ForceWin32WindowToTheme w
 #if DEBUG
             w.AttachDevTools()
 #endif
@@ -42,6 +47,17 @@ type SubWindow() =
 
 
     static member FloatingWindow() = ()
+
+    member _.WindowOpacity
+        with get () = floating.Opacity
+        and set newValue = floating.Opacity <- newValue
+
+    static member WindowOpacityProperty =
+        AvaloniaProperty.RegisterDirect(
+            nameof undef.WindowOpacity,
+            (fun (o: SubWindow) -> o.WindowOpacity),
+            (fun (o: SubWindow) v -> o.WindowOpacity <- v)
+        )
 
     override x.OnAttachedToVisualTree e =
         let rootWindow = (x :> IVisual).VisualRoot :?> Window
@@ -62,7 +78,6 @@ type SubWindow() =
             | false -> floating.Hide())
         |> floatingDisposables.Add
 
-        
         bindToWindow Window.BackgroundProperty
         bindToWindow Window.TransparencyBackgroundFallbackProperty
 
@@ -72,5 +87,8 @@ module SubWindow =
     open Avalonia.FuncUI.Builder
     open Avalonia.FuncUI.Types
 
-    let create (attrs: IAttr<SubWindow> list) : IView<SubWindow> =
-        ViewBuilder.Create<SubWindow>(attrs)
+    let create (attrs: IAttr<SubWindow> list) : IView<SubWindow> = ViewBuilder.Create<SubWindow>(attrs)
+
+    let windowOpacity<'t when 't :> SubWindow> (opacity: float) : IAttr<'t> =
+        AttrBuilder<'t>
+            .CreateProperty<float>(SubWindow.WindowOpacityProperty, opacity, ValueNone)
