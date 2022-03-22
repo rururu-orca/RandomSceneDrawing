@@ -57,15 +57,15 @@ module ValueTypes =
             | Valid _ as c -> CountDownInterval c
             | Invalid _ -> Zero
 
-    type RandomizedInfo = { MediaInfo: MediaInfo; Path: string }
-
     type RandomizeSource =
         | PlayList of PlayListFilePath
-        | RandomizedInfos of RandomizedInfo list
+        | RandomizeInfos of RandomizeInfoDto list
 
     type RandomizeResult =
-        { Main: RandomizedInfo
-          Sub: RandomizedInfo
+        { MainInfo: MediaInfo
+          MainPath: string
+          SubInfo: MediaInfo
+          SubPath: string
           StartTime: TimeSpan
           EndTime: TimeSpan
           Position: TimeSpan }
@@ -73,10 +73,19 @@ module ValueTypes =
     module RandomizeResult =
         let mock =
             let mediaInfo = Player.ApiMock.mediaInfo
-            let info = { MediaInfo = mediaInfo; Path = "" }
 
-            { Main = info
-              Sub = info
+            let info =
+                randomizeInfo.Create
+                    { MediaInfo = mediaInfo
+                      Path = ""
+                      TrinDuration =
+                        { Start = TimeSpan.Zero
+                          End = TimeSpan 1 } }
+
+            { MainInfo = mediaInfo
+              MainPath = ""
+              SubInfo = mediaInfo
+              SubPath = ""
               StartTime = TimeSpan.Zero
               EndTime = TimeSpan.Zero
               Position = TimeSpan.Zero }
@@ -86,13 +95,13 @@ module ValueTypes =
                 main
                 |> Deferred.map (fun player ->
                     { player with
-                        Media = (Ok >> Resolved) result.Main.MediaInfo
+                        Media = (Ok >> Resolved) result.MainInfo
                         State = (Ok >> Finished) Paused })
                Sub =
                 sub
                 |> Deferred.map (fun player ->
                     { player with
-                        Media = (Ok >> Resolved) result.Sub.MediaInfo
+                        Media = (Ok >> Resolved) result.SubInfo
                         State = (Ok >> Finished) Playing }) |}
 
 
@@ -280,7 +289,7 @@ type Cmds<'player>
             let path =
                 Path.Combine [|
                     path'
-                    $"%03i{frames}_{info.Main.MediaInfo.Title}_{timeSpanText info.Position}.png"
+                    $"%03i{frames}_{info.MainInfo.Title}_{timeSpanText info.Position}.png"
                 |]
 
             return! api.takeSnapshot mainPlayer path
@@ -297,7 +306,7 @@ type Cmds<'player>
             let path =
                 Path.Combine [|
                     path'
-                    $"%03i{frames}_{info.Sub.MediaInfo.Title}_{timeSpanText info.StartTime}-{timeSpanText info.EndTime}.mp4"
+                    $"%03i{frames}_{info.SubInfo.Title}_{timeSpanText info.StartTime}-{timeSpanText info.EndTime}.mp4"
                 |]
 
             do! api.copySubVideo path

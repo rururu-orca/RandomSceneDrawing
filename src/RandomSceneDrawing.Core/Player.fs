@@ -3,9 +3,9 @@ module RandomSceneDrawing.Player
 open System
 open System.Threading.Tasks
 open RandomSceneDrawing.Types
+open RandomSceneDrawing.DrawingSettings
 
 module ValueTypes =
-    type MediaInfo = { Title: string; Duration: TimeSpan }
 
     type State =
         | Playing

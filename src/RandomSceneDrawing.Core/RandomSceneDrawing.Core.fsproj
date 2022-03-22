@@ -8,8 +8,8 @@
   <ItemGroup>
     <Compile Include="Types.fs" />
     <Compile Include="Util.fs" />
-    <Compile Include="Player.fs" />
     <Compile Include="DrawingSettings.fs" />
+    <Compile Include="Player.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

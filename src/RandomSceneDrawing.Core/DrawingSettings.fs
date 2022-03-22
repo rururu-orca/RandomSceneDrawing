@@ -4,6 +4,7 @@ open System
 open System.Threading.Tasks
 open System.IO
 open Util
+open FsToolkit.ErrorHandling
 open Types
 open Types.ErrorTypes
 open Types.Validator
@@ -33,6 +34,62 @@ module ValueTypes =
     let snapShotFolderPath =
         Domain(SnapShotFolderPath, (fun (SnapShotFolderPath p) -> p), validatePathString Directory)
 
+    type MediaInfo = { Title: string; Duration: TimeSpan }
+
+
+    type TrinDuration = { Start: TimeSpan; End: TimeSpan }
+
+    let validateTrinDuration value =
+        result {
+            let! _ = validateIfPositiveTime value.Start
+            and! _ = validateIfPositiveTime value.End
+
+            and! _ =
+                value.Start < value.End
+                |> Result.requireTrue [
+                    "Must be Start < End."
+                   ]
+
+            return value
+        }
+
+    type RandomizeInfoDto =
+        { MediaInfo: MediaInfo
+          Path: string
+          TrinDuration: TrinDuration }
+
+    type RandomizeInfo =
+        private
+            { MediaInfo: MediaInfo
+              Path: string
+              TrinDuration: TrinDuration }
+
+    let randomizeInfo =
+        Domain<RandomizeInfoDto, RandomizeInfo, string>(
+            (fun dto ->
+                { MediaInfo = dto.MediaInfo
+                  Path = dto.Path
+                  TrinDuration = dto.TrinDuration }),
+            (fun domain ->
+                { MediaInfo = domain.MediaInfo
+                  Path = domain.Path
+                  TrinDuration = domain.TrinDuration }),
+            (fun dto ->
+                result {
+                    let! _ = validateTrinDuration dto.TrinDuration
+                    let! _ = validatePathString File dto.Path
+                    return dto
+                })
+        )
+
+    module RandomizeInfo =
+        let tryGetMediaInfo (info: Validated<RandomizeInfoDto, _, _>) =
+            match info with
+            | Valid v -> Ok (randomizeInfo.ToDto v).MediaInfo
+            | Invalid (CreateFailed (dto, _)) -> Ok dto.MediaInfo
+            | Invalid (UpdateFailed (_, dto, _)) -> Ok dto.MediaInfo
+            | _ -> Error "MediaInfo get Failed..."
+
 open ValueTypes
 
 
@@ -52,11 +109,12 @@ type Settings =
           SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
 
 module Settings =
-    let dtoOrEmptyString (domain:Domain<string,_,_>) value =
-        domain.DtoOr (function
-            | UpdateFailed ((ValueSome c),_,_) -> (domain.ofDomain >> domain.Dto) c
-            | _ -> ""
-        ) value
+    let dtoOrEmptyString (domain: Domain<string, _, _>) value =
+        domain.DtoOr
+            (function
+            | UpdateFailed ((ValueSome c), _, _) -> (domain.ofDomain >> domain.Dto) c
+            | _ -> "")
+            value
 
     let save settings =
         config.Frames <- frames.Dto settings.Frames

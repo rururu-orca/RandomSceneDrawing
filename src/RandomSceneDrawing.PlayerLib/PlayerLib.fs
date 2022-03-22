@@ -83,7 +83,8 @@ let isPlayingOrPaused (player: MediaPlayer) =
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
 module MediaInfo =
-    open RandomSceneDrawing.Player.ValueTypes
+    open RandomSceneDrawing
+    open DrawingSettings.ValueTypes
 
     let inline ofMedia (media: Media) =
         taskResult {
@@ -169,7 +170,7 @@ module Randomize =
                     |> Seq.item (random.Next playList.SubItems.Count)
 
                 return! Ok media
-            | RandomizedInfos infos ->
+            | RandomizeInfos infos ->
                 let idx = random.Next infos.Length
                 return! (Uri >> getMediaFromUri >> Ok) infos[idx].Path
         }
@@ -246,10 +247,10 @@ module Randomize =
             and! subInfo = MediaInfo.ofMedia subMedia
 
             return
-                { Main =
-                    { MediaInfo = mainInfo
-                      Path = mainPath }
-                  Sub = { MediaInfo = subInfo; Path = subPath }
+                { MainInfo = mainInfo
+                  MainPath = mainPath
+                  SubInfo = subInfo
+                  SubPath = subPath
                   StartTime = TimeSpan.FromSeconds startTime
                   EndTime = TimeSpan.FromSeconds endTime
                   Position = TimeSpan.FromSeconds position }
