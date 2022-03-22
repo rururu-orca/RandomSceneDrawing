@@ -18,10 +18,8 @@ open FSharp.Control
 open FsToolkit.ErrorHandling
 
 open RandomSceneDrawing.Types
-open Main
 
 let list (fsCollection: 'T seq) = List<'T> fsCollection
-
 
 let showInfomationAsync (window: MainWindow) msg =
     task {
@@ -58,54 +56,14 @@ let selectMediaAsync window =
 let playAsync window (player: MediaPlayer) =
     taskResult {
         let! media = selectMediaAsync window
-        player.Media <- media
-
-        do!
-            player.PlayAsync()
-            |> TaskResult.requireTrue "Play Failed."
-
-        return! PlayerLib.MediaInfo.ofMedia media
-
-    }
-
-let pauseAsync (player: MediaPlayer) =
-    task {
-        do! player.PauseAsync()
-
-        return! PlayerLib.MediaInfo.ofPlayer player
-    }
-
-let stopAsync (player: MediaPlayer) =
-    task {
-        match! player.StopAsync() with
-        | true -> return Ok()
-        | false -> return Error "stop failed."
+        return! PlayerLib.playAsync player media
     }
 
 let playerApi (window: MainWindow) =
     { playAsync = playAsync window
-      pauseAsync = pauseAsync
-      stopAsync = stopAsync
+      pauseAsync = PlayerLib.pauseAsync
+      stopAsync = PlayerLib.stopAsync
       showInfomation = showInfomationAsync window }
-
-let createCurrentSnapShotFolderAsync root =
-    let unfolder state =
-        match state with
-        | -1 -> None
-        | _ ->
-            let path =
-                [| root
-                   DateTime.Now.ToString "yyyyMMdd"
-                   $"%03i{state}" |]
-                |> Path.Combine
-
-            match Directory.Exists path with
-            | true -> Some(path, state + 1)
-            | false ->
-                Directory.CreateDirectory path |> ignore
-                Some(path, -1)
-
-    taskResult { return Seq.unfold unfolder 0 |> Seq.last }
 
 open RandomSceneDrawing.Types.ErrorTypes
 
@@ -150,12 +108,24 @@ let settingsApi (window: MainWindow) : DrawingSettings.Api =
 
 let stepAsync () = async { do! Async.Sleep 1000 }
 
-let takeSnapShotAsync player path =
-    taskResult {
-        do!
-            PlayerLib.takeSnapshot player 0u path
-            |> TaskResult.ignore
-    }
+let createCurrentSnapShotFolderAsync root =
+    let unfolder state =
+        match state with
+        | -1 -> None
+        | _ ->
+            let path =
+                [| root
+                   DateTime.Now.ToString "yyyyMMdd"
+                   $"%03i{state}" |]
+                |> Path.Combine
+
+            match Directory.Exists path with
+            | true -> Some(path, state + 1)
+            | false ->
+                Directory.CreateDirectory path |> ignore
+                Some(path, -1)
+
+    taskResult { return Seq.unfold unfolder 0 |> Seq.last }
 
 let copySubVideoAsync dest =
     taskResult { File.Copy(PlayerLib.destination', dest) }
@@ -164,6 +134,6 @@ let mainApi (window: MainWindow) : Main.Api<'player> =
     { step = stepAsync
       randomize = PlayerLib.Randomize.run
       createSnapShotFolder = createCurrentSnapShotFolderAsync
-      takeSnapshot = takeSnapShotAsync
+      takeSnapshot = PlayerLib.takeSnapshot
       copySubVideo = copySubVideoAsync
       showInfomation = showInfomationAsync window }

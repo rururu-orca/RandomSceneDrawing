@@ -4,13 +4,32 @@ open System
 open Expecto
 open FsToolkit.ErrorHandling
 open RandomSceneDrawing
+open RandomSceneDrawing.Player
 open RandomSceneDrawing.Main.ValueTypes
 open System.IO
 open LibVLCSharp
 
+do PlayerLib.initialize ()
+
+let playerApi media =
+    { playAsync = fun player -> PlayerLib.playAsync player media
+      pauseAsync = PlayerLib.pauseAsync
+      stopAsync = PlayerLib.stopAsync
+      showInfomation = fun _ -> task { () } }
+
+let mainMock: Main.Api<MediaPlayer> = Main.Api.mockOk ()
+
+let mainApi: Main.Api<MediaPlayer> =
+    { step = mainMock.step
+      createSnapShotFolder = fun _ -> task { return Ok "test" }
+      copySubVideo = fun _ -> task { return Ok() }
+      showInfomation = fun _ -> task { () }
+      randomize = PlayerLib.Randomize.run
+      takeSnapshot = PlayerLib.takeSnapshot }
+
 [<Tests>]
 let playerLibTests =
-    do PlayerLib.initialize ()
+
 
     let mediaUrl =
         Uri "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
@@ -43,13 +62,12 @@ let playerLibTests =
 
              use player = PlayerLib.initPlayer ()
              use subPlayer = PlayerLib.initPlayer ()
-             let randomizeSource =
-                (playListFilePath.Value >> PlayList) playListPath
+             let randomizeSource = (playListFilePath.Value >> PlayList) playListPath
 
              let! randomizeResult = PlayerLib.Randomize.run randomizeSource player subPlayer
              Expect.isOk randomizeResult "Randomize should Ok"
 
-             let! takeSnapshotResult =  PlayerLib.takeSnapshot player 0u snapShot
+             let! takeSnapshotResult = PlayerLib.takeSnapshot player snapShot
 
              Expect.isOk takeSnapshotResult "takeSnapshot should Ok"
 

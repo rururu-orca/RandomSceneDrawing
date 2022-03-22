@@ -84,6 +84,7 @@ let getMediaFromUri source = new Media(libVLC, uri = source)
 
 module MediaInfo =
     open RandomSceneDrawing.Player.ValueTypes
+
     let inline ofMedia (media: Media) =
         taskResult {
             return
@@ -111,21 +112,25 @@ let loadPlayList source =
     }
 
 
-let playAsync (player: MediaPlayer) onSuccess (media: Media) =
-    task {
+let playAsync (player: MediaPlayer) media =
+    taskResult {
+        // let! media = selectMediaAsync window
+        player.Media <- media
 
-        let msg = String.Format(config.PlayerLib.PlayFailedMsg, media.Mrl)
+        do!
+            player.PlayAsync()
+            |> TaskResult.requireTrue "Play Failed."
 
-        let sub = player.Playing |> Async.AwaitEvent |> Async.Ignore
+        return! MediaInfo.ofMedia media
 
-        if player.Play media then
-            do! sub
-            return Ok onSuccess
-        else
-            return Error msg
     }
 
-let pauseAsync (player: MediaPlayer) onSuccess = async { return player.SetPause true }
+let pauseAsync (player: MediaPlayer) =
+    task {
+        do! player.PauseAsync()
+
+        return! MediaInfo.ofPlayer player
+    }
 
 let resumeAsync (player: MediaPlayer) onSuccess = async { return player.SetPause false }
 
@@ -140,14 +145,12 @@ let togglePauseAsync (player: MediaPlayer) (onPlaying, onPaused) =
             return onPlaying
     }
 
-let stopAsync (player: MediaPlayer) onSuccess =
-    async {
-        do!
+let stopAsync (player: MediaPlayer) =
+    task {
+        return!
             player.StopAsync()
-            |> Async.AwaitTask
-            |> Async.Ignore
+            |> TaskResult.requireTrue "Play Failed."
 
-        return onSuccess
     }
 
 open Main.ValueTypes
@@ -239,7 +242,7 @@ module Randomize =
         taskResult {
             // すでに再生済みなら停止
             for p in [ player; subPlayer ] do
-                if p.IsPlaying then do! stopAsync p ()
+                if p.IsPlaying then do! stopAsync p
 
             // 再生動画、時間を設定
             let random = Random()
@@ -328,14 +331,13 @@ let getSize (player: MediaPlayer) num =
             return! Error "Get player size failed."
     }
 
-let takeSnapshot (player: MediaPlayer) num path =
+let takeSnapshot (player: MediaPlayer) path =
     taskResult {
-        let! (px,py) = getSize player 0u
+        let num = 0u
+        let! (px, py) = getSize player num
 
         if player.TakeSnapshot(num, path, px, py) then
-            return! Ok path
+            return! Ok ()
         else
             return! Error "Take snapshot failed."
     }
-
-let copySubVideo dest = task { File.Copy(destination', dest) }
