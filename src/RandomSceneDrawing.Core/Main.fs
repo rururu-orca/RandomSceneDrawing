@@ -57,9 +57,11 @@ module ValueTypes =
             | Valid _ as c -> CountDownInterval c
             | Invalid _ -> Zero
 
-    type RandomizeSource = PlayList of PlayListFilePath
-
     type RandomizedInfo = { MediaInfo: MediaInfo; Path: string }
+
+    type RandomizeSource =
+        | PlayList of PlayListFilePath
+        | RandomizedInfos of RandomizedInfo list
 
     type RandomizeResult =
         { Main: RandomizedInfo
@@ -95,10 +97,6 @@ module ValueTypes =
 
 
 open ValueTypes
-
-let (|PlayListFilePath|) rs =
-    match rs with
-    | PlayList (PlayListFilePath pl) -> pl
 
 type RandomDrawingState =
     | Setting

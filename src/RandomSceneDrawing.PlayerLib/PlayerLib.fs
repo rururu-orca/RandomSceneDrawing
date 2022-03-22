@@ -156,6 +156,24 @@ let stopAsync (player: MediaPlayer) =
 open Main.ValueTypes
 
 module Randomize =
+    let parseRandomizeSource (random: Random) rs =
+        taskResult {
+            match rs with
+            | PlayList path ->
+                let! playList =
+                    playListFilePath.ToDto path
+                    |> (Uri >> loadPlayList)
+
+                let media =
+                    playList.SubItems
+                    |> Seq.item (random.Next playList.SubItems.Count)
+
+                return! Ok media
+            | RandomizedInfos infos ->
+                let idx = random.Next infos.Length
+                return! (Uri >> getMediaFromUri >> Ok) infos[idx].Path
+        }
+
 
     let inline runFFmpeg args =
         task {
@@ -238,7 +256,7 @@ module Randomize =
         }
 
 
-    let run (Main.PlayListFilePath playListPath) (player: MediaPlayer) (subPlayer: MediaPlayer) =
+    let run randomizeSource (player: MediaPlayer) (subPlayer: MediaPlayer) =
         taskResult {
             // すでに再生済みなら停止
             for p in [ player; subPlayer ] do
@@ -247,11 +265,8 @@ module Randomize =
             // 再生動画、時間を設定
             let random = Random()
 
-            let! playList = (Uri >> loadPlayList) playListPath
+            let! media = parseRandomizeSource random randomizeSource
 
-            let media =
-                playList.SubItems
-                |> Seq.item (random.Next playList.SubItems.Count)
 
             do! parseAsync media
 
@@ -337,7 +352,7 @@ let takeSnapshot (player: MediaPlayer) path =
         let! (px, py) = getSize player num
 
         if player.TakeSnapshot(num, path, px, py) then
-            return! Ok ()
+            return! Ok()
         else
             return! Error "Take snapshot failed."
     }
