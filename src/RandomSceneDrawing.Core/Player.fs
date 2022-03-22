@@ -4,10 +4,15 @@ open System
 open System.Threading.Tasks
 open RandomSceneDrawing.Types
 
-type State =
-    | Playing
-    | Paused
-    | Stopped
+module ValueTypes =
+    type MediaInfo = { Title: string; Duration: TimeSpan }
+
+    type State =
+        | Playing
+        | Paused
+        | Stopped
+
+open ValueTypes
 
 type Model<'player> =
     { Player: 'player
@@ -43,7 +48,7 @@ module ApiMock =
         { playAsync = fun _ -> task { return errorResult }
           pauseAsync = fun _ -> task { return errorResult }
           stopAsync = fun _ -> task { return errorResult }
-          showInfomation = fun _ -> task { () }}
+          showInfomation = fun _ -> task { () } }
 
 open Elmish
 open FsToolkit.ErrorHandling
@@ -60,15 +65,17 @@ type Cmd<'player>(api: Api<'player>, player) =
             let! info =
                 api.playAsync player
                 |> TaskResult.teeError (ErrorMsg >> showInfomation)
+
             return (Finished >> Play) info
         }
         |> Cmd.OfTask.result
 
     member _.PauseCmd() =
         task {
-            let! info = 
+            let! info =
                 api.pauseAsync player
                 |> TaskResult.teeError (ErrorMsg >> showInfomation)
+
             return (Finished >> Pause) info
         }
         |> Cmd.OfTask.result
@@ -78,6 +85,7 @@ type Cmd<'player>(api: Api<'player>, player) =
             let! info =
                 api.stopAsync player
                 |> TaskResult.teeError (ErrorMsg >> showInfomation)
+
             return (Finished >> Stop) info
         }
         |> Cmd.OfTask.result

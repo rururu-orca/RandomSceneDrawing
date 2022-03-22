@@ -2,8 +2,9 @@ module RandomSceneDrawing.Tests.Player.Lib
 
 open System
 open Expecto
+open FsToolkit.ErrorHandling
 open RandomSceneDrawing
-open RandomSceneDrawing.Types
+open RandomSceneDrawing.Main.ValueTypes
 open System.IO
 open LibVLCSharp
 
@@ -18,6 +19,7 @@ let playerLibTests =
         [| __SOURCE_DIRECTORY__
            "TestPlayList.xspf" |]
         |> Path.Combine
+        |> playListFilePath.Create
 
     let snapShot =
         Path.Combine [|
@@ -30,7 +32,8 @@ let playerLibTests =
          test "can get Media instance" { Expect.isNotNull (PlayerLib.getMediaFromUri mediaUrl) "" }
          testAsync "can load Playlist" {
              let! playList =
-                 PlayerLib.loadPlayList (Uri playListPath)
+                 (playListFilePath.Dto >> Uri) playListPath
+                 |> PlayerLib.loadPlayList
                  |> Async.AwaitTask
 
              Expect.equal playList.Type MediaType.Playlist "should work"
@@ -40,14 +43,15 @@ let playerLibTests =
 
              use player = PlayerLib.initPlayer ()
              use subPlayer = PlayerLib.initPlayer ()
+             let randomizeSource =
+                (playListFilePath.Value >> PlayList) playListPath
 
-             let! actuel = PlayerLib.randomize player subPlayer (Uri playListPath)
+             let! randomizeResult = PlayerLib.Randomize.run randomizeSource player subPlayer
+             Expect.isOk randomizeResult "Randomize should Ok"
 
-             let media: Media = player.Media
-             Expect.notEqual media.Duration -1L ""
-             Expect.equal actuel RandomizeSuccess ""
+             let! takeSnapshotResult =  PlayerLib.takeSnapshot player 0u snapShot
 
-             let actual = PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u snapShot
-             Expect.isSome actual "should Some"
+             Expect.isOk takeSnapshotResult "takeSnapshot should Ok"
+
          } ]
     |> testSequencedGroup "LibTest"

@@ -7,9 +7,11 @@ open RandomSceneDrawing.Types
 open FsToolkit.ErrorHandling
 
 
+open Player.ValueTypes
+open DrawingSettings.ValueTypes
+open Validator
+
 module ValueTypes =
-    open DrawingSettings.ValueTypes
-    open Validator
 
     let frames = frames
     let duration = duration
@@ -83,20 +85,20 @@ module ValueTypes =
                 |> Deferred.map (fun player ->
                     { player with
                         Media = (Ok >> Resolved) result.Main.MediaInfo
-                        State = (Ok >> Finished) Player.State.Paused })
+                        State = (Ok >> Finished) Paused })
                Sub =
                 sub
                 |> Deferred.map (fun player ->
                     { player with
                         Media = (Ok >> Resolved) result.Sub.MediaInfo
-                        State = (Ok >> Finished) Player.State.Playing }) |}
+                        State = (Ok >> Finished) Playing }) |}
 
 
 open ValueTypes
 
 let (|PlayListFilePath|) rs =
     match rs with
-    | PlayList (DrawingSettings.ValueTypes.PlayListFilePath pl) -> pl
+    | PlayList (PlayListFilePath pl) -> pl
 
 type RandomDrawingState =
     | Setting

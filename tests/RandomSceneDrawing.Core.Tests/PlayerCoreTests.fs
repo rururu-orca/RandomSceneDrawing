@@ -6,6 +6,7 @@ open RandomSceneDrawing.Types
 open RandomSceneDrawing.Tests.Utils
 
 open RandomSceneDrawing.Player
+open RandomSceneDrawing.Player.ValueTypes
 open RandomSceneDrawing.Player.ApiMock
 
 let stateStopped = init ()

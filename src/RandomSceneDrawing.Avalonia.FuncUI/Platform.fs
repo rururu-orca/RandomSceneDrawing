@@ -72,12 +72,7 @@ let pauseAsync (player: MediaPlayer) =
     task {
         do! player.PauseAsync()
 
-        return
-            Ok
-                { Title = player.Media.Meta MetadataType.Title
-                  Duration =
-                    float player.Media.Duration
-                    |> TimeSpan.FromMilliseconds }
+        return! PlayerLib.MediaInfo.ofPlayer player
     }
 
 let stopAsync (player: MediaPlayer) =
@@ -158,9 +153,8 @@ let stepAsync () = async { do! Async.Sleep 1000 }
 let takeSnapShotAsync player path =
     taskResult {
         do!
-            PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path
-            |> Result.requireSome "Snapshot failed."
-            |> Result.ignore
+            PlayerLib.takeSnapshot player 0u path
+            |> TaskResult.ignore
     }
 
 let copySubVideoAsync dest =

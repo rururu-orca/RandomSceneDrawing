@@ -13,6 +13,10 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Core.Tes
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.Avalonia.FuncUI", "src\RandomSceneDrawing.Avalonia.FuncUI\RandomSceneDrawing.Avalonia.FuncUI.fsproj", "{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.PlayerLib", "src\RandomSceneDrawing.PlayerLib\RandomSceneDrawing.PlayerLib.fsproj", "{08F4434F-856A-4D23-A7E9-2F8AD03A279E}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RandomSceneDrawing.PlayerLib.Tests", "tests\RandomSceneDrawing.PlayerLib.Tests\RandomSceneDrawing.PlayerLib.Tests.fsproj", "{0C59D731-ECD0-4805-A11F-75293E23F16F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,10 +38,20 @@ Global
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08F4434F-856A-4D23-A7E9-2F8AD03A279E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08F4434F-856A-4D23-A7E9-2F8AD03A279E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08F4434F-856A-4D23-A7E9-2F8AD03A279E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08F4434F-856A-4D23-A7E9-2F8AD03A279E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C59D731-ECD0-4805-A11F-75293E23F16F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C59D731-ECD0-4805-A11F-75293E23F16F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C59D731-ECD0-4805-A11F-75293E23F16F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C59D731-ECD0-4805-A11F-75293E23F16F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{B77D8D04-6D66-4FE4-9049-F9D49784589E} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
 		{F45D4173-B3C9-4507-B4EF-8E4AFF786974} = {46B76148-8768-46F1-BC03-8B0CF4610F13}
 		{A5E2DB98-0B8F-4D21-BC26-07DF47310E8B} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
+		{08F4434F-856A-4D23-A7E9-2F8AD03A279E} = {38A3F3BE-0FA6-4C8D-81E6-1945AE77FD4D}
+		{0C59D731-ECD0-4805-A11F-75293E23F16F} = {46B76148-8768-46F1-BC03-8B0CF4610F13}
 	EndGlobalSection
 EndGlobal

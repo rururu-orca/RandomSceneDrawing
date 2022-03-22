@@ -1,4 +1,4 @@
-module RandomSceneDrawing.PlayerLib
+﻿module RandomSceneDrawing.PlayerLib
 
 open System
 open System.IO
@@ -9,7 +9,6 @@ open FsToolkit.ErrorHandling
 open Types
 open Util
 open FSharp.Control
-open FSharpPlus
 open System.Threading
 open System.Threading.Tasks
 
@@ -27,7 +26,6 @@ module Helper =
                 unsub ()
                 ctr.Dispose()
         }
-
 
 let tempSavePath = $"{Path.GetTempPath()}/RandomSceneDrawing"
 
@@ -85,6 +83,7 @@ let isPlayingOrPaused (player: MediaPlayer) =
 let getMediaFromUri source = new Media(libVLC, uri = source)
 
 module MediaInfo =
+    open RandomSceneDrawing.Player.ValueTypes
     let inline ofMedia (media: Media) =
         taskResult {
             return
@@ -112,34 +111,6 @@ let loadPlayList source =
     }
 
 
-let timeChanged (player: MediaPlayer) dispatch =
-    player.TimeChanged
-    |> AsyncSeq.ofObservableBuffered
-    |> AsyncSeq.map (fun e -> e.Time / 1000L)
-    |> AsyncSeq.distinctUntilChanged
-    |> AsyncSeq.iter (
-        float
-        >> TimeSpan.FromSeconds
-        >> PlayerTimeChanged
-        >> dispatch
-    )
-    |> Async.StartImmediate
-
-let playerBuffering (player: MediaPlayer) dispatch =
-    player.Buffering
-    |> AsyncSeq.ofObservableBuffered
-    |> AsyncSeq.map (fun e -> e.Cache)
-    |> AsyncSeq.iter (PlayerBuffering >> dispatch)
-    |> Async.StartImmediate
-
-
-let (|AlreadyBufferingCompleted|_|) (m, msg) =
-    if m.RandomizeState = WaitBuffering
-       && m.Player.State <> VLCState.Buffering then
-        Some(m, msg)
-    else
-        None
-
 let playAsync (player: MediaPlayer) onSuccess (media: Media) =
     task {
 
@@ -151,7 +122,7 @@ let playAsync (player: MediaPlayer) onSuccess (media: Media) =
             do! sub
             return Ok onSuccess
         else
-            return Error(PlayFailedException msg)
+            return Error msg
     }
 
 let pauseAsync (player: MediaPlayer) onSuccess = async { return player.SetPause true }
@@ -178,128 +149,6 @@ let stopAsync (player: MediaPlayer) onSuccess =
 
         return onSuccess
     }
-
-
-let randomize (player: MediaPlayer) (subPlayer: MediaPlayer) (playListUri: Uri) =
-    taskResult {
-        // すでに再生済みなら停止
-        for p in [ player; subPlayer ] do
-            if p.IsPlaying then do! stopAsync p ()
-
-        // 再生動画、時間を設定
-        let random = Random()
-
-        let! playList = loadPlayList playListUri
-
-        let media =
-            playList.SubItems
-            |> Seq.item (random.Next playList.SubItems.Count)
-
-        match! media.ParseAsync MediaParseOptions.ParseNetwork with
-        | MediaParsedStatus.Done -> do! Ok()
-        | other -> do! Error(exn $"Media Parse %A{other}")
-
-        let! originWidth, originHeight =
-            match media.TrackList TrackType.Video with
-            | t when t.Count = 1u ->
-                let t = t[0u]
-                Ok(t.Data.Video.Width, t.Data.Video.Height)
-            | _ -> Error(exn "Target is Not Video.")
-
-        let rescaleParam =
-            if float originWidth / float originHeight
-               <= float config.SubPlayer.Width
-                  / float config.SubPlayer.Height then
-                $"-1:{config.SubPlayer.Height}"
-            else
-                $"{config.SubPlayer.Width}:-1"
-
-        let randomizeTime =
-            random.Next(config.Randomize.MinStartMsec, int media.Duration - config.Randomize.MaxEndMsec)
-            |> int64
-
-        let repeatOffset = int64 config.SubPlayer.RepeatDuration / 2L
-
-        let startTime = randomizeTime - repeatOffset |> max 0L |> toSecf
-
-        let endTime =
-            randomizeTime + repeatOffset
-            |> min media.Duration
-            |> toSecf
-
-        let runFFmpeg args =
-            task {
-                let args' = String.concat " " args
-                let startInfo = ProcessStartInfo(config.PlayerLib.FFmpegPath, Arguments = args')
-
-                try
-                    let struct (_, stdout, stderr) = ProcessX.GetDualAsyncEnumerable(startInfo)
-
-                    do!
-                        [| stdout.WriteLineAllAsync()
-                           stderr.WriteLineAllAsync() |]
-                        |> Task.WhenAll
-
-                    return Ok()
-                with
-                | :? ProcessErrorException as ex ->
-                    let msg = $"%A{ex.ErrorOutput}"
-                    return (exn (stderr.ToString()) |> Error)
-            }
-
-        // キャプチャ設定
-        let mrl = Uri(media.Mrl)
-
-        let path =
-            if mrl.IsFile then
-                mrl.LocalPath
-            else
-                mrl.AbsoluteUri
-
-        let path = Text.RegularExpressions.Regex.Replace(path, @"^/", "")
-
-        // 録画実行
-        do!
-            [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -i \"{path}\" -c:v copy -an \"{destination}\"" ]
-            |> runFFmpeg
-
-        do!
-            [ "-loglevel warning -y -hwaccel cuda -hwaccel_output_format cuda -init_hw_device vulkan=vk:0 -filter_hw_device vk"
-              $"-i \"{destination}\""
-              $"-vf \"hwupload,libplacebo={rescaleParam}:p010le,hwupload_cuda\""
-              $"-c:v hevc_nvenc -an \"{destination'}\"" ]
-            |> runFFmpeg
-
-        /// 生成した一時ファイルのMedia
-        let media = new Media(libVLC, destination, FromType.FromPath)
-        /// サブプレイヤー用一時ファイル
-        let media' = new Media(libVLC, destination', FromType.FromPath)
-
-        // メインプレイヤーの設定、再生
-        media.AddOption ":no-audio"
-        media.AddOption ":start-paused"
-        media.AddOption ":clock-jitter=0"
-        media.AddOption ":clock-synchro=0"
-        let time = Math.Round((endTime - startTime) / 2.0, 2)
-        media.AddOption $":start-time=%.2f{time}"
-        do! playAsync player () media
-
-        // サブプレイヤーの設定、再生
-        media'.AddOption ":no-start-paused"
-        media'.AddOption ":clock-jitter=0"
-        media'.AddOption ":clock-synchro=0"
-        media'.AddOption $":input-repeat=65535"
-        do! playAsync subPlayer () media'
-        do! Async.Sleep 50 |> Async.Ignore
-
-        while player.State = VLCState.Buffering do
-            do! Async.Sleep 1 |> Async.Ignore
-
-        do! Async.Sleep 50 |> Async.Ignore
-
-        return RandomizeSuccess
-    }
-    |> TaskResult.foldResult id RandomizeFailed
 
 open Main.ValueTypes
 
@@ -470,21 +319,23 @@ module Randomize =
 
 
 let getSize (player: MediaPlayer) num =
-    let mutable px, py = 0u, 0u
+    taskResult {
+        let mutable px, py = 0u, 0u
 
-    if player.Size(num, &px, &py) then
-        Some(player, px, py)
-    else
-        None
+        if player.Size(num, &px, &py) then
+            return! Ok(px, py)
+        else
+            return! Error "Get player size failed."
+    }
 
-let takeSnapshot sizefn num path =
-    monad {
-        let! (player: MediaPlayer), px, py = sizefn 0u
+let takeSnapshot (player: MediaPlayer) num path =
+    taskResult {
+        let! (px,py) = getSize player 0u
 
         if player.TakeSnapshot(num, path, px, py) then
-            return! Some path
+            return! Ok path
         else
-            return! None
+            return! Error "Take snapshot failed."
     }
 
 let copySubVideo dest = task { File.Copy(destination', dest) }
