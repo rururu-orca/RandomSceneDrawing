@@ -6,9 +6,6 @@ open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
 open FluentAvalonia.Styling
 
-open Elmish
-open Avalonia.FuncUI.Elmish
-
 open LibVLCSharp.Avalonia.FuncUI
 
 open RandomSceneDrawing.AvaloniaExtensions
@@ -25,7 +22,6 @@ type App() =
 
     /// Core Logic
     let run (app: App) (desktopLifetime: IClassicDesktopStyleApplicationLifetime) =
-        LibVLCSharp.Core.Initialize()
 
         let mainWindow = MainWindow FloatingContent.floating
 #if DEBUG

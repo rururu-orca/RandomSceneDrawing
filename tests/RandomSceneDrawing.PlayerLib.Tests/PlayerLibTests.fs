@@ -9,7 +9,6 @@ open RandomSceneDrawing.Main.ValueTypes
 open System.IO
 open LibVLCSharp
 
-do PlayerLib.initialize ()
 
 let playerApi media =
     { playAsync = fun player -> PlayerLib.playAsync player media

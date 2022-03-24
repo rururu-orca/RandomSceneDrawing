@@ -40,8 +40,6 @@ let destination = $"{tempSavePath}/{tempVideo}"
 
 let destination' = $"{tempSavePath}/{tempVideo'}"
 
-let initialize () = Core.Initialize()
-
 let libVLC =
     let options =
         [|
@@ -50,6 +48,7 @@ let libVLC =
 #else
            "-q"
 #endif
+           "--reset-plugins-cache"
            "--hw-dec"
            "--codec=nvdec,any"
            "--dec-dev=nvdec"

@@ -40,12 +40,11 @@ module CustomHooks =
             for sub in cmd do
                 sub this.Dispatch
 
-            let set () = writableModel.Set model
-
             if Dispatcher.UIThread.CheckAccess() then
-                set ()
+                writableModel.Set model
             else
-                Dispatcher.UIThread.Post set
+                fun _ -> writableModel.Set model
+                |> Dispatcher.UIThread.Post
 
 
     type IComponentContext with
@@ -474,8 +473,9 @@ let mainPlayerView id model mainPlayer dispatch =
                 | Resolved mainPlayer ->
                     VideoView.mediaPlayer mainPlayer.Player
 
-                    match mainPlayer.Media with
-                    | Resolved (Ok _) when not randomizeInPregress.Current -> true
+                    match mainPlayer.Media, model.Current.State with
+                    | _, Interval _ -> false
+                    | Resolved (Ok _), _ when not randomizeInPregress.Current -> true
                     | _ -> false
                     |> VideoView.isVideoVisible
                 | _ -> ()
