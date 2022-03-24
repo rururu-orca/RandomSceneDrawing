@@ -544,7 +544,6 @@ let cmp init update =
             let dispatch = state.Dispatch
 
             let mainPlayer = ctx.useState model.MainPlayer
-            let isInterval = ctx.useState false
 
             ctx.useEffect (
                 handler =
@@ -552,13 +551,7 @@ let cmp init update =
                         let currentRoot = state.WritableModel.Current
 
                         if mainPlayer.Current <> currentRoot.MainPlayer then
-                            mainPlayer.Set currentRoot.MainPlayer
-
-                        match currentRoot.State with
-                        | Interval _ when not isInterval.Current -> isInterval.Set true
-                        | Setting when isInterval.Current -> isInterval.Set false
-                        | Running _ when isInterval.Current -> isInterval.Set false
-                        | _ -> ()),
+                            mainPlayer.Set currentRoot.MainPlayer),
                 triggers = [ EffectTrigger.AfterChange state.WritableModel ]
             )
 
