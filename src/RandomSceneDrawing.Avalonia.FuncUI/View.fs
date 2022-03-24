@@ -362,7 +362,6 @@ let mediaInfoView (model: Model<LibVLCSharp.MediaPlayer>) =
 
 let headerView model dispatch =
     DockPanel.create [
-        DockPanel.margin (4, 0, 0, 0)
         DockPanel.dock Dock.Top
         DockPanel.children [
             subPlayerView model
@@ -468,6 +467,8 @@ let mainPlayerView id model mainPlayer dispatch =
             )
 
             VideoView.create [
+                VideoView.minHeight config.MainPlayer.Height
+                VideoView.minWidth config.MainPlayer.Width
 
                 match mainPlayer.Current with
                 | Resolved mainPlayer ->
@@ -554,8 +555,11 @@ let cmp init update =
                 triggers = [ EffectTrigger.AfterChange state.WritableModel ]
             )
 
+            ctx.attrs [
+                Component.margin config.RootComponent.Margin
+            ]
+
             DockPanel.create [
-                DockPanel.margin 8
                 DockPanel.children [
                     toolWindow model dispatch
                     headerView model dispatch
