@@ -465,6 +465,12 @@ let mainPlayerView id model mainPlayer dispatch =
                 triggers = [ EffectTrigger.AfterChange model ]
             )
 
+            let (|InInterval|MediaResolved|Other|) (state, media) =
+                match state, media with
+                | Interval _, _ -> InInterval
+                | _, Resolved (Ok _) when not randomizeInPregress.Current -> MediaResolved
+                | _ -> Other
+
             VideoView.create [
                 VideoView.minHeight config.MainPlayer.Height
                 VideoView.minWidth config.MainPlayer.Width
@@ -473,11 +479,12 @@ let mainPlayerView id model mainPlayer dispatch =
                 | Resolved mainPlayer ->
                     VideoView.mediaPlayer mainPlayer.Player
 
-                    match mainPlayer.Media, model.Current.State with
-                    | _, Interval _ -> false
-                    | Resolved (Ok _), _ when not randomizeInPregress.Current -> true
-                    | _ -> false
+                    match model.Current.State, mainPlayer.Media with
+                    | InInterval -> false
+                    | MediaResolved -> true
+                    | Other -> false
                     |> VideoView.isVideoVisible
+
                 | _ -> ()
 
                 VideoView.hasFloating true
