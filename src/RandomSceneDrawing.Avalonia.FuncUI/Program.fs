@@ -47,13 +47,7 @@ type App() =
         let playerApi = Platform.playerApi mainWindow
         let update = Main.update mainApi settingsApi playerApi
 
-        Program.mkProgram init update View.view
-        |> Program.withHost mainWindow
-#if DEBUG
-        |> Program.withConsoleTrace
-#endif
-        |> Program.run
-
+        mainWindow.Content <- View.cmp (init()) update
 
 
     override this.OnFrameworkInitializationCompleted() =

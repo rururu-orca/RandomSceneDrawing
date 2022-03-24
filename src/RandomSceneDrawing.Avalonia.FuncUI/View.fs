@@ -24,6 +24,48 @@ open RandomSceneDrawing.Main.ValueTypes
 open RandomSceneDrawing.AvaloniaExtensions
 
 
+[<AutoOpen>]
+module CustomHooks =
+    open Avalonia.Threading
+    type Cmd<'msg> = Elmish.Cmd<'msg>
+
+    type ElmishState<'Model, 'Msg>(writableModel: IWritable<'Model>, update) =
+        member this.Model = writableModel.Current
+        member this.WritableModel = writableModel
+        member this.Update: 'Msg -> 'Model -> 'Model * Cmd<'Msg> = update
+
+        member this.Dispatch(msg: 'Msg) =
+            let model, cmd = this.Update msg this.Model
+
+            for sub in cmd do
+                sub this.Dispatch
+
+            let set () = writableModel.Set model
+
+            if Dispatcher.UIThread.CheckAccess() then
+                set ()
+            else
+                Dispatcher.UIThread.Post set
+
+
+    type IComponentContext with
+
+        member this.useElmish<'Model, 'Msg>(init: 'Model * Cmd<'Msg>, update) =
+            let initModel, initCmd = init
+            let writableModel = this.useState (initModel, true)
+            let state = ElmishState<'Model, 'Msg>(writableModel, update)
+
+            this.useEffect (
+                handler =
+                    (fun _ ->
+                        for initSub in initCmd do
+                            initSub state.Dispatch),
+                triggers = [ EffectTrigger.AfterInit ]
+            )
+
+            state
+
+
 let inline list fsCollection =
     fsCollection :> Collections.Generic.IEnumerable<'T>
 
@@ -198,31 +240,6 @@ let mediaPlayerControler model dispatch =
         StackPanel.orientation Orientation.Horizontal
         StackPanel.children [
             randomizeButton model dispatch
-            if model.State = Setting then
-                Button.create [
-                    Button.content "Play"
-                    notFunc Deferred.inProgress model.RandomizeState
-                    |> Button.isEnabled
-                    Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
-                ]
-
-                Button.create [
-                    Button.content "Pause"
-                    (isMediaResolved model.MainPlayer
-                     && notFunc Deferred.inProgress model.RandomizeState)
-                    |> Button.isEnabled
-                    Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
-                ]
-
-                Button.create [
-                    Button.content "Stop"
-                    (isMediaResolved model.MainPlayer
-                     && notFunc Deferred.inProgress model.RandomizeState)
-                    |> Button.isEnabled
-                    Button.onClick (fun _ ->
-                        PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
-                        PlayerMsg(SubPlayer, (Stop Started)) |> dispatch)
-                ]
         ]
     ]
 
@@ -362,36 +379,113 @@ let headerView model dispatch =
         ]
     ]
 
-let floatingContent model dispatch =
-    Panel.create [
-        Panel.children [
-            Rectangle.create [
-                Rectangle.classes [ "videoViewBlind" ]
-                match model with
-                | NotYet -> true
-                | _ -> false
-                |> Rectangle.isVisible
+let mainPlayerControler id mainPlayer randomizeInPregress dispatch =
+    Component.create (
+        id,
+        fun ctx ->
+            let mainPlayer = ctx.usePassedRead mainPlayer
+            let randomizeInPregress = ctx.usePassedRead randomizeInPregress
+
+            let notRandomizeInPregress = not randomizeInPregress.Current
+            let isMediaResolved = isMediaResolved mainPlayer.Current
+
+            StackPanel.create [
+                StackPanel.dock Dock.Bottom
+                StackPanel.horizontalAlignment HorizontalAlignment.Center
+                StackPanel.verticalAlignment VerticalAlignment.Bottom
+                StackPanel.orientation Orientation.Horizontal
+                StackPanel.children [
+                    Button.create [
+                        Button.content "Play"
+                        (notRandomizeInPregress) |> Button.isEnabled
+                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
+                    ]
+                    Button.create [
+                        Button.content "Pause"
+                        (isMediaResolved && notRandomizeInPregress)
+                        |> Button.isEnabled
+                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
+                    ]
+                    Button.create [
+                        Button.content "Stop"
+                        (isMediaResolved && notRandomizeInPregress)
+                        |> Button.isEnabled
+                        Button.onClick (fun _ ->
+                            PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
+                            PlayerMsg(SubPlayer, (Stop Started)) |> dispatch)
+                    ]
+                ]
             ]
-        ]
-    ]
+    )
 
-let mainPlayerView model dispatch =
-    VideoView.create [
+let floatingOnSetting id mainPlayer randomizeInPregress dispatch =
+    Component.create (
+        id,
+        fun ctx ->
+            DockPanel.create [
+                DockPanel.classes [
+                    "floatring-content"
+                ]
+                DockPanel.children [
+                    mainPlayerControler "controler" mainPlayer randomizeInPregress dispatch
+                ]
+            ]
+    )
 
-        match model.MainPlayer with
-        | Resolved mainPlayer ->
-            VideoView.mediaPlayer mainPlayer.Player
+let floatingOnOther id mainPlayer dispatch =
+    Component.create (
+        id,
+        fun ctx ->
+            let mainPlayer = ctx.usePassedRead mainPlayer
 
-            (Deferred.resolved mainPlayer.Media
-             && isNotInterval model.State
-             && isNotRandomizeInProgress model)
-            |> VideoView.isVideoVisible
-        | _ -> ()
+            DockPanel.create [
+                DockPanel.classes [
+                    "floatring-content"
+                ]
+                DockPanel.children []
+            ]
+    )
 
-        VideoView.hasFloating true
-        floatingContent model dispatch
-        |> VideoView.content
-    ]
+let mainPlayerView id model mainPlayer dispatch =
+    Component.create (
+        id,
+        fun ctx ->
+            let model = ctx.usePassedRead model
+            let mainPlayer = ctx.usePassedRead mainPlayer
+            let randomizeInPregress = ctx.useState false
+
+            ctx.useEffect (
+                handler =
+                    (fun _ ->
+                        match model.Current.RandomizeState with
+                        | InProgress ->
+                            if not randomizeInPregress.Current then
+                                randomizeInPregress.Set true
+                        | _ ->
+                            if randomizeInPregress.Current then
+                                randomizeInPregress.Set false),
+                triggers = [ EffectTrigger.AfterChange model ]
+            )
+
+            VideoView.create [
+
+                match mainPlayer.Current with
+                | Resolved mainPlayer ->
+                    VideoView.mediaPlayer mainPlayer.Player
+
+                    match mainPlayer.Media with
+                    | Resolved (Ok _) when not randomizeInPregress.Current -> true
+                    | _ -> false
+                    |> VideoView.isVideoVisible
+                | _ -> ()
+
+                VideoView.hasFloating true
+                match model.Current.State with
+                | Setting -> floatingOnSetting "floatring-content-setting" mainPlayer randomizeInPregress dispatch
+                | _ -> floatingOnOther "floatring-content-other" mainPlayer dispatch
+                |> VideoView.content
+            ]
+    )
 
 let toolWindow model dispatch =
     SubWindow.create [
@@ -422,11 +516,10 @@ let drawingProgressView model =
             "drawingProgress"
         ]
         match model.State with
-        | _  when Deferred.inProgress model.RandomizeState ->
+        | _ when Deferred.inProgress model.RandomizeState ->
             ProgressBar.foreground "LemonChiffon"
             ProgressBar.isIndeterminate true
-        | Setting ->
-            ProgressBar.value 0.0
+        | Setting -> ProgressBar.value 0.0
         | Interval i ->
             ProgressBar.foreground "LightBlue"
             progressValue interval i.Interval settings.Interval
@@ -435,13 +528,39 @@ let drawingProgressView model =
             progressValue duration r.Duration settings.Duration
     ]
 
-let view model dispatch =
-    DockPanel.create [
-        DockPanel.margin 8
-        DockPanel.children [
-            toolWindow model dispatch
-            headerView model dispatch
-            drawingProgressView model
-            mainPlayerView model dispatch
-        ]
-    ]
+let cmp init update =
+    Component(
+        (fun ctx ->
+            let state = ctx.useElmish (init, update)
+            let model = state.Model
+            let dispatch = state.Dispatch
+
+            let mainPlayer = ctx.useState model.MainPlayer
+            let isInterval = ctx.useState false
+
+            ctx.useEffect (
+                handler =
+                    (fun _ ->
+                        let currentRoot = state.WritableModel.Current
+
+                        if mainPlayer.Current <> currentRoot.MainPlayer then
+                            mainPlayer.Set currentRoot.MainPlayer
+
+                        match currentRoot.State with
+                        | Interval _ when not isInterval.Current -> isInterval.Set true
+                        | Setting when isInterval.Current -> isInterval.Set false
+                        | Running _ when isInterval.Current -> isInterval.Set false
+                        | _ -> ()),
+                triggers = [ EffectTrigger.AfterChange state.WritableModel ]
+            )
+
+            DockPanel.create [
+                DockPanel.margin 8
+                DockPanel.children [
+                    toolWindow model dispatch
+                    headerView model dispatch
+                    drawingProgressView model
+                    mainPlayerView "main-player" state.WritableModel mainPlayer dispatch
+                ]
+            ])
+    )

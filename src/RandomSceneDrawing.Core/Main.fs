@@ -275,6 +275,7 @@ type Cmds<'player>
             let! path' = resultDtoOr snapShotFolderPath path
             return! api.createSnapShotFolder path'
         }
+        |> TaskResult.tee (fun _ -> InfoMsg "Drawing Started." |> showInfomation)
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> Task.map (Finished >> StartDrawing)
         |> Cmd.OfTask.result
@@ -316,12 +317,12 @@ type Cmds<'player>
 
 let init player subPlayer onExitHandler =
     let initMainPlayer =
-        task { return (player >> Finished >> InitMainPlayer) () }
-        |> Cmd.OfTask.result
+        (player >> Finished >> InitMainPlayer) ()
+        |> Cmd.OfFunc.result
 
     let initSubPlayer =
-        task { return (subPlayer >> Finished >> InitSubPlayer) () }
-        |> Cmd.OfTask.result
+        (subPlayer >> Finished >> InitSubPlayer) ()
+        |> Cmd.OfFunc.result
 
     let onExit =
         fun dispatch ->
@@ -426,11 +427,9 @@ let update api settingsApi playerApi msg m =
     | StartDrawing Started when m.State = Setting -> m, cmds.StartDrawingCmd settings.SnapShotFolderPath
     | StartDrawing Started -> m, Cmd.none
     | StartDrawing (Finished (Error error)) ->
-        cmds.ShowInfomation(ErrorMsg error)
 
         { m with State = Setting }, Cmd.none
     | StartDrawing (Finished (Ok snapShotPathStr)) ->
-        InfoMsg "Drawing Started." |> cmds.ShowInfomation
         Model.initInterval m snapShotPathStr, cmds.Step()
     | StopDrawing when m.State = Setting -> m, Cmd.none
     | StopDrawing ->
