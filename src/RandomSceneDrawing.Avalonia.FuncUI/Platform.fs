@@ -88,7 +88,6 @@ let pickPlayListAsync window () =
 
 let pickSnapshotFolderAsync window () =
     task {
-
         let dialog =
             OpenFolderDialog(
                 Title = "Select SnapShot save root folder",
@@ -102,7 +101,16 @@ let pickSnapshotFolderAsync window () =
     }
 
 let settingsApi (window: MainWindow) : DrawingSettings.Api =
-    { pickPlayList = pickPlayListAsync window
+    { validateMediaInfo = fun info -> Ok info
+      parsePlayListFile =
+        fun _ ->
+            task {
+                return
+                    Ok [
+                        DrawingSettings.ValueTypes.RandomizeInfoDto.mock
+                    ]
+            }
+      pickPlayList = pickPlayListAsync window
       pickSnapshotFolder = pickSnapshotFolderAsync window
       showInfomation = showInfomationAsync window }
 

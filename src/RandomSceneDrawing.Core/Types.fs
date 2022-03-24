@@ -291,3 +291,5 @@ module Deferred =
         | HasNotStartedYet -> HasNotStartedYet
         | InProgress -> InProgress
         | Resolved value -> transform value
+
+type DeferredResult<'t, 'error> = Deferred<Result<'t, 'error>>

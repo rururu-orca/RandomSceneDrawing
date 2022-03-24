@@ -3,7 +3,33 @@ module RandomSceneDrawing.Tests.Utils
 open Expecto
 open Elmish
 
+
+/// 'msg -> 'model -> 'model * Cmd<'msg>
 type Update<'msg, 'model> = 'msg -> 'model -> 'model * Cmd<'msg>
+
+
+type MsgTestSetFunc<'ChildModel, 'ChildMsg, 'ChildApi, 'ParentModel, 'ParentMsg> =
+    string
+        -> 'ParentModel
+        -> ('ParentModel -> 'ChildModel -> 'ParentModel)
+        -> ('ChildMsg -> 'ParentMsg)
+        -> ('ChildApi -> Update<'ParentMsg, 'ParentModel>)
+        -> Test
+
+type MsgLabel<'Msg, 'MsgParam> = 'MsgParam -> 'Msg
+
+type ValidatedValueTestFunc<'Dto, 'ChildModel, 'ChildMsg, 'ChildApi, 'ParentModel, 'ParentMsg> =
+    string
+        -> 'ParentModel
+        -> ('ParentModel -> 'ChildModel -> 'ParentModel)
+        -> ('Dto -> 'ChildMsg)
+        -> ('ChildMsg -> 'ParentMsg)
+        -> ('ChildApi -> Update<'ParentMsg, 'ParentModel>)
+        -> 'Dto
+        -> 'Dto
+        -> ('ChildModel -> 'Dto -> 'ChildModel)
+        -> Test
+
 
 module Elmish =
     let foldMessages initialState msgs msgMapper (update: Update<'msg, 'model>) : 'model * Cmd<'msg> =
@@ -57,3 +83,7 @@ module Expect =
             |> Elmish.foldMessages initModel [ msg ] msgMapper
 
         Expect.equal actual expectedUpdatedModel testMessage
+
+
+
+// let createElmishTest

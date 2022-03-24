@@ -37,7 +37,7 @@ module ValueTypes =
     type MediaInfo = { Title: string; Duration: TimeSpan }
 
 
-    type TrinDuration = { Start: TimeSpan; End: TimeSpan }
+    type TrimDuration = { Start: TimeSpan; End: TimeSpan }
 
     let validateTrinDuration value =
         result {
@@ -53,37 +53,83 @@ module ValueTypes =
             return value
         }
 
-    type RandomizeInfoDto =
-        { MediaInfo: MediaInfo
-          Path: string
-          TrinDuration: TrinDuration }
+    type RandomizeInfoListDto = FSharp.Configuration.YamlConfig<"RandomizeInfoSample.yaml">
+    let randomizeInfoListDtoPath =
+        Path.Combine [|
+            AppDomain.CurrentDomain.BaseDirectory
+            "RandomizeInfoListDto.yaml"
+        |]
+    let randomizeInfoListDto = RandomizeInfoListDto()
+    randomizeInfoListDto.RandomizeInfoDto.Clear()
+    randomizeInfoListDto.Save randomizeInfoListDtoPath
+
+    type RandomizeInfoDto = RandomizeInfoListDto.RandomizeInfoDto_Item_Type
+    type MediaInfoDto = RandomizeInfoDto.MediaInfo_Type
+
+    module MediaInfoDto =
+        let toMediaInfo (dto: MediaInfoDto) =
+            { Title = dto.Title
+              Duration = dto.Duration }
+
+        let ofMediaInfo (info) =
+            MediaInfoDto(Title = info.Title, Duration = info.Duration)
+
+    type TrimDurationDto = RandomizeInfoDto.TrimDurations_Item_Type
+
+    module TrinDurationDto =
+        let toTrinDuration (dto: TrimDurationDto) = { Start = dto.Start; End = dto.End }
+
+        let ofTrimDuration dur =
+            TrimDurationDto(Start = dur.Start, End = dur.End)
+
+    module RandomizeInfoDto =
+        let mock = RandomizeInfoListDto().RandomizeInfoDto[0]
 
     type RandomizeInfo =
         private
             { MediaInfo: MediaInfo
               Path: string
-              TrinDuration: TrinDuration }
+              TrinDurations: TrimDuration list }
 
-    let randomizeInfo =
+    type ValidatedRandomizeInfo = Validated<RandomizeInfoDto, RandomizeInfo, string>
+
+    let initRandomizeInfoDomain validator =
         Domain<RandomizeInfoDto, RandomizeInfo, string>(
             (fun dto ->
-                { MediaInfo = dto.MediaInfo
+                { MediaInfo = MediaInfoDto.toMediaInfo dto.MediaInfo
                   Path = dto.Path
-                  TrinDuration = dto.TrinDuration }),
+                  TrinDurations =
+                    List.ofSeq dto.TrimDurations
+                    |> List.map TrinDurationDto.toTrinDuration }),
             (fun domain ->
-                { MediaInfo = domain.MediaInfo
-                  Path = domain.Path
-                  TrinDuration = domain.TrinDuration }),
+                let dto = RandomizeInfoDto()
+                dto.MediaInfo.Title <- domain.MediaInfo.Title
+                dto.MediaInfo.Duration <- domain.MediaInfo.Duration
+                dto.Path <- domain.Path
+
+                domain.TrinDurations
+                |> List.map TrinDurationDto.ofTrimDuration
+                |> List.iter dto.TrimDurations.Add
+
+                dto),
             (fun dto ->
                 result {
-                    let! _ = validateTrinDuration dto.TrinDuration
-                    let! _ = validatePathString File dto.Path
-                    return dto
+                    let! dto' = validator dto
+                    return dto'
                 })
         )
 
+
     module RandomizeInfo =
-        let tryGetMediaInfo (info: Validated<RandomizeInfoDto, _, _>) =
+        let mock =
+            let randomizeInfo = initRandomizeInfoDomain (fun info -> Ok info)
+            randomizeInfo.Create RandomizeInfoDto.mock
+
+
+        let tryGetMediaInfo
+            (randomizeInfo: Domain<RandomizeInfoDto, RandomizeInfo, _>)
+            (info: Validated<RandomizeInfoDto, _, _>)
+            =
             match info with
             | Valid v -> Ok (randomizeInfo.ToDto v).MediaInfo
             | Invalid (CreateFailed (dto, _)) -> Ok dto.MediaInfo
@@ -98,6 +144,7 @@ type Settings =
     { Frames: Validated<int, Frames, string>
       Duration: Validated<TimeSpan, Duration, string>
       Interval: Validated<TimeSpan, Interval, string>
+      RandomizeInfoList: list<ValidatedRandomizeInfo>
       PlayListFilePath: Validated<string, PlayListFilePath, string>
       SnapShotFolderPath: Validated<string, SnapShotFolderPath, string> }
 
@@ -105,6 +152,7 @@ type Settings =
         { Frames = frames.Create config.Frames
           Duration = duration.Create config.Duration
           Interval = interval.Create config.Interval
+          RandomizeInfoList = []
           PlayListFilePath = playListFilePath.Create config.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
 
@@ -130,13 +178,14 @@ module Settings =
         { Frames = frames.Create origin.Frames
           Duration = duration.Create origin.Duration
           Interval = interval.Create origin.Interval
+          RandomizeInfoList = []
           PlayListFilePath = playListFilePath.Create origin.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create origin.SnapShotFolderPath }
 
 type Model =
     { Settings: Settings
-      PickedPlayListPath: Deferred<Result<string, FilePickerError>>
-      PickedSnapShotFolderPath: Deferred<Result<string, FilePickerError>> }
+      PickedPlayListPath: DeferredResult<string, FilePickerError>
+      PickedSnapShotFolderPath: DeferredResult<string, FilePickerError> }
 
     member inline x.WithSettings([<InlineIfLambda>] f) = { x with Settings = f x.Settings }
 
@@ -160,13 +209,17 @@ type Msg =
     | ResetSettings
 
 type Api =
-    { pickPlayList: unit -> Task<Result<string, FilePickerError>>
+    { validateMediaInfo: RandomizeInfoDto -> Result<RandomizeInfoDto, string list>
+      parsePlayListFile: PlayListFilePath -> Task<Result<RandomizeInfoDto list, string>>
+      pickPlayList: unit -> Task<Result<string, FilePickerError>>
       pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>>
       showInfomation: NotifyMessage -> Task<unit> }
 
 module ApiMock =
     let api =
-        { pickPlayList = fun _ -> task { return Ok "Test" }
+        { validateMediaInfo = fun info -> Ok info
+          parsePlayListFile = fun _ -> task { return Ok [ RandomizeInfoDto.mock ] }
+          pickPlayList = fun _ -> task { return Ok "Test" }
           pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
           showInfomation = fun _ -> task { () } }
 
@@ -174,6 +227,8 @@ open Elmish
 open FsToolkit.ErrorHandling
 
 type Cmds(api: Api) =
+    let randomizeInfo = initRandomizeInfoDomain api.validateMediaInfo
+
     let showInfomation info =
         task { do! api.showInfomation info } |> ignore
 
@@ -213,7 +268,10 @@ let update api msg (m: Model) =
     | PickPlayList Started -> { m with PickedPlayListPath = InProgress }, cmds.PickPlayList()
     | PickPlayList (Finished (Ok x as result)) ->
         let m' =
-            fun (m: Settings) -> { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }
+            fun (m: Settings) ->
+                { m with
+                    PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x
+                    RandomizeInfoList = [RandomizeInfo.mock;RandomizeInfo.mock;RandomizeInfo.mock] }
             |> Model.withSettings { m with PickedPlayListPath = Resolved result }
 
         m', Cmd.none

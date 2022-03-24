@@ -40,6 +40,28 @@ let testUpdateValidatedValue testLabel model modelMapper msg msgMapper update va
               do! expectUpdate "should be changed." (msg invalid) expect []
           } ]
 
+// let testValidate: ValidatedValueTestFunc<'Dto, Model, Msg, Api, 'ParentModel, 'ParentMsg> =
+//     fun label parentModel modelMapper msgLabel msgMapper update valid invalid dtoMapper ->
+//         let model = Settings.Default() |> Model.create
+//         let state = modelMapper parentModel model
+
+//         let expectUpdate testMessage msgs expectModel expectMsgs =
+//             let update = update api
+//             Expect.elmishUpdate update testMessage state msgs msgMapper expectModel expectMsgs
+
+//         testList
+//             label
+//             [ testAsync "Set Valid" {
+//                   let expectModel = dtoMapper model valid |> modelMapper parentModel
+
+//                   do! expectUpdate "Should be Vaild" [ msgLabel valid ] expectModel []
+//               }
+//               testAsync "Set Invalid" {
+//                   let expectModel = dtoMapper model invalid |> modelMapper parentModel
+
+//                   do! expectUpdate "Should be Vaild" [ msgLabel invalid ] expectModel []
+//               } ]
+
 let testFileSystemPickerCommand testMessage model modelMapper msg msgMapper mapper update settingsMapper apiFunc =
     let expectUpdate testMessage init msg expectModel expectMsg =
         Expect.elmishUpdate update testMessage init msg msgMapper expectModel expectMsg
@@ -90,6 +112,36 @@ let testFileSystemPickerCommand testMessage model modelMapper msg msgMapper mapp
 
               do! expectUpdate "should be change" state [ msg' ] expect []
           } ]
+
+// let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
+//     fun label parentModel modelMapper msgMapper update ->
+
+//         let updateValidatedValueTest testLabel msg valid invalid mapper =
+//             let update = update api
+//             testUpdateValidatedValue testLabel parentModel modelMapper msg msgMapper update valid invalid mapper
+
+//         let testValidate testLabel msgLabel valid invalid dtoMapper =
+//             let dtoMapper' (m: Model) (dto: 'Dto) = dtoMapper dto |> m.WithSettings
+//             testValidate testLabel parentModel modelMapper msgLabel msgMapper update valid invalid dtoMapper'
+
+//         testList
+//             label
+//             [ updateValidatedValueTest "Model Frames" SetFrames 1 -1 (fun settings newValue ->
+//                   { settings with Frames = settings.Frames |> frames.Update newValue })
+
+//               testValidate "Model Frames" SetFrames 1 -1 (fun dto settings ->
+//                   { settings with Frames = settings.Frames |> frames.Update dto })
+
+//               updateValidatedValueTest
+//                   "Model Duration"
+//                   SetDuration
+//                   TimeSpan.Zero
+//                   (TimeSpan -1)
+//                   (fun settings newValue -> { settings with Duration = settings.Duration |> duration.Update newValue }) ]
+
+// [<Tests>]
+// let settingTest' =
+//     testSet "DrawingSettings" (Settings.Default() |> Model.create) (fun _ s -> s) id update
 
 let msgTestSet label model modelMapper msgMapper update =
     let update = update api

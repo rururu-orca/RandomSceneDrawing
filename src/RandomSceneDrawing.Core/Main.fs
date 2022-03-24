@@ -74,14 +74,6 @@ module ValueTypes =
         let mock =
             let mediaInfo = Player.ApiMock.mediaInfo
 
-            let info =
-                randomizeInfo.Create
-                    { MediaInfo = mediaInfo
-                      Path = ""
-                      TrinDuration =
-                        { Start = TimeSpan.Zero
-                          End = TimeSpan 1 } }
-
             { MainInfo = mediaInfo
               MainPath = ""
               SubInfo = mediaInfo
