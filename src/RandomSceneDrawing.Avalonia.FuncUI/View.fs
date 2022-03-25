@@ -523,25 +523,28 @@ let drawingProgressView model =
         (settings - current) / settings * 100.0
         |> ProgressBar.value
 
-    let settings = model.Settings.Settings
+    Component.create (
+        "drawing-progress",
+        fun ctx ->
+            let _, (state, randomizeState, settings) =
+                ctx.useMapRead model (fun m -> m.State, m.RandomizeState, m.Settings.Settings)
 
-    ProgressBar.create [
-        ProgressBar.dock Dock.Top
-        ProgressBar.classes [
-            "drawingProgress"
-        ]
-        match model.State with
-        | _ when Deferred.inProgress model.RandomizeState ->
-            ProgressBar.foreground "LemonChiffon"
-            ProgressBar.isIndeterminate true
-        | Setting -> ProgressBar.value 0.0
-        | Interval i ->
-            ProgressBar.foreground "LightBlue"
-            progressValue interval i.Interval settings.Interval
-        | Running r ->
-            ProgressBar.foreground "DodgerBlue"
-            progressValue duration r.Duration settings.Duration
-    ]
+            ctx.attrs [ Component.dock Dock.Top ]
+            ProgressBar.create [
+
+                match state with
+                | _ when Deferred.inProgress randomizeState ->
+                    ProgressBar.foreground Brushes.LemonChiffon
+                    ProgressBar.isIndeterminate true
+                | Setting -> ProgressBar.value 0.0
+                | Interval i ->
+                    ProgressBar.foreground Brushes.LightBlue
+                    progressValue interval i.Interval settings.Interval
+                | Running r ->
+                    ProgressBar.foreground Brushes.DodgerBlue
+                    progressValue duration r.Duration settings.Duration
+            ]
+    )
 
 let cmp init update =
     Component(
@@ -556,7 +559,7 @@ let cmp init update =
                 DockPanel.children [
                     toolWindow model dispatch
                     headerView model dispatch
-                    drawingProgressView model
+                    drawingProgressView readableModel
                     mainPlayerView "main-player" readableModel dispatch
                 ]
             ])
