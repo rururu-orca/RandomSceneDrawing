@@ -402,14 +402,9 @@ let mainPlayerControler id model dispatch =
         id,
         fun ctx ->
 
-            let _, current =
+            let _, (isMediaResolved, notRandomizeInPregress) =
                 ctx.useMapRead model (fun m ->
-                    {| isMediaResolved = isMediaResolved m.MainPlayer
-                       notRandomizeInPregress = notFunc Deferred.inProgress m.RandomizeState |})
-
-            let notRandomizeInPregress = current.notRandomizeInPregress
-
-            let isMediaResolved = current.isMediaResolved
+                    isMediaResolved m.MainPlayer, notFunc Deferred.inProgress m.RandomizeState)
 
             StackPanel.create [
                 StackPanel.dock Dock.Bottom
@@ -419,7 +414,7 @@ let mainPlayerControler id model dispatch =
                 StackPanel.children [
                     Button.create [
                         Button.content "Play"
-                        (notRandomizeInPregress) |> Button.isEnabled
+                        notRandomizeInPregress |> Button.isEnabled
                         Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
                     ]
                     Button.create [
@@ -479,21 +474,18 @@ let mainPlayerView id model dispatch =
         id,
         fun ctx ->
 
-            let _, current =
-                ctx.useMapRead model (fun m ->
-                    {| player = m.MainPlayer
-                       state = m.State
-                       randomizeState = m.RandomizeState |})
+            let _, (player, state, randomizeState) =
+                ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
             VideoView.create [
                 VideoView.minHeight config.MainPlayer.Height
                 VideoView.minWidth config.MainPlayer.Width
 
-                match current.player with
+                match player with
                 | Resolved mainPlayer ->
                     VideoView.mediaPlayer mainPlayer.Player
 
-                    match current.state, current.randomizeState, mainPlayer.Media with
+                    match state, randomizeState, mainPlayer.Media with
                     | Interval _, _, _ -> false
                     | _, InProgress, _ -> false
                     | _, _, Resolved (Ok _) -> true
@@ -503,7 +495,7 @@ let mainPlayerView id model dispatch =
                 | _ -> ()
 
                 VideoView.hasFloating true
-                match current.state with
+                match state with
                 | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
                 | _ -> floatingOnOther "floatring-content-other" model dispatch
                 |> VideoView.content
