@@ -5,6 +5,7 @@ open System
 open Avalonia.Controls
 open Avalonia.Controls.Shapes
 open Avalonia.Layout
+open Avalonia.Media
 
 open LibVLCSharp.Avalonia.FuncUI
 
@@ -49,6 +50,24 @@ module CustomHooks =
 
     type IComponentContext with
 
+        member inline this.useMap (x: IReadable<'t>) mapping =
+            let x = this.usePassedRead (x, false)
+            let y = (mapping >> this.useState) x.Current
+
+            this.useEffect (
+                (fun _ ->
+                    let state' = mapping x.Current
+
+                    if y.Current <> state' then y.Set state'),
+                [ EffectTrigger.AfterChange x ]
+            )
+
+            y, y.Current
+
+        member inline this.useMapRead (x: IReadable<'t>) mapping =
+            let y, current = this.useMap x mapping
+            y :> IReadable<_>, current
+
         member this.useElmish<'Model, 'Msg>(init: 'Model * Cmd<'Msg>, update) =
             let initModel, initCmd = init
             let writableModel = this.useState (initModel, true)
@@ -62,7 +81,8 @@ module CustomHooks =
                 triggers = [ EffectTrigger.AfterInit ]
             )
 
-            state
+            writableModel :> IReadable<'Model>, state.Model, state.Dispatch
+
 
 
 let inline list fsCollection =
@@ -377,15 +397,19 @@ let headerView model dispatch =
         ]
     ]
 
-let mainPlayerControler id mainPlayer randomizeInPregress dispatch =
+let mainPlayerControler id model dispatch =
     Component.create (
         id,
         fun ctx ->
-            let mainPlayer = ctx.usePassedRead mainPlayer
-            let randomizeInPregress = ctx.usePassedRead randomizeInPregress
 
-            let notRandomizeInPregress = not randomizeInPregress.Current
-            let isMediaResolved = isMediaResolved mainPlayer.Current
+            let _, current =
+                ctx.useMapRead model (fun m ->
+                    {| isMediaResolved = isMediaResolved m.MainPlayer
+                       notRandomizeInPregress = notFunc Deferred.inProgress m.RandomizeState |})
+
+            let notRandomizeInPregress = current.notRandomizeInPregress
+
+            let isMediaResolved = current.isMediaResolved
 
             StackPanel.create [
                 StackPanel.dock Dock.Bottom
@@ -416,7 +440,7 @@ let mainPlayerControler id mainPlayer randomizeInPregress dispatch =
             ]
     )
 
-let floatingOnSetting id mainPlayer randomizeInPregress dispatch =
+let floatingOnSetting id model dispatch =
     Component.create (
         id,
         fun ctx ->
@@ -425,72 +449,63 @@ let floatingOnSetting id mainPlayer randomizeInPregress dispatch =
                     "floatring-content"
                 ]
                 DockPanel.children [
-                    mainPlayerControler "controler" mainPlayer randomizeInPregress dispatch
+                    mainPlayerControler "controler" model dispatch
                 ]
             ]
     )
 
-let floatingOnOther id mainPlayer dispatch =
+let floatingOnOther id model dispatch =
     Component.create (
         id,
         fun ctx ->
-            let mainPlayer = ctx.usePassedRead mainPlayer
+            let model = ctx.usePassedRead (model, renderOnChange = false)
 
             DockPanel.create [
                 DockPanel.classes [
                     "floatring-content"
                 ]
-                DockPanel.children []
+                DockPanel.children [
+                    Rectangle.create [
+                        Rectangle.fill Brushes.DarkBlue
+                        Rectangle.width 200
+                        Rectangle.height 50
+                    ]
+                ]
             ]
     )
 
-let mainPlayerView id model mainPlayer dispatch =
+let mainPlayerView id model dispatch =
     Component.create (
         id,
         fun ctx ->
-            let model = ctx.usePassedRead model
-            let mainPlayer = ctx.usePassedRead mainPlayer
-            let randomizeInPregress = ctx.useState false
 
-            ctx.useEffect (
-                handler =
-                    (fun _ ->
-                        match model.Current.RandomizeState with
-                        | InProgress ->
-                            if not randomizeInPregress.Current then
-                                randomizeInPregress.Set true
-                        | _ ->
-                            if randomizeInPregress.Current then
-                                randomizeInPregress.Set false),
-                triggers = [ EffectTrigger.AfterChange model ]
-            )
-
-            let (|InInterval|MediaResolved|Other|) (state, media) =
-                match state, media with
-                | Interval _, _ -> InInterval
-                | _, Resolved (Ok _) when not randomizeInPregress.Current -> MediaResolved
-                | _ -> Other
+            let _, current =
+                ctx.useMapRead model (fun m ->
+                    {| player = m.MainPlayer
+                       state = m.State
+                       randomizeState = m.RandomizeState |})
 
             VideoView.create [
                 VideoView.minHeight config.MainPlayer.Height
                 VideoView.minWidth config.MainPlayer.Width
 
-                match mainPlayer.Current with
+                match current.player with
                 | Resolved mainPlayer ->
                     VideoView.mediaPlayer mainPlayer.Player
 
-                    match model.Current.State, mainPlayer.Media with
-                    | InInterval -> false
-                    | MediaResolved -> true
-                    | Other -> false
+                    match current.state, current.randomizeState, mainPlayer.Media with
+                    | Interval _, _, _ -> false
+                    | _, InProgress, _ -> false
+                    | _, _, Resolved (Ok _) -> true
+                    | _ -> false
                     |> VideoView.isVideoVisible
 
                 | _ -> ()
 
                 VideoView.hasFloating true
-                match model.Current.State with
-                | Setting -> floatingOnSetting "floatring-content-setting" mainPlayer randomizeInPregress dispatch
-                | _ -> floatingOnOther "floatring-content-other" mainPlayer dispatch
+                match current.state with
+                | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
+                | _ -> floatingOnOther "floatring-content-other" model dispatch
                 |> VideoView.content
             ]
     )
@@ -539,21 +554,7 @@ let drawingProgressView model =
 let cmp init update =
     Component(
         (fun ctx ->
-            let state = ctx.useElmish (init, update)
-            let model = state.Model
-            let dispatch = state.Dispatch
-
-            let mainPlayer = ctx.useState model.MainPlayer
-
-            ctx.useEffect (
-                handler =
-                    (fun _ ->
-                        let currentRoot = state.WritableModel.Current
-
-                        if mainPlayer.Current <> currentRoot.MainPlayer then
-                            mainPlayer.Set currentRoot.MainPlayer),
-                triggers = [ EffectTrigger.AfterChange state.WritableModel ]
-            )
+            let readableModel, model, dispatch = ctx.useElmish (init, update)
 
             ctx.attrs [
                 Component.margin config.RootComponent.Margin
@@ -564,7 +565,7 @@ let cmp init update =
                     toolWindow model dispatch
                     headerView model dispatch
                     drawingProgressView model
-                    mainPlayerView "main-player" state.WritableModel mainPlayer dispatch
+                    mainPlayerView "main-player" readableModel dispatch
                 ]
             ])
     )
