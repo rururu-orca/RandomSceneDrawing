@@ -155,27 +155,31 @@ let durationSecs =
       1800.0 ]
     |> List.map TimeSpan.FromSeconds
 
-let durationBox model dispatch =
-    let settings = model.Settings.Settings
+let durationBoxView model dispatch =
+    Component.create (
+        "durationBox-view",
+        fun ctx ->
 
-    let selected =
-        settings.Duration
-        |> duration.DefaultDto durationSecs[0]
+            let _, settings = ctx.useMapRead model (fun m -> m.Settings.Settings)
 
-    let template ts =
-        TextBlock.create [
-            TextBlock.text $"{ts}"
-        ]
+            let selected =
+                settings.Duration
+                |> duration.DefaultDto durationSecs[0]
 
-    ComboBox.create [
-        ComboBox.dataItems durationSecs
-        ComboBox.selectedItem selected
-        ComboBox.itemTemplate (DataTemplateView<TimeSpan>.create template)
-        ComboBox.onSelectedItemChanged (function
-            | :? TimeSpan as ts -> (SetDuration >> SettingsMsg) ts |> dispatch
-            | _ -> ())
-    ]
+            let template ts =
+                TextBlock.create [
+                    TextBlock.text $"{ts}"
+                ]
 
+            ComboBox.create [
+                ComboBox.dataItems durationSecs
+                ComboBox.selectedItem selected
+                ComboBox.itemTemplate (DataTemplateView<TimeSpan>.create template)
+                ComboBox.onSelectedItemChanged (function
+                    | :? TimeSpan as ts -> (SetDuration >> SettingsMsg) ts |> dispatch
+                    | _ -> ())
+            ]
+    )
 
 let framesSettingView model dispatch =
     let settings = model.Settings.Settings
@@ -216,7 +220,7 @@ let headerTopItemsView model dispatch =
                     drawingSwtchBotton model.Current dispatch
                     match state with
                     | Setting ->
-                        durationBox model.Current dispatch
+                        durationBoxView model dispatch
                         framesSettingView model.Current dispatch
                     | Interval s ->
                         framesText s.Frames
