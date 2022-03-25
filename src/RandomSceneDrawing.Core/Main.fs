@@ -349,17 +349,27 @@ let update api settingsApi playerApi msg m =
     | PlayerMsg (MainPlayer, msg) ->
         match m.MainPlayer with
         | Resolved mainPlayer ->
+            let m' =
+                match msg with
+                | Player.Msg.Stop (Finished (Ok _)) -> { m with RandomizeState = HasNotStartedYet }
+                | _ -> m
+
             let mainPlayer', cmd' = playerUpdate msg mainPlayer
 
-            { m with MainPlayer = Resolved mainPlayer' }, Cmd.map ((fun m -> MainPlayer, m) >> PlayerMsg) cmd'
+            { m' with MainPlayer = Resolved mainPlayer' }, Cmd.map ((fun msg -> MainPlayer, msg) >> PlayerMsg) cmd'
         | _ -> m, Cmd.none
 
     | PlayerMsg (SubPlayer, msg) ->
         match m.SubPlayer with
         | Resolved subPlayer ->
+            let m' =
+                match msg with
+                | Player.Msg.Stop (Finished (Ok _)) -> { m with RandomizeState = HasNotStartedYet }
+                | _ -> m
+
             let player', cmd' = playerUpdate msg subPlayer
 
-            { m with SubPlayer = Resolved player' }, Cmd.map ((fun m -> SubPlayer, m) >> PlayerMsg) cmd'
+            { m' with SubPlayer = Resolved player' }, Cmd.map ((fun msg -> SubPlayer, msg) >> PlayerMsg) cmd'
         | _ -> m, Cmd.none
 
     | SettingsMsg msg when m.State = Setting ->
@@ -421,8 +431,7 @@ let update api settingsApi playerApi msg m =
     | StartDrawing (Finished (Error error)) ->
 
         { m with State = Setting }, Cmd.none
-    | StartDrawing (Finished (Ok snapShotPathStr)) ->
-        Model.initInterval m snapShotPathStr, cmds.Step()
+    | StartDrawing (Finished (Ok snapShotPathStr)) -> Model.initInterval m snapShotPathStr, cmds.Step()
     | StopDrawing when m.State = Setting -> m, Cmd.none
     | StopDrawing ->
         InfoMsg "Drawing Stoped." |> cmds.ShowInfomation

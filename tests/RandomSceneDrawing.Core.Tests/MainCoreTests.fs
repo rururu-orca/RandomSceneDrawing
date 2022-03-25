@@ -137,6 +137,26 @@ let testRandomize =
 
               let expectMsg = []
               do! expectWhenOkApi stateInprogress msg expectModel expectMsg
+          }
+
+          testAsync "After Player Stopped, Randomize to HasNotStartedYet" {
+
+              let stateInprogress =
+                  { stateSetting with RandomizeState = (Ok >> Resolved) ValueTypes.RandomizeResult.mock }
+
+              let msg =
+                  [ PlayerMsg(
+                        MainPlayer,
+                        (Ok
+                         >> Finished
+                         >> RandomSceneDrawing.Player.Msg.Stop)
+                            ()
+                    ) ]
+
+              let expectModel = stateSetting
+
+              let expectMsg = []
+              do! expectWhenOkApi stateInprogress msg expectModel expectMsg
           } ]
 
 
