@@ -270,24 +270,28 @@ let subPlayerView model =
             ]
     )
 
-let randomizeButton model dispatch =
-    let settings = model.Settings.Settings
+let randomizeButtonView model dispatch =
+    Component.create (
+        "randomizeButton-view",
+        fun ctx ->
+            let _, (randomizeState, settings) =
+                ctx.useMapRead model (fun m -> m.RandomizeState, m.Settings.Settings)
 
-    Button.create [
-        Button.content "🔀 Show Random 🔀"
-        (playListFilePath.IsValid settings.PlayListFilePath
-         && notFunc Deferred.inProgress model.RandomizeState)
-        |> Button.isEnabled
-        Button.onClick (fun _ -> Randomize Started |> dispatch)
-    ]
-
+            Button.create [
+                Button.content "🔀 Show Random 🔀"
+                (playListFilePath.IsValid settings.PlayListFilePath
+                 && notFunc Deferred.inProgress randomizeState)
+                |> Button.isEnabled
+                Button.onClick (fun _ -> Randomize Started |> dispatch)
+            ]
+    )
 
 let mediaPlayerControler model dispatch =
 
     StackPanel.create [
         StackPanel.orientation Orientation.Horizontal
         StackPanel.children [
-            randomizeButton model dispatch
+            randomizeButtonView model dispatch
         ]
     ]
 
@@ -438,7 +442,7 @@ let headerView model dispatch =
                         StackPanel.dock Dock.Left
                         StackPanel.children [
                             headerTopItemsView model dispatch
-                            mediaPlayerControler model.Current dispatch
+                            mediaPlayerControler model dispatch
                         ]
                     ]
                     mediaInfoView model.Current
@@ -554,17 +558,24 @@ let mainPlayerView id model dispatch =
     )
 
 let toolWindow model dispatch =
-    SubWindow.create [
-        model.State <> Setting |> SubWindow.isVisible
-        SubWindow.content (
-            Panel.create [
-                Panel.margin 16
-                Panel.children [
-                    randomizeButton model dispatch
-                ]
+    Component.create (
+        "toolWindow-view",
+        fun ctx ->
+
+            let _, state = ctx.useMapRead model (fun m -> m.State)
+
+            SubWindow.create [
+                state <> Setting |> SubWindow.isVisible
+                SubWindow.content (
+                    Panel.create [
+                        Panel.margin 16
+                        Panel.children [
+                            randomizeButtonView model dispatch
+                        ]
+                    ]
+                )
             ]
-        )
-    ]
+    )
 
 let drawingProgressView model =
     let progressValue (domain: Domain<TimeSpan, _, _>) current setting =
@@ -609,7 +620,7 @@ let cmp init update =
 
             DockPanel.create [
                 DockPanel.children [
-                    toolWindow model dispatch
+                    toolWindow readableModel dispatch
                     headerView readableModel dispatch
                     drawingProgressView readableModel
                     mainPlayerView "main-player" readableModel dispatch
