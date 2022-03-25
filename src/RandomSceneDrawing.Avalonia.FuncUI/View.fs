@@ -123,23 +123,29 @@ let validatedTextBox (domain: Domain<string, _, _>) value addAttrs dispatchSetVa
         TextBox.onTextChanged dispatchSetValueMsg
     ]
 
-let drawingSwtchBotton model dispatch =
-    Button.create [
-        let s = model.Settings.Settings
+let drawingSwtchBottonView model dispatch =
+    Component.create (
+        "drawingSwtchBotton-view",
+        fun ctx ->
+            let _, (state, settings) =
+                ctx.useMapRead model (fun m -> m.State, m.Settings.Settings)
 
-        match model.State with
-        | Setting ->
-            Button.content "⏲ Start Drawing"
-            Button.onClick (fun _ -> StartDrawing Started |> dispatch)
+            Button.create [
 
-            match s.PlayListFilePath, s.SnapShotFolderPath with
-            | Valid _, Valid _ -> true
-            | _ -> false
-            |> Button.isEnabled
-        | _ ->
-            Button.content "Stop Drawing"
-            Button.onClick (fun _ -> StopDrawing |> dispatch)
-    ]
+                match state with
+                | Setting ->
+                    Button.content "⏲ Start Drawing"
+                    Button.onClick (fun _ -> StartDrawing Started |> dispatch)
+
+                    match settings.PlayListFilePath, settings.SnapShotFolderPath with
+                    | Valid _, Valid _ -> true
+                    | _ -> false
+                    |> Button.isEnabled
+                | _ ->
+                    Button.content "Stop Drawing"
+                    Button.onClick (fun _ -> StopDrawing |> dispatch)
+            ]
+    )
 
 let durationSecs =
     [ 10.0
@@ -222,7 +228,7 @@ let headerTopItemsView model dispatch =
             StackPanel.create [
                 StackPanel.orientation Orientation.Horizontal
                 StackPanel.children [
-                    drawingSwtchBotton model.Current dispatch
+                    drawingSwtchBottonView model dispatch
                     match state with
                     | Setting ->
                         durationBoxView model dispatch
