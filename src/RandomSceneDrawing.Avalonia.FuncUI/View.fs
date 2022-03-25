@@ -186,60 +186,74 @@ let framesSettingView model dispatch =
         NumericUpDown.onValueChanged (int >> SetFrames >> SettingsMsg >> dispatch)
     ]
 
-let headerTopItems model dispatch =
-    let framesText current =
-        let setting = model.Settings.Settings.Frames
+let headerTopItemsView model dispatch =
+    Component.create (
+        "headerTopItems-view",
+        fun ctx ->
+            let _, (state, randomizeState, settings) =
+                ctx.useMapRead model (fun m -> m.State, m.RandomizeState, m.Settings.Settings)
 
-        TextBlock.create [
-            TextBlock.width 100.0
-            TextBlock.text $"%i{frames.Dto current} / {frames.Dto setting}"
-        ]
+            let framesText current =
+                let setting = settings.Frames
 
-    let timeText (ts: TimeSpan) =
-        TextBlock.create [
-            if notFunc Deferred.inProgress model.RandomizeState then
-                ts.ToString @"hh\:mm\:ss" |> TextBlock.text
-            else
-                TextBlock.text "Media Loading..."
-        ]
+                TextBlock.create [
+                    TextBlock.width 100.0
+                    TextBlock.text $"%i{frames.Dto current} / {frames.Dto setting}"
+                ]
 
-    StackPanel.create [
-        StackPanel.orientation Orientation.Horizontal
-        StackPanel.children [
-            drawingSwtchBotton model dispatch
-            match model.State with
-            | Setting ->
-                durationBox model dispatch
-                framesSettingView model dispatch
-            | Interval s ->
-                framesText s.Frames
-                interval.Dto s.Interval |> timeText
-            | Running s ->
-                framesText s.Frames
-                duration.Dto s.Duration |> timeText
-        ]
-    ]
+            let timeText (ts: TimeSpan) =
+                TextBlock.create [
+                    if notFunc Deferred.inProgress randomizeState then
+                        ts.ToString @"hh\:mm\:ss" |> TextBlock.text
+                    else
+                        TextBlock.text "Media Loading..."
+                ]
+
+
+            StackPanel.create [
+                StackPanel.orientation Orientation.Horizontal
+                StackPanel.children [
+                    drawingSwtchBotton model.Current dispatch
+                    match state with
+                    | Setting ->
+                        durationBox model.Current dispatch
+                        framesSettingView model.Current dispatch
+                    | Interval s ->
+                        framesText s.Frames
+                        interval.Dto s.Interval |> timeText
+                    | Running s ->
+                        framesText s.Frames
+                        duration.Dto s.Duration |> timeText
+                ]
+            ]
+    )
 
 let subPlayerView model =
-    VideoView.create [
-        VideoView.height config.SubPlayer.Height
-        VideoView.width config.SubPlayer.Width
-        VideoView.margin (4, 4, 0, 4)
-        VideoView.dock Dock.Right
-        VideoView.verticalAlignment VerticalAlignment.Top
-        VideoView.horizontalAlignment HorizontalAlignment.Right
-        match model.SubPlayer with
-        | Resolved player ->
-            VideoView.mediaPlayer player.Player
+    Component.create (
+        "subPlayer-view",
+        fun ctx ->
+            let _, (player, state, randomizeState) =
+                ctx.useMapRead model (fun m -> m.SubPlayer, m.State, m.RandomizeState)
 
-            (Deferred.resolved player.Media
-             && isNotInterval model.State
-             && isNotRandomizeInProgress model)
-            |> VideoView.isVideoVisible
-        | _ -> ()
-        if Deferred.inProgress model.RandomizeState then
-            VideoView.content (ProgressBar.create [])
-    ]
+            ctx.attrs [ Component.dock Dock.Right ]
+
+            VideoView.create [
+                VideoView.height config.SubPlayer.Height
+                VideoView.width config.SubPlayer.Width
+                VideoView.margin (4, 4, 0, 4)
+                VideoView.verticalAlignment VerticalAlignment.Top
+                VideoView.horizontalAlignment HorizontalAlignment.Right
+                match player with
+                | Resolved player ->
+                    VideoView.mediaPlayer player.Player
+
+                    (Deferred.resolved player.Media
+                     && isNotInterval state
+                     && notFunc Deferred.inProgress randomizeState)
+                    |> VideoView.isVideoVisible
+                | _ -> ()
+            ]
+    )
 
 let randomizeButton model dispatch =
     let settings = model.Settings.Settings
@@ -288,29 +302,42 @@ let pathSelectorView domain value (buttonText: string) buttonCallback dispatchSe
     ]
 
 let playListFilePathView model dispatch =
-    let value = model.Settings.Settings.PlayListFilePath
+    Component.create (
+        "playListFilePath-View",
+        fun ctx ->
 
-    let buttonCallback _ =
-        (PickPlayList >> SettingsMsg) Started |> dispatch
+            let _, value = ctx.useMapRead model (fun m -> m.Settings.Settings.PlayListFilePath)
 
-    let dispatchSetValueMsg s =
-        (SetPlayListFilePath >> SettingsMsg) s |> dispatch
+            let buttonCallback _ =
+                (PickPlayList >> SettingsMsg) Started |> dispatch
 
-    pathSelectorView playListFilePath value "PlayList" buttonCallback dispatchSetValueMsg [ Grid.column 0 ]
+            let dispatchSetValueMsg s =
+                (SetPlayListFilePath >> SettingsMsg) s |> dispatch
 
+            ctx.attrs [ Grid.column 0 ]
+            pathSelectorView playListFilePath value "PlayList" buttonCallback dispatchSetValueMsg []
+    )
 
 let snapShotFolderPathView model dispatch =
-    let value = model.Settings.Settings.SnapShotFolderPath
+    Component.create (
+        "snapShotFolderPath-View",
+        fun ctx ->
+            let _, value =
+                ctx.useMapRead model (fun m -> m.Settings.Settings.SnapShotFolderPath)
 
-    let buttonCallback _ =
-        (PickSnapshotFolder >> SettingsMsg) Started
-        |> dispatch
+            let buttonCallback _ =
+                (PickSnapshotFolder >> SettingsMsg) Started
+                |> dispatch
 
-    let dispatchSetValueMsg s =
-        (SetSnapShotFolderPath >> SettingsMsg) s
-        |> dispatch
+            let dispatchSetValueMsg s =
+                (SetSnapShotFolderPath >> SettingsMsg) s
+                |> dispatch
 
-    pathSelectorView snapShotFolderPath value "SnapShotFolder" buttonCallback dispatchSetValueMsg [ Grid.column 1 ]
+            ctx.attrs [ Grid.column 1 ]
+
+            pathSelectorView snapShotFolderPath value "SnapShotFolder" buttonCallback dispatchSetValueMsg []
+    )
+
 
 let pathSettings model dispatch =
     Grid.create [
@@ -380,22 +407,31 @@ let mediaInfoView (model: Model<LibVLCSharp.MediaPlayer>) =
         ]
 
 let headerView model dispatch =
-    DockPanel.create [
-        DockPanel.dock Dock.Top
-        DockPanel.children [
-            subPlayerView model
-            if model.State = Setting then
-                pathSettings model dispatch
-            StackPanel.create [
-                StackPanel.dock Dock.Left
-                StackPanel.children [
-                    headerTopItems model dispatch
-                    mediaPlayerControler model dispatch
+    Component.create (
+        "header-view",
+        fun ctx ->
+            let _, isSetting = ctx.useMapRead model (fun m -> m.State = Setting)
+
+            ctx.attrs[Component.dock Dock.Top]
+
+            DockPanel.create [
+                DockPanel.children [
+                    subPlayerView model
+                    if isSetting then
+                        pathSettings model dispatch
+                    StackPanel.create [
+                        StackPanel.dock Dock.Left
+                        StackPanel.children [
+                            headerTopItemsView model dispatch
+                            mediaPlayerControler model.Current dispatch
+                        ]
+                    ]
+                    mediaInfoView model.Current
                 ]
             ]
-            mediaInfoView model
-        ]
-    ]
+
+    )
+
 
 let mainPlayerControler id model dispatch =
     Component.create (
@@ -530,6 +566,7 @@ let drawingProgressView model =
                 ctx.useMapRead model (fun m -> m.State, m.RandomizeState, m.Settings.Settings)
 
             ctx.attrs [ Component.dock Dock.Top ]
+
             ProgressBar.create [
 
                 match state with
@@ -558,7 +595,7 @@ let cmp init update =
             DockPanel.create [
                 DockPanel.children [
                     toolWindow model dispatch
-                    headerView model dispatch
+                    headerView readableModel dispatch
                     drawingProgressView readableModel
                     mainPlayerView "main-player" readableModel dispatch
                 ]
