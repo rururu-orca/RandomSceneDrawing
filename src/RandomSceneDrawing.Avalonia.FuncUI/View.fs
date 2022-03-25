@@ -369,34 +369,44 @@ let pathSettings model dispatch =
         ]
     ]
 
-let (|RandomizeResolved|PlayResolved|NotYet|) model =
-    match model.RandomizeState, model.MainPlayer, model.SubPlayer with
-    | Resolved (Ok rs), Resolved main, Resolved sub ->
-        match main.Media, sub.Media with
-        | Resolved (Ok mainInfo), Resolved (Ok subInfo) -> RandomizeResolved(rs, main, mainInfo, sub, subInfo)
-        | _ -> NotYet
-    | _, Resolved main, _ when model.RandomizeState <> InProgress ->
-        match main.Media with
-        | Resolved (Ok mainInfo) -> PlayResolved(main, mainInfo)
-        | _ -> NotYet
-    | _ -> NotYet
+let (|MediaResolved|_|) player =
+    match player with
+    | Resolved player ->
+        match player.Media with
+        | Resolved (Ok mediaInfo) -> Some(player, mediaInfo)
+        | _ -> None
+    | _ -> None
 
-let mediaInfoView (model: Model<LibVLCSharp.MediaPlayer>) =
+
+let mediaInfoView (model: IReadable<Model<LibVLCSharp.MediaPlayer>>) =
     let timeSpanText (ts: TimeSpan) = ts.ToString "hh\:mm\:ss\.ff"
 
-    if model.RandomizeState = InProgress then
-        TextBlock.create [
-            TextBlock.horizontalAlignment HorizontalAlignment.Stretch
-            TextBlock.verticalAlignment VerticalAlignment.Center
-            TextBlock.text "RandomizeState InProgress..."
+    let toStackPanel children =
+        StackPanel.create [
+            StackPanel.children [
+                yield! Seq.cast children
+            ]
         ]
         :> IView
-    else
-        StackPanel.create [
-            StackPanel.dock Dock.Right
-            StackPanel.children [
-                match model with
-                | RandomizeResolved (rs, main, mainInfo, sub, subInfo) ->
+
+    Component.create (
+        "mediaInfo-view",
+        fun ctx ->
+            let _, (randomizeState, main, sub) =
+                ctx.useMapRead model (fun m -> m.RandomizeState, m.MainPlayer, m.SubPlayer)
+
+            ctx.attrs[Component.dock Dock.Right]
+
+            match randomizeState, main, sub with
+            | InProgress, _, _ ->
+                TextBlock.create [
+                    TextBlock.horizontalAlignment HorizontalAlignment.Center
+                    TextBlock.verticalAlignment VerticalAlignment.Center
+                    TextBlock.text "RandomizeState InProgress..."
+                ]
+                :> IView
+            | Resolved (Ok rs), MediaResolved (main, mainInfo), MediaResolved (sub, subInfo) ->
+                seq {
                     TextBlock.create [
                         TextBlock.text mainInfo.Title
                     ]
@@ -417,13 +427,15 @@ let mediaInfoView (model: Model<LibVLCSharp.MediaPlayer>) =
 
                         TextBlock.text $"{startTime} ~ {endTime}"
                     ]
-                | PlayResolved (main, mainInfo) ->
-                    TextBlock.create [
-                        TextBlock.text mainInfo.Title
-                    ]
-                | NotYet -> ()
-            ]
-        ]
+                }
+                |> toStackPanel
+
+            | _, MediaResolved (main, mainInfo), _ ->
+                TextBlock.create [
+                    TextBlock.text mainInfo.Title
+                ]
+            | _ -> Panel.create []
+    )
 
 let headerView model dispatch =
     Component.create (
@@ -445,7 +457,7 @@ let headerView model dispatch =
                             mediaPlayerControler model dispatch
                         ]
                     ]
-                    mediaInfoView model.Current
+                    mediaInfoView model
                 ]
             ]
 
