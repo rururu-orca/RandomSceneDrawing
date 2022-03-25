@@ -182,13 +182,18 @@ let durationBoxView model dispatch =
     )
 
 let framesSettingView model dispatch =
-    let settings = model.Settings.Settings
+    Component.create (
+        "framesSetting-view",
+        fun ctx ->
 
-    NumericUpDown.create [
-        NumericUpDown.minimum 1.0
-        frames.Dto settings.Frames |> NumericUpDown.value
-        NumericUpDown.onValueChanged (int >> SetFrames >> SettingsMsg >> dispatch)
-    ]
+            let _, settings = ctx.useMapRead model (fun m -> m.Settings.Settings)
+
+            NumericUpDown.create [
+                NumericUpDown.minimum 1.0
+                frames.Dto settings.Frames |> NumericUpDown.value
+                NumericUpDown.onValueChanged (int >> SetFrames >> SettingsMsg >> dispatch)
+            ]
+    )
 
 let headerTopItemsView model dispatch =
     Component.create (
@@ -221,7 +226,7 @@ let headerTopItemsView model dispatch =
                     match state with
                     | Setting ->
                         durationBoxView model dispatch
-                        framesSettingView model.Current dispatch
+                        framesSettingView model dispatch
                     | Interval s ->
                         framesText s.Frames
                         interval.Dto s.Interval |> timeText
