@@ -271,7 +271,7 @@ let update api msg (m: Model) =
             fun (m: Settings) ->
                 { m with
                     PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x
-                    RandomizeInfoList = [RandomizeInfo.mock;RandomizeInfo.mock;RandomizeInfo.mock] }
+                    RandomizeInfoList = [] }
             |> Model.withSettings { m with PickedPlayListPath = Resolved result }
 
         m', Cmd.none
