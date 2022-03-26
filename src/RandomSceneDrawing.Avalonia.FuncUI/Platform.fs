@@ -8,6 +8,7 @@ open type System.Environment
 
 open Avalonia.Controls
 open Avalonia.Controls.Notifications
+open Avalonia.Threading
 
 open Avalonia.FuncUI.DSL
 
@@ -22,7 +23,7 @@ open RandomSceneDrawing.Types
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
 let showInfomationAsync (window: MainWindow) msg =
-    task {
+    fun _ ->
         match msg with
         | InfoMsg info ->
             Notification("Info", info, NotificationType.Information)
@@ -30,7 +31,7 @@ let showInfomationAsync (window: MainWindow) msg =
         | ErrorMsg err ->
             Notification("Error!!", err, NotificationType.Error)
             |> window.NotificationManager.Show
-    }
+    |> Dispatcher.UIThread.InvokeAsync
 
 open Player
 

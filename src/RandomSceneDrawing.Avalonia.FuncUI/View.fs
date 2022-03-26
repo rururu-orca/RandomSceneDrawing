@@ -12,7 +12,6 @@ open LibVLCSharp.Avalonia.FuncUI
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
-open Avalonia.Threading
 
 open FsToolkit.ErrorHandling
 
@@ -40,13 +39,8 @@ module CustomHooks =
 
             for sub in cmd do
                 sub this.Dispatch
-
-            if Dispatcher.UIThread.CheckAccess() then
-                writableModel.Set model
-            else
-                fun _ -> writableModel.Set model
-                |> Dispatcher.UIThread.Post
-
+            
+            writableModel.Set model
 
     type IComponentContext with
 
