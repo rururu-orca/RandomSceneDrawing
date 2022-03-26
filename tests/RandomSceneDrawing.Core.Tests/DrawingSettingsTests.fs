@@ -190,14 +190,16 @@ let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
 
               let currentDefaultSettingModel () = Settings.Default() |> Model.create
 
+              let resetModel () =
+                  Settings.reset ()
+                  |> (fun s ->
+                      Settings.save s
+                      s)
+                  |> Model.create
+
               testAsync "Save and Reset Settings" {
 
-                  let defaultSetting =
-                      Settings.reset ()
-                      |> (fun s ->
-                          Settings.save s
-                          s)
-                      |> Model.create
+                  let defaultSetting = resetModel ()
 
                   let init = modelMapper parentModel defaultSetting
 
@@ -213,12 +215,7 @@ let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
 
                   Expect.equal actualSetting expectSettings.Settings "Should be Equal"
 
-                  let resetSetting =
-                      Settings.reset ()
-                      |> (fun s ->
-                          Settings.save s
-                          s)
-                      |> Model.create
+                  let resetSetting = resetModel ()
 
                   Expect.equal resetSetting defaultSetting "Should be Equal"
                   Expect.notEqual resetSetting expectSettings "Should be Not Equal"
