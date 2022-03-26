@@ -72,7 +72,7 @@ let updateSettings settingsApi =
     update apiOk settingsApi RandomSceneDrawing.Player.ApiMock.apiOk
 
 let settingTest =
-    DrawingSettings.msgTestSet
+    DrawingSettings.testSet
         "Model.Settings"
         init
         (fun model state -> { model with Settings = state })

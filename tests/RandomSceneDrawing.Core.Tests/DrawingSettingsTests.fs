@@ -40,27 +40,28 @@ let testUpdateValidatedValue testLabel model modelMapper msg msgMapper update va
               do! expectUpdate "should be changed." (msg invalid) expect []
           } ]
 
-// let testValidate: ValidatedValueTestFunc<'Dto, Model, Msg, Api, 'ParentModel, 'ParentMsg> =
-//     fun label parentModel modelMapper msgLabel msgMapper update valid invalid dtoMapper ->
-//         let model = Settings.Default() |> Model.create
-//         let state = modelMapper parentModel model
+let testValidate: ValidatedValueTestFunc<'Dto, Model, Msg, Api, 'ParentModel, 'ParentMsg> =
+    fun parentModel modelMapper msgMapper update label msgLabel valid invalid dtoMapper ->
+        let model = Settings.Default() |> Model.create
+        let state = modelMapper parentModel model
 
-//         let expectUpdate testMessage msgs expectModel expectMsgs =
-//             let update = update api
-//             Expect.elmishUpdate update testMessage state msgs msgMapper expectModel expectMsgs
+        let expectUpdate testMessage msgs expectModel expectMsgs =
+            let update = update api
+            Expect.elmishUpdate update testMessage state msgs msgMapper expectModel expectMsgs
 
-//         testList
-//             label
-//             [ testAsync "Set Valid" {
-//                   let expectModel = dtoMapper model valid |> modelMapper parentModel
+        testList
+            label
+            [ testAsync "Set Valid" {
+                  let expectModel = dtoMapper model valid |> modelMapper parentModel
 
-//                   do! expectUpdate "Should be Vaild" [ msgLabel valid ] expectModel []
-//               }
-//               testAsync "Set Invalid" {
-//                   let expectModel = dtoMapper model invalid |> modelMapper parentModel
+                  do! expectUpdate "Should be Vaild" [ msgLabel valid ] expectModel []
+              }
+              testAsync "Set Invalid" {
+                  let expectModel = dtoMapper model invalid |> modelMapper parentModel
 
-//                   do! expectUpdate "Should be Vaild" [ msgLabel invalid ] expectModel []
-//               } ]
+                  do! expectUpdate "Should be Vaild" [ msgLabel invalid ] expectModel []
+              } ]
+
 
 let testFileSystemPickerCommand testMessage model modelMapper msg msgMapper mapper update settingsMapper apiFunc =
     let expectUpdate testMessage init msg expectModel expectMsg =
@@ -113,131 +114,116 @@ let testFileSystemPickerCommand testMessage model modelMapper msg msgMapper mapp
               do! expectUpdate "should be change" state [ msg' ] expect []
           } ]
 
-// let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
-//     fun label parentModel modelMapper msgMapper update ->
+let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
+    fun label parentModel modelMapper msgMapper update ->
+        let tempFilePath = IO.Path.GetTempFileName()
+        let tempFolderPath = IO.Path.GetTempPath()
 
-//         let updateValidatedValueTest testLabel msg valid invalid mapper =
-//             let update = update api
-//             testUpdateValidatedValue testLabel parentModel modelMapper msg msgMapper update valid invalid mapper
+        use _ =
+            { new IDisposable with
+                member _.Dispose() = IO.File.Delete tempFilePath }
 
-//         let testValidate testLabel msgLabel valid invalid dtoMapper =
-//             let dtoMapper' (m: Model) (dto: 'Dto) = dtoMapper dto |> m.WithSettings
-//             testValidate testLabel parentModel modelMapper msgLabel msgMapper update valid invalid dtoMapper'
 
-//         testList
-//             label
-//             [ updateValidatedValueTest "Model Frames" SetFrames 1 -1 (fun settings newValue ->
-//                   { settings with Frames = settings.Frames |> frames.Update newValue })
+        let testValidate label msgLabel valid invalid dtoMapper =
+            let testValidate' = testValidate parentModel modelMapper msgMapper update
+            let dtoMapper' (m: Model) (dto: 'Dto) = dtoMapper dto |> m.WithSettings
 
-//               testValidate "Model Frames" SetFrames 1 -1 (fun dto settings ->
-//                   { settings with Frames = settings.Frames |> frames.Update dto })
+            testValidate' label msgLabel valid invalid dtoMapper'
 
-//               updateValidatedValueTest
-//                   "Model Duration"
-//                   SetDuration
-//                   TimeSpan.Zero
-//                   (TimeSpan -1)
-//                   (fun settings newValue -> { settings with Duration = settings.Duration |> duration.Update newValue }) ]
+        let testFileSystemPickerCmd label msgLabel apiFunc dtoMapper settingsMapper =
+            testFileSystemPickerCommand
+                label
+                parentModel
+                modelMapper
+                msgLabel
+                msgMapper
+                dtoMapper
+                (update api)
+                settingsMapper
+                apiFunc
 
-// [<Tests>]
-// let settingTest' =
-//     testSet "DrawingSettings" (Settings.Default() |> Model.create) (fun _ s -> s) id update
+        testList
+            label
+            [ testValidate "Model Frames" SetFrames 1 -1 (fun dto settings ->
+                  { settings with Frames = settings.Frames |> frames.Update dto })
 
-let msgTestSet label model modelMapper msgMapper update =
-    let update = update api
+              testValidate "Model Duration" SetDuration TimeSpan.Zero (TimeSpan -1) (fun dto settings ->
+                  { settings with Duration = settings.Duration |> duration.Update dto })
 
-    let updateValidatedValueTest testLabel msg valid invalid mapper =
-        testUpdateValidatedValue testLabel model modelMapper msg msgMapper update valid invalid mapper
 
-    testList
-        label
-        [ updateValidatedValueTest "Model Frames" SetFrames 1 -1 (fun settings newValue ->
-              { settings with Frames = settings.Frames |> frames.Update newValue })
+              testValidate "Model Interval" SetInterval TimeSpan.Zero (TimeSpan -1) (fun dto settings ->
+                  { settings with Interval = settings.Interval |> interval.Update dto })
 
-          updateValidatedValueTest "Model Duration" SetDuration TimeSpan.Zero (TimeSpan -1) (fun settings newValue ->
-              { settings with Duration = settings.Duration |> duration.Update newValue })
-
-          updateValidatedValueTest "Model Interval" SetInterval TimeSpan.Zero (TimeSpan -1) (fun settings newValue ->
-              { settings with Interval = settings.Interval |> interval.Update newValue })
-
-          updateValidatedValueTest "Model PlayListFilePath" SetPlayListFilePath "" "-1" (fun settings newValue ->
-              { settings with
-                  PlayListFilePath =
-                      settings.PlayListFilePath
-                      |> playListFilePath.Update newValue })
-
-          testFileSystemPickerCommand
-              "PickPlayList"
-              model
-              modelMapper
-              PickPlayList
-              msgMapper
-              (fun model newValue -> { model with PickedPlayListPath = newValue })
-              update
-              (fun settings newValue ->
+              testValidate "Model PlayListFilePath" SetPlayListFilePath tempFilePath "-1" (fun dto settings ->
                   { settings with
                       PlayListFilePath =
                           settings.PlayListFilePath
-                          |> playListFilePath.Update newValue })
-              api.pickPlayList
+                          |> playListFilePath.Update dto })
 
+              testFileSystemPickerCmd
+                  "PickPlayList"
+                  PickPlayList
+                  api.pickPlayList
+                  (fun model newValue -> { model with PickedPlayListPath = newValue })
+                  (fun settings newValue ->
+                      { settings with
+                          PlayListFilePath =
+                              settings.PlayListFilePath
+                              |> playListFilePath.Update newValue })
 
-          updateValidatedValueTest "Model SnapShotFolderPath" SetSnapShotFolderPath "" "-1" (fun settings newValue ->
-              { settings with
-                  SnapShotFolderPath =
-                      settings.SnapShotFolderPath
-                      |> snapShotFolderPath.Update newValue })
-
-          testFileSystemPickerCommand
-              "PickSnapshotFolder"
-              model
-              modelMapper
-              PickSnapshotFolder
-              msgMapper
-              (fun model newValue -> { model with PickedSnapShotFolderPath = newValue })
-              update
-              (fun settings newValue ->
+              testValidate "Model SnapShotFolderPath" SetSnapShotFolderPath tempFolderPath "-1" (fun dto settings ->
                   { settings with
                       SnapShotFolderPath =
                           settings.SnapShotFolderPath
-                          |> snapShotFolderPath.Update newValue })
-              api.pickSnapshotFolder
+                          |> snapShotFolderPath.Update dto })
 
-          let currentDefaultSettingModel () = Settings.Default() |> Model.create
+              testFileSystemPickerCmd
+                  "PickSnapshotFolder"
+                  PickSnapshotFolder
+                  api.pickSnapshotFolder
+                  (fun model newValue -> { model with PickedSnapShotFolderPath = newValue })
+                  (fun settings newValue ->
+                      { settings with
+                          SnapShotFolderPath =
+                              settings.SnapShotFolderPath
+                              |> snapShotFolderPath.Update newValue })
 
-          testAsync "Save and Reset Settings" {
+              let currentDefaultSettingModel () = Settings.Default() |> Model.create
 
-              let defaultSetting =
-                  Settings.reset ()
-                  |> (fun s ->
-                      Settings.save s
-                      s)
-                  |> Model.create
+              testAsync "Save and Reset Settings" {
 
-              let init = modelMapper model defaultSetting
+                  let defaultSetting =
+                      Settings.reset ()
+                      |> (fun s ->
+                          Settings.save s
+                          s)
+                      |> Model.create
 
-              let msg = [ SetFrames 10; SaveSettings ]
+                  let init = modelMapper parentModel defaultSetting
 
-              let expectSettings =
-                  defaultSetting.WithSettings(fun s -> { s with Frames = frames.Create 10 })
+                  let msg = [ SetFrames 10; SaveSettings ]
 
-              let expectModel = expectSettings |> modelMapper model
+                  let expectSettings =
+                      defaultSetting.WithSettings(fun s -> { s with Frames = frames.Create 10 })
 
-              do! Expect.elmishUpdate update "Model no Changed." init msg msgMapper expectModel []
-              let actualSetting = Settings.Default()
+                  let expectModel = expectSettings |> modelMapper parentModel
 
-              Expect.equal actualSetting expectSettings.Settings "Should be Equal"
+                  do! Expect.elmishUpdate (update api) "Model no Changed." init msg msgMapper expectModel []
+                  let actualSetting = Settings.Default()
 
-              let resetSetting =
-                  Settings.reset ()
-                  |> (fun s ->
-                      Settings.save s
-                      s)
-                  |> Model.create
+                  Expect.equal actualSetting expectSettings.Settings "Should be Equal"
 
-              Expect.equal resetSetting defaultSetting "Should be Equal"
-              Expect.notEqual resetSetting expectSettings "Should be Not Equal"
-          } ]
+                  let resetSetting =
+                      Settings.reset ()
+                      |> (fun s ->
+                          Settings.save s
+                          s)
+                      |> Model.create
+
+                  Expect.equal resetSetting defaultSetting "Should be Equal"
+                  Expect.notEqual resetSetting expectSettings "Should be Not Equal"
+              } ]
 
 [<Tests>]
-let settingTest = msgTestSet "DrawingSettings" () (fun _ s -> s) id update
+let settingTest =
+    testSet "DrawingSettings" (Settings.Default() |> Model.create) (fun _ s -> s) id update

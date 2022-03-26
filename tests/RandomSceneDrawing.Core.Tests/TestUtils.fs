@@ -19,12 +19,12 @@ type MsgTestSetFunc<'ChildModel, 'ChildMsg, 'ChildApi, 'ParentModel, 'ParentMsg>
 type MsgLabel<'Msg, 'MsgParam> = 'MsgParam -> 'Msg
 
 type ValidatedValueTestFunc<'Dto, 'ChildModel, 'ChildMsg, 'ChildApi, 'ParentModel, 'ParentMsg> =
-    string
-        -> 'ParentModel
+    'ParentModel
         -> ('ParentModel -> 'ChildModel -> 'ParentModel)
-        -> ('Dto -> 'ChildMsg)
         -> ('ChildMsg -> 'ParentMsg)
         -> ('ChildApi -> Update<'ParentMsg, 'ParentModel>)
+        -> string
+        -> ('Dto -> 'ChildMsg)
         -> 'Dto
         -> 'Dto
         -> ('ChildModel -> 'Dto -> 'ChildModel)
