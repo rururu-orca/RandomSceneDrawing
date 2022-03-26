@@ -38,8 +38,8 @@ type App() =
         let settingsApi = Platform.settingsApi mainWindow
         let playerApi = Platform.playerApi mainWindow
 
-        let mainPlayer = PlayerLib.initPlayer
-        let subPlayer = PlayerLib.initSubPlayer
+        let mainPlayer = PlayerLib.LibVLCSharp.initPlayer
+        let subPlayer = PlayerLib.LibVLCSharp.initSubPlayer
         let init () = Main.init mainPlayer subPlayer settingsApi mainWindow.Closed
 
         let update = Main.update mainApi settingsApi playerApi

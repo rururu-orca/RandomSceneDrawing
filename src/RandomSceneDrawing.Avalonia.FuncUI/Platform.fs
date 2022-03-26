@@ -49,7 +49,7 @@ let selectMediaAsync window =
             )
 
         match! dialog.ShowAsync window with
-        | [| path |] -> return (Uri >> PlayerLib.getMediaFromUri >> Ok) path
+        | [| path |] -> return (Uri >> PlayerLib.LibVLCSharp.Media.ofUri >> Ok) path
         | _ -> return Error "Conceled"
     }
 
@@ -57,13 +57,13 @@ let selectMediaAsync window =
 let playAsync window (player: MediaPlayer) =
     taskResult {
         let! media = selectMediaAsync window
-        return! PlayerLib.playAsync player media
+        return! PlayerLib.LibVLCSharp.playAsync player media
     }
 
 let playerApi (window: MainWindow) =
     { playAsync = playAsync window
-      pauseAsync = PlayerLib.pauseAsync
-      stopAsync = PlayerLib.stopAsync
+      pauseAsync = PlayerLib.LibVLCSharp.pauseAsync
+      stopAsync = PlayerLib.LibVLCSharp.stopAsync
       showInfomation = showInfomationAsync window }
 
 open RandomSceneDrawing.Types.ErrorTypes
@@ -137,12 +137,12 @@ let createCurrentSnapShotFolderAsync root =
     taskResult { return Seq.unfold unfolder 0 |> Seq.last }
 
 let copySubVideoAsync dest =
-    taskResult { File.Copy(PlayerLib.destination', dest) }
+    taskResult { File.Copy(PlayerLib.Randomize.destination', dest) }
 
 let mainApi (window: MainWindow) : Main.Api<'player> =
     { step = stepAsync
       randomize = PlayerLib.Randomize.run
       createSnapShotFolder = createCurrentSnapShotFolderAsync
-      takeSnapshot = PlayerLib.takeSnapshot
+      takeSnapshot = PlayerLib.LibVLCSharp.takeSnapshot
       copySubVideo = copySubVideoAsync
       showInfomation = showInfomationAsync window }

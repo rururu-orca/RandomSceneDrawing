@@ -409,7 +409,7 @@ let mediaInfoView (model: IReadable<Model<LibVLCSharp.MediaPlayer>>) =
                         match main.Player.Time with
                         | 0L -> rs.Position |> timeSpanText
                         | time ->
-                            PlayerLib.Helper.toSecf time
+                            PlayerLib.Utils.toSecf time
                             |> TimeSpan.FromSeconds
                             |> timeSpanText
                         |> TextBlock.text
