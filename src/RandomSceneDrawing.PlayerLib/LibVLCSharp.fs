@@ -160,3 +160,64 @@ module LibVLCSharp =
             else
                 return! Error "Take snapshot failed."
         }
+
+module RandomizeInfoDto =
+    open LibVLCSharp
+    open RandomSceneDrawing
+    open DrawingSettings.ValueTypes
+
+    let validate (dto: RandomizeInfoDto) =
+        taskResult {
+            let mediaUri = Uri dto.Path
+
+            let opt =
+                if mediaUri.IsFile then
+                    MediaParseOptions.ParseLocal
+                else
+                    MediaParseOptions.ParseNetwork
+
+            let! media =
+                Media.ofUri mediaUri
+                |> Media.parseAsync opt
+                |> TaskResult.mapError (List.singleton)
+
+            let dto' =
+                { dto with
+                    MediaInfo = { dto.MediaInfo with Duration = (float >> TimeSpan.FromMilliseconds) media.Duration } }
+
+            let! _ = RandomizeInfoDto.validateTrimDurations dto'
+
+            return dto'
+        }
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    let parsePlayListFile path =
+        taskResult {
+            // let path = playListFilePath.ToDto path
+            let mediaUri = (playListFilePath.ToDto >> Uri) path
+
+            let opt =
+                if mediaUri.IsFile then
+                    MediaParseOptions.ParseLocal
+                else
+                    MediaParseOptions.ParseNetwork
+
+            let! playList =
+                Media.ofUri mediaUri
+                |> Media.parseAsync opt
+                |> TaskResult.mapError (List.singleton)
+
+            return
+                playList.SubItems
+                |> Seq.map (fun m ->
+                    { RandomizeInfoDto.Id = Guid.NewGuid()
+                      TrimDurations =
+                        [ { Start = TimeSpan.FromSeconds 3.0
+                            End = TimeSpan.FromMilliseconds(float m.Duration - 3.0) } ]
+                      MediaInfo =
+                        { Title = m.Meta MetadataType.Title
+                          Duration = TimeSpan.FromMilliseconds(float m.Duration)}
+                      Path = m.Mrl })
+                |> Seq.toList
+        }

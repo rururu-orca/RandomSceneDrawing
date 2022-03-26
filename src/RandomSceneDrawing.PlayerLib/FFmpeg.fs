@@ -1,6 +1,7 @@
 module RandomSceneDrawing.PlayerLib.FFmpeg
 
 open System.Diagnostics
+open System.Threading.Tasks
 open Cysharp.Diagnostics
 open FsToolkit.ErrorHandling
 open RandomSceneDrawing.Util
@@ -15,7 +16,7 @@ module ProcessAsyncEnumerable =
 
 
 let inline runAsync args =
-    task {
+    backgroundTask {
         let args' = String.concat " " args
         let startInfo = ProcessStartInfo(config.PlayerLib.FFmpegPath, Arguments = args')
         let errs = System.Collections.Generic.List()
@@ -29,8 +30,18 @@ let inline runAsync args =
             return Ok()
         with
         | :? ProcessErrorException as ex ->
-            let msg = $"ExitCode{ex.ExitCode}: %A{List.ofSeq errs}"
-            return Error msg
+            if ex.ExitCode = 0 then
+                return Ok()
+            else
+                let msg = $"ExitCode{ex.ExitCode}: %A{List.ofSeq errs}"
+                return Error msg
+    }
+
+let inline orElse (onError: 'u -> Task<Result<'t, 'error>>) args (result: Task<Result<'t, 'error>>) =
+    task {
+        match! result with
+        | Ok x -> return Ok x
+        | Error _ -> return! onError args
     }
 
 let inline trimMediaAsync startTime endTime inputPath destinationPath =
@@ -57,5 +68,5 @@ let inline resizeMediaAsync inputPath rescaleParam destinationPath =
           $"-c:v hevc -an \"{destinationPath}\"" ]
 
     runAsync nvenc
-    |> TaskResult.orElse (runAsync qsv)
-    |> TaskResult.orElse (runAsync any)
+    |> orElse runAsync qsv
+    |> orElse runAsync any

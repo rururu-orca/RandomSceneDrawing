@@ -40,20 +40,6 @@ module ValueTypes =
 
     type TrimDuration = { Start: TimeSpan; End: TimeSpan }
 
-    let validateTrinDuration value =
-        result {
-            let! _ = validateIfPositiveTime value.Start
-            and! _ = validateIfPositiveTime value.End
-
-            and! _ =
-                value.Start < value.End
-                |> Result.requireTrue [
-                    "Must be Start < End."
-                   ]
-
-            return value
-        }
-
     type RandomizeInfoListDtoYaml = YamlConfig<"RandomizeInfoSample.yaml">
 
 
@@ -84,6 +70,20 @@ module ValueTypes =
     type TrimDurationDtoYaml = RandomizeInfoDtoYaml.TrimDurations_Item_Type
 
     module TrimDuration =
+        let validate value =
+            result {
+                let! _ = validateIfPositiveTime value.Start
+                and! _ = validateIfPositiveTime value.End
+
+                and! _ =
+                    value.Start < value.End
+                    |> Result.requireTrue [
+                        "Must be Start < End."
+                       ]
+
+                return value
+            }
+
         let ofYamlConfig (dto: TrimDurationDtoYaml) = { Start = dto.Start; End = dto.End }
 
         let toYamlConfig dur =
@@ -97,6 +97,36 @@ module ValueTypes =
           TrimDurations: TrimDuration list }
 
     module RandomizeInfoDto =
+        let validateTrimDurations dto =
+            result {
+                match dto.TrimDurations with
+                | [ t ] ->
+                    let! _ = TrimDuration.validate t
+
+                    if t.End <= dto.MediaInfo.Duration then
+                        return! Ok()
+                    else
+                        return!
+                            Error [
+                                "MediaInfo.Duration < TrimDuration.End"
+                            ]
+                | ts ->
+                    for (ts1, ts2) in List.pairwise ts do
+                        let! _ = TrimDuration.validate ts1
+
+                        if ts1.End > ts2.Start then
+                            return! Error [ $"{ts1} < {ts2}" ]
+
+                    if ts[-1].End <= dto.MediaInfo.Duration then
+                        return! Ok()
+                    else
+                        return!
+                            Error [
+                                "MediaInfo.Duration < TrimDuration.End"
+                            ]
+
+            }
+
         let ofYamlConfig (yaml: RandomizeInfoDtoYaml) =
             { Id = Guid.NewGuid()
               TrimDurations =
@@ -261,7 +291,7 @@ type Msg =
 
 type Api =
     { validateMediaInfo: RandomizeInfoDto -> Result<RandomizeInfoDto, string list>
-      parsePlayListFile: PlayListFilePath -> Task<Result<RandomizeInfoDto list, string>>
+      parsePlayListFile: PlayListFilePath -> Task<Result<RandomizeInfoDto list, string list>>
       pickPlayList: unit -> Task<Result<string, FilePickerError>>
       pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>>
       showInfomation: NotifyMessage -> Task<unit> }

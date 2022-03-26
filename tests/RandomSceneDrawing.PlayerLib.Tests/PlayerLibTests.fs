@@ -17,6 +17,13 @@ let playerApi media =
       stopAsync = LibVLCSharp.stopAsync
       showInfomation = fun _ -> task { () } }
 
+let settingsApi: DrawingSettings.Api =
+    { validateMediaInfo = RandomizeInfoDto.validate
+      parsePlayListFile = RandomizeInfoDto.parsePlayListFile
+      pickPlayList = fun _ -> task { return Ok "Test" }
+      pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
+      showInfomation = fun _ -> task { () } }
+
 let mainMock: Main.Api<MediaPlayer> = Main.Api.mockOk ()
 
 let mainApi: Main.Api<MediaPlayer> =
@@ -50,7 +57,8 @@ let playerLibTests =
     <| [ test "can get MediaPlayer instance" { Expect.isNotNull (LibVLCSharp.initPlayer ()) "" }
          test "can get Media instance" { Expect.isNotNull (LibVLCSharp.Media.ofUri mediaUrl) "" }
          testTask "can load Playlist" {
-             let getMediaType (media:Media) = media.Type
+             let getMediaType (media: Media) = media.Type
+
              let! result =
                  (playListFilePath.Dto >> Uri) playListPath
                  |> LibVLCSharp.Media.ofUri
