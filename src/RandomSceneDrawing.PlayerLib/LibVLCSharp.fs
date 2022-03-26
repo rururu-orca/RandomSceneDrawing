@@ -101,7 +101,6 @@ module LibVLCSharp =
 
     let playAsync (player: MediaPlayer) media =
         taskResult {
-            // let! media = selectMediaAsync window
             player.Media <- media
 
             do!
@@ -194,7 +193,6 @@ module RandomizeInfoDto =
 
     let parsePlayListFile path =
         taskResult {
-            // let path = playListFilePath.ToDto path
             let mediaUri = (playListFilePath.ToDto >> Uri) path
 
             let opt =
@@ -214,7 +212,7 @@ module RandomizeInfoDto =
                     { RandomizeInfoDto.Id = Guid.NewGuid()
                       TrimDurations =
                         [ { Start = TimeSpan.FromSeconds 3.0
-                            End = TimeSpan.FromMilliseconds(float m.Duration - 3.0) } ]
+                            End = TimeSpan.FromMilliseconds(float m.Duration - 3000.0) } ]
                       MediaInfo =
                         { Title = m.Meta MetadataType.Title
                           Duration = TimeSpan.FromMilliseconds(float m.Duration)}

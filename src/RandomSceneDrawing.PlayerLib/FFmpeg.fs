@@ -37,7 +37,7 @@ let inline runAsync args =
                 return Error msg
     }
 
-let inline orElse (onError: 'u -> Task<Result<'t, 'error>>) args (result: Task<Result<'t, 'error>>) =
+let inline orElse ([<InlineIfLambda>] onError: 'u -> Task<Result<'t, 'error>>) args (result: Task<Result<'t, 'error>>) =
     task {
         match! result with
         | Ok x -> return Ok x

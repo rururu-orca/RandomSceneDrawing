@@ -26,7 +26,6 @@ open RandomSceneDrawing.AvaloniaExtensions
 
 [<AutoOpen>]
 module CustomHooks =
-    open Avalonia.Threading
     type Cmd<'msg> = Elmish.Cmd<'msg>
 
     type ElmishState<'Model, 'Msg>(writableModel: IWritable<'Model>, update) =
