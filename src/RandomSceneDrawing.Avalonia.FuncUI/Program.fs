@@ -32,15 +32,16 @@ type App() =
         applyFluentTheme app mainWindow
         app.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
 
-        let mainPlayer = PlayerLib.initPlayer
-        let subPlayer = PlayerLib.initSubPlayer
-        let init () = Main.init mainPlayer subPlayer mainWindow.Closed
-
         let mainApi =
             Platform.mainApi mainWindow
 
         let settingsApi = Platform.settingsApi mainWindow
         let playerApi = Platform.playerApi mainWindow
+
+        let mainPlayer = PlayerLib.initPlayer
+        let subPlayer = PlayerLib.initSubPlayer
+        let init () = Main.init mainPlayer subPlayer settingsApi mainWindow.Closed
+
         let update = Main.update mainApi settingsApi playerApi
 
         mainWindow.Content <- View.cmp (init()) update

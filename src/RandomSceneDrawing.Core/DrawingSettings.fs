@@ -4,6 +4,7 @@ open System
 open System.Threading.Tasks
 open System.IO
 open Util
+open FSharp.Configuration
 open FsToolkit.ErrorHandling
 open Types
 open Types.ErrorTypes
@@ -53,15 +54,19 @@ module ValueTypes =
             return value
         }
 
-    type RandomizeInfoListDto = FSharp.Configuration.YamlConfig<"RandomizeInfoSample.yaml">
+    type RandomizeInfoListDto = YamlConfig<"RandomizeInfoSample.yaml">
+
     let randomizeInfoListDtoPath =
         Path.Combine [|
             AppDomain.CurrentDomain.BaseDirectory
             "RandomizeInfoListDto.yaml"
         |]
+
     let randomizeInfoListDto = RandomizeInfoListDto()
-    randomizeInfoListDto.RandomizeInfoDto.Clear()
-    randomizeInfoListDto.Save randomizeInfoListDtoPath
+
+    if File.Exists randomizeInfoListDtoPath then
+        randomizeInfoListDto.Load randomizeInfoListDtoPath
+
 
     type RandomizeInfoDto = RandomizeInfoListDto.RandomizeInfoDto_Item_Type
     type MediaInfoDto = RandomizeInfoDto.MediaInfo_Type
@@ -87,7 +92,8 @@ module ValueTypes =
 
     type RandomizeInfo =
         private
-            { MediaInfo: MediaInfo
+            { Id: Guid
+              MediaInfo: MediaInfo
               Path: string
               TrinDurations: TrimDuration list }
 
@@ -96,7 +102,8 @@ module ValueTypes =
     let initRandomizeInfoDomain validator =
         Domain<RandomizeInfoDto, RandomizeInfo, string>(
             (fun dto ->
-                { MediaInfo = MediaInfoDto.toMediaInfo dto.MediaInfo
+                { Id = Guid.NewGuid()
+                  MediaInfo = MediaInfoDto.toMediaInfo dto.MediaInfo
                   Path = dto.Path
                   TrinDurations =
                     List.ofSeq dto.TrimDurations
@@ -148,11 +155,14 @@ type Settings =
       PlayListFilePath: Validated<string, PlayListFilePath, string>
       SnapShotFolderPath: Validated<string, SnapShotFolderPath, string> }
 
-    static member Default() =
+    static member Default(randomizeInfo: Domain<RandomizeInfoDto, RandomizeInfo, string>) =
         { Frames = frames.Create config.Frames
           Duration = duration.Create config.Duration
           Interval = interval.Create config.Interval
-          RandomizeInfoList = []
+          RandomizeInfoList =
+            randomizeInfoListDto.RandomizeInfoDto
+            |> Seq.map randomizeInfo.Create
+            |> Seq.toList
           PlayListFilePath = playListFilePath.Create config.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
 
@@ -164,7 +174,7 @@ module Settings =
             | _ -> "")
             value
 
-    let save settings =
+    let save (randomizeInfo: Domain<RandomizeInfoDto, RandomizeInfo, string>) settings =
         config.Frames <- frames.Dto settings.Frames
         config.Duration <- duration.Dto settings.Duration
         config.Interval <- interval.Dto settings.Interval
@@ -172,13 +182,29 @@ module Settings =
         config.SnapShotFolderPath <- dtoOrEmptyString snapShotFolderPath settings.SnapShotFolderPath
         config.Save changedConfigPath
 
-    let reset () =
+        randomizeInfoListDto.RandomizeInfoDto <-
+            settings.RandomizeInfoList
+            |> List.choose (function
+                | Valid v -> (randomizeInfo.ToDto >> Some) v
+                | Invalid (CreateFailed (dto, _)) -> Some dto
+                | Invalid (UpdateFailed ((ValueSome v), _, _)) -> (randomizeInfo.ToDto >> Some) v
+                | Invalid (UpdateFailed ((ValueNone), dto, _)) -> Some dto
+                | _ -> None)
+            |> Collections.Generic.List
+
+        randomizeInfoListDto.Save randomizeInfoListDtoPath
+
+    let reset (randomizeInfo: Domain<RandomizeInfoDto, RandomizeInfo, string>) =
         let origin = Config()
+        let randomizeInfoListDtoOrigin = RandomizeInfoListDto()
 
         { Frames = frames.Create origin.Frames
           Duration = duration.Create origin.Duration
           Interval = interval.Create origin.Interval
-          RandomizeInfoList = []
+          RandomizeInfoList =
+            randomizeInfoListDtoOrigin.RandomizeInfoDto
+            |> Seq.map randomizeInfo.Create
+            |> Seq.toList
           PlayListFilePath = playListFilePath.Create origin.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create origin.SnapShotFolderPath }
 
@@ -227,7 +253,6 @@ open Elmish
 open FsToolkit.ErrorHandling
 
 type Cmds(api: Api) =
-    let randomizeInfo = initRandomizeInfoDomain api.validateMediaInfo
 
     let showInfomation info =
         task { do! api.showInfomation info } |> ignore
@@ -235,6 +260,8 @@ type Cmds(api: Api) =
     let teeFileSystemError result =
         result
         |> TaskResult.teeError (sprintf "%A" >> ErrorMsg >> showInfomation)
+
+    member _.randomizeInfo = initRandomizeInfoDomain api.validateMediaInfo
 
     member _.ShowInfomation info = showInfomation info
 
@@ -252,11 +279,12 @@ type Cmds(api: Api) =
         }
         |> Cmd.OfTask.result
 
+let init api =
+    initRandomizeInfoDomain api.validateMediaInfo
+    |> Settings.Default
+    |> Model.create
 
-let init () = Settings.Default() |> Model.create
-
-let update api msg (m: Model) =
-    let cmds = Cmds api
+let update (cmds: Cmds) msg (m: Model) =
 
     match msg with
     | SetFrames x -> (m.WithSettings) (fun m -> { m with Frames = m.Frames |> frames.Update x }), Cmd.none
@@ -270,8 +298,7 @@ let update api msg (m: Model) =
         let m' =
             fun (m: Settings) ->
                 { m with
-                    PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x
-                    RandomizeInfoList = [] }
+                    PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x}
             |> Model.withSettings { m with PickedPlayListPath = Resolved result }
 
         m', Cmd.none
@@ -298,6 +325,6 @@ let update api msg (m: Model) =
     | PickSnapshotFolder (Finished (Error _ as result)) ->
         { m with PickedSnapShotFolderPath = Resolved result }, Cmd.none
     | SaveSettings ->
-        Settings.save m.Settings
+        Settings.save cmds.randomizeInfo m.Settings
         m, Cmd.none
-    | ResetSettings -> { m with Settings = Settings.reset () }, Cmd.none
+    | ResetSettings -> { m with Settings = Settings.reset cmds.randomizeInfo }, Cmd.none

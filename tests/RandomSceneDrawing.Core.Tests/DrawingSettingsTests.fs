@@ -13,9 +13,10 @@ open RandomSceneDrawing.DrawingSettings.ValueTypes
 open FsToolkit.ErrorHandling
 
 let api = RandomSceneDrawing.DrawingSettings.ApiMock.api
+let initRandomizeInfo = initRandomizeInfoDomain api.validateMediaInfo
 
 let testUpdateValidatedValue testLabel model modelMapper msg msgMapper update valid invalid mapper =
-    let sttings = Settings.Default() |> Model.create
+    let sttings = init api
     let state = modelMapper model sttings
 
     let expectUpdate testMessage msg expectModel expectMsgs =
@@ -42,7 +43,7 @@ let testUpdateValidatedValue testLabel model modelMapper msg msgMapper update va
 
 let testValidate: ValidatedValueTestFunc<'Dto, Model, Msg, Api, 'ParentModel, 'ParentMsg> =
     fun parentModel modelMapper msgMapper update label msgLabel valid invalid dtoMapper ->
-        let model = Settings.Default() |> Model.create
+        let model = init api
         let state = modelMapper parentModel model
 
         let expectUpdate testMessage msgs expectModel expectMsgs =
@@ -67,7 +68,7 @@ let testFileSystemPickerCommand testMessage model modelMapper msg msgMapper mapp
     let expectUpdate testMessage init msg expectModel expectMsg =
         Expect.elmishUpdate update testMessage init msg msgMapper expectModel expectMsg
 
-    let sttings = Settings.Default() |> Model.create
+    let sttings = init api
 
     let state = modelMapper model sttings
 
@@ -188,14 +189,39 @@ let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
                               settings.SnapShotFolderPath
                               |> snapShotFolderPath.Update newValue })
 
-              let currentDefaultSettingModel () = Settings.Default() |> Model.create
+              let currentDefaultSettingModel () = init api
 
               let resetModel () =
-                  Settings.reset ()
+
+                  Settings.reset initRandomizeInfo
                   |> (fun s ->
-                      Settings.save s
+                      Settings.save initRandomizeInfo s
                       s)
                   |> Model.create
+
+              let isEqualSetting a b =
+                  let eq actual expect = Expect.equal actual expect ""
+
+                  eq a.Frames b.Frames
+                  eq a.Duration b.Duration
+                  eq a.Interval b.Interval
+                  eq a.PlayListFilePath b.PlayListFilePath
+                  eq a.SnapShotFolderPath b.SnapShotFolderPath
+
+
+                  (a.RandomizeInfoList, b.RandomizeInfoList)
+                  ||> List.iter2 (fun ia ib ->
+                      let ia = initRandomizeInfo.Dto ia
+                      let ib = initRandomizeInfo.Dto ib
+                      eq ia.MediaInfo.Duration ib.MediaInfo.Duration
+                      eq ia.MediaInfo.Title ib.MediaInfo.Title
+                      eq ia.Path ib.Path
+
+                      (ia.TrimDurations, ib.TrimDurations)
+                      ||> Seq.iter2 (fun ta tb ->
+                          eq ta.Start tb.Start
+                          eq ta.End tb.End))
+
 
               testAsync "Save and Reset Settings" {
 
@@ -211,16 +237,15 @@ let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
                   let expectModel = expectSettings |> modelMapper parentModel
 
                   do! Expect.elmishUpdate (update api) "Model no Changed." init msg msgMapper expectModel []
-                  let actualSetting = Settings.Default()
+                  let actualSetting = Settings.Default initRandomizeInfo
 
-                  Expect.equal actualSetting expectSettings.Settings "Should be Equal"
+                  isEqualSetting actualSetting expectSettings.Settings
 
                   let resetSetting = resetModel ()
 
-                  Expect.equal resetSetting defaultSetting "Should be Equal"
                   Expect.notEqual resetSetting expectSettings "Should be Not Equal"
               } ]
 
 [<Tests>]
 let settingTest =
-    testSet "DrawingSettings" (Settings.Default() |> Model.create) (fun _ s -> s) id update
+    testSet "DrawingSettings" (init api) (fun _ s -> s) id (fun api -> (Cmds >> update) api)

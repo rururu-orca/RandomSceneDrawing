@@ -307,7 +307,7 @@ type Cmds<'player>
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> ignore
 
-let init player subPlayer onExitHandler =
+let init player subPlayer settingsApi onExitHandler =
     let initMainPlayer =
         (player >> Finished >> InitMainPlayer) ()
         |> Cmd.OfFunc.result
@@ -324,7 +324,7 @@ let init player subPlayer onExitHandler =
 
     { MainPlayer = HasNotStartedYet
       SubPlayer = HasNotStartedYet
-      Settings = DrawingSettings.init ()
+      Settings = DrawingSettings.init settingsApi
       State = Setting
       RandomizeState = HasNotStartedYet },
     Cmd.batch [
@@ -335,7 +335,7 @@ let init player subPlayer onExitHandler =
 
 
 let update api settingsApi playerApi msg m =
-    let settingUpdate = DrawingSettings.update settingsApi
+    let settingUpdate = (DrawingSettings.Cmds >> DrawingSettings.update) settingsApi
     let playerUpdate = Player.update playerApi
 
     let settings = m.Settings.Settings
