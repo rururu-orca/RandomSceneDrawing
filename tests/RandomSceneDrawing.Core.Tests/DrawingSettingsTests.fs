@@ -201,6 +201,7 @@ let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
 
               let isEqualSetting a b =
                   let eq actual expect = Expect.equal actual expect ""
+                  let ne actual expect = Expect.notEqual actual expect ""
 
                   eq a.Frames b.Frames
                   eq a.Duration b.Duration
@@ -216,6 +217,7 @@ let testSet: MsgTestSetFunc<Model, Msg, Api, 'ParentModel, 'ParentMsg> =
                       eq ia.MediaInfo.Duration ib.MediaInfo.Duration
                       eq ia.MediaInfo.Title ib.MediaInfo.Title
                       eq ia.Path ib.Path
+                      ne ia.Id ib.Id
 
                       (ia.TrimDurations, ib.TrimDurations)
                       ||> Seq.iter2 (fun ta tb ->

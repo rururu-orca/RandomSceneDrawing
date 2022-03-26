@@ -54,7 +54,8 @@ module ValueTypes =
             return value
         }
 
-    type RandomizeInfoListDto = YamlConfig<"RandomizeInfoSample.yaml">
+    type RandomizeInfoListDtoYaml = YamlConfig<"RandomizeInfoSample.yaml">
+
 
     let randomizeInfoListDtoPath =
         Path.Combine [|
@@ -62,68 +63,86 @@ module ValueTypes =
             "RandomizeInfoListDto.yaml"
         |]
 
-    let randomizeInfoListDto = RandomizeInfoListDto()
+    let randomizeInfoListDto = RandomizeInfoListDtoYaml()
 
     if File.Exists randomizeInfoListDtoPath then
         randomizeInfoListDto.Load randomizeInfoListDtoPath
 
 
-    type RandomizeInfoDto = RandomizeInfoListDto.RandomizeInfoDto_Item_Type
-    type MediaInfoDto = RandomizeInfoDto.MediaInfo_Type
+    type MediaInfoDtoYaml = RandomizeInfoListDtoYaml.RandomizeInfoDto_Item_Type.MediaInfo_Type
+    type RandomizeInfoDtoYaml = RandomizeInfoListDtoYaml.RandomizeInfoDto_Item_Type
 
-    module MediaInfoDto =
-        let toMediaInfo (dto: MediaInfoDto) =
+
+    module MediaInfo =
+        let ofYamlConfig (dto: MediaInfoDtoYaml) =
             { Title = dto.Title
               Duration = dto.Duration }
 
-        let ofMediaInfo (info) =
-            MediaInfoDto(Title = info.Title, Duration = info.Duration)
+        let toYamlConfig (info) =
+            MediaInfoDtoYaml(Title = info.Title, Duration = info.Duration)
 
-    type TrimDurationDto = RandomizeInfoDto.TrimDurations_Item_Type
+    type TrimDurationDtoYaml = RandomizeInfoDtoYaml.TrimDurations_Item_Type
 
-    module TrinDurationDto =
-        let toTrinDuration (dto: TrimDurationDto) = { Start = dto.Start; End = dto.End }
+    module TrimDuration =
+        let ofYamlConfig (dto: TrimDurationDtoYaml) = { Start = dto.Start; End = dto.End }
 
-        let ofTrimDuration dur =
-            TrimDurationDto(Start = dur.Start, End = dur.End)
+        let toYamlConfig dur =
+            TrimDurationDtoYaml(Start = dur.Start, End = dur.End)
+
+
+    type RandomizeInfoDto =
+        { Id: Guid
+          MediaInfo: MediaInfo
+          Path: string
+          TrimDurations: TrimDuration list }
 
     module RandomizeInfoDto =
-        let mock = RandomizeInfoListDto().RandomizeInfoDto[0]
+        let ofYamlConfig (yaml: RandomizeInfoDtoYaml) =
+            { Id = Guid.NewGuid()
+              TrimDurations =
+                yaml.TrimDurations
+                |> Seq.map TrimDuration.ofYamlConfig
+                |> Seq.toList
+              MediaInfo = MediaInfo.ofYamlConfig yaml.MediaInfo
+              Path = yaml.Path }
+
+        let toYamlConfig dto =
+            let yaml = RandomizeInfoDtoYaml()
+            yaml.Path <- dto.Path
+            yaml.MediaInfo.Duration <- dto.MediaInfo.Duration
+            yaml.MediaInfo.Title <- dto.MediaInfo.Title
+
+            yaml.TrimDurations <-
+                dto.TrimDurations
+                |> List.map TrimDuration.toYamlConfig
+                |> Collections.Generic.List
+
+            yaml
+
+        let mock = ofYamlConfig RandomizeInfoListDtoYaml().RandomizeInfoDto[0]
 
     type RandomizeInfo =
         private
             { Id: Guid
               MediaInfo: MediaInfo
               Path: string
-              TrinDurations: TrimDuration list }
+              TrimDurations: TrimDuration list }
 
     type ValidatedRandomizeInfo = Validated<RandomizeInfoDto, RandomizeInfo, string>
 
     let initRandomizeInfoDomain validator =
         Domain<RandomizeInfoDto, RandomizeInfo, string>(
             (fun dto ->
-                { Id = Guid.NewGuid()
-                  MediaInfo = MediaInfoDto.toMediaInfo dto.MediaInfo
+                { Id = dto.Id
+                  MediaInfo = dto.MediaInfo
                   Path = dto.Path
-                  TrinDurations =
-                    List.ofSeq dto.TrimDurations
-                    |> List.map TrinDurationDto.toTrinDuration }),
+                  TrimDurations = dto.TrimDurations }),
             (fun domain ->
-                let dto = RandomizeInfoDto()
-                dto.MediaInfo.Title <- domain.MediaInfo.Title
-                dto.MediaInfo.Duration <- domain.MediaInfo.Duration
-                dto.Path <- domain.Path
-
-                domain.TrinDurations
-                |> List.map TrinDurationDto.ofTrimDuration
-                |> List.iter dto.TrimDurations.Add
-
-                dto),
-            (fun dto ->
-                result {
-                    let! dto' = validator dto
-                    return dto'
-                })
+                { Id = domain.Id
+                  MediaInfo = domain.MediaInfo
+                  Path = domain.Path
+                  TrimDurations = domain.TrimDurations }),
+            (fun dto -> result { return! validator dto })
         )
 
 
@@ -160,9 +179,12 @@ type Settings =
           Duration = duration.Create config.Duration
           Interval = interval.Create config.Interval
           RandomizeInfoList =
-            randomizeInfoListDto.RandomizeInfoDto
-            |> Seq.map randomizeInfo.Create
-            |> Seq.toList
+            List.ofSeq randomizeInfoListDto.RandomizeInfoDto
+            |> List.map (
+                RandomizeInfoDto.ofYamlConfig
+                >> randomizeInfo.Create
+            )
+
           PlayListFilePath = playListFilePath.Create config.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
 
@@ -190,21 +212,24 @@ module Settings =
                 | Invalid (UpdateFailed ((ValueSome v), _, _)) -> (randomizeInfo.ToDto >> Some) v
                 | Invalid (UpdateFailed ((ValueNone), dto, _)) -> Some dto
                 | _ -> None)
+            |> List.map RandomizeInfoDto.toYamlConfig
             |> Collections.Generic.List
 
         randomizeInfoListDto.Save randomizeInfoListDtoPath
 
     let reset (randomizeInfo: Domain<RandomizeInfoDto, RandomizeInfo, string>) =
         let origin = Config()
-        let randomizeInfoListDtoOrigin = RandomizeInfoListDto()
+        let randomizeInfoListDtoOrigin = RandomizeInfoListDtoYaml()
 
         { Frames = frames.Create origin.Frames
           Duration = duration.Create origin.Duration
           Interval = interval.Create origin.Interval
           RandomizeInfoList =
-            randomizeInfoListDtoOrigin.RandomizeInfoDto
-            |> Seq.map randomizeInfo.Create
-            |> Seq.toList
+            List.ofSeq randomizeInfoListDtoOrigin.RandomizeInfoDto
+            |> List.map (
+                RandomizeInfoDto.ofYamlConfig
+                >> randomizeInfo.Create
+            )
           PlayListFilePath = playListFilePath.Create origin.PlayListFilePath
           SnapShotFolderPath = snapShotFolderPath.Create origin.SnapShotFolderPath }
 
@@ -296,9 +321,7 @@ let update (cmds: Cmds) msg (m: Model) =
     | PickPlayList Started -> { m with PickedPlayListPath = InProgress }, cmds.PickPlayList()
     | PickPlayList (Finished (Ok x as result)) ->
         let m' =
-            fun (m: Settings) ->
-                { m with
-                    PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x}
+            fun (m: Settings) -> { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }
             |> Model.withSettings { m with PickedPlayListPath = Resolved result }
 
         m', Cmd.none
