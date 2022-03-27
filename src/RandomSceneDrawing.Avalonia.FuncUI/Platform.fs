@@ -102,15 +102,8 @@ let pickSnapshotFolderAsync window () =
     }
 
 let settingsApi (window: MainWindow) : DrawingSettings.Api =
-    { validateMediaInfo = fun info -> Ok info
-      parsePlayListFile =
-        fun _ ->
-            task {
-                return
-                    Ok [
-                        DrawingSettings.ValueTypes.RandomizeInfoDto.mock
-                    ]
-            }
+    { validateMediaInfo = PlayerLib.RandomizeInfoDto.validate
+      parsePlayListFile = PlayerLib.RandomizeInfoDto.parsePlayListFile
       pickPlayList = pickPlayListAsync window
       pickSnapshotFolder = pickSnapshotFolderAsync window
       showInfomation = showInfomationAsync window }
