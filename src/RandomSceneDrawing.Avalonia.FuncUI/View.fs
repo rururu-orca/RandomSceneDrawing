@@ -29,16 +29,16 @@ module CustomHooks =
     type Cmd<'msg> = Elmish.Cmd<'msg>
 
     type ElmishState<'Model, 'Msg>(writableModel: IWritable<'Model>, update) =
-        member this.Model = writableModel.Current
-        member this.WritableModel = writableModel
-        member this.Update: 'Msg -> 'Model -> 'Model * Cmd<'Msg> = update
+        member _.Model = writableModel.Current
+        member _.WritableModel = writableModel
+        member _.Update: 'Msg -> 'Model -> 'Model * Cmd<'Msg> = update
 
         member this.Dispatch(msg: 'Msg) =
             let model, cmd = this.Update msg this.Model
 
             for sub in cmd do
                 sub this.Dispatch
-            
+
             writableModel.Set model
 
     type IComponentContext with
@@ -61,20 +61,11 @@ module CustomHooks =
             let y, current = this.useMap x mapping
             y :> IReadable<_>, current
 
-        member this.useElmish<'Model, 'Msg>(init: 'Model * Cmd<'Msg>, update) =
-            let initModel, initCmd = init
-            let writableModel = this.useState (initModel, true)
+        member this.useElmish<'Model, 'Msg>(init: 'Model, update) =
+            let writableModel = this.useState (init, false)
             let state = ElmishState<'Model, 'Msg>(writableModel, update)
 
-            this.useEffect (
-                handler =
-                    (fun _ ->
-                        for initSub in initCmd do
-                            initSub state.Dispatch),
-                triggers = [ EffectTrigger.AfterInit ]
-            )
-
-            writableModel :> IReadable<'Model>, state.Model, state.Dispatch
+            writableModel :> IReadable<'Model>, state.Dispatch
 
 
 
@@ -259,7 +250,9 @@ let subPlayerView model =
                      && isNotInterval state
                      && notFunc Deferred.inProgress randomizeState)
                     |> VideoView.isVideoVisible
-                | _ -> ()
+                | _ ->
+
+                    ()
             ]
     )
 
@@ -614,21 +607,65 @@ let drawingProgressView model =
             ]
     )
 
-let cmp init update =
+open Avalonia
+open Avalonia.Controls.ApplicationLifetimes
+
+let cmp initMainPlayer initSubPlayer init update =
     Component(
         (fun ctx ->
-            let readableModel, model, dispatch = ctx.useElmish (init, update)
+            let model, dispatch = ctx.useElmish (init, update)
+
+            let _, (mainPlayer, subPlayer) =
+                ctx.useMapRead model (fun m -> m.MainPlayer, m.SubPlayer)
 
             ctx.attrs [
                 Component.margin config.RootComponent.Margin
             ]
 
+            ctx.useEffect (
+                handler =
+                    (fun _ ->
+                        let lifetime =
+                            Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
+
+                        lifetime.MainWindow.Closed
+                        |> Observable.subscribe (fun _ -> dispatch Exit)),
+                triggers = [ EffectTrigger.AfterInit ]
+            )
+
+            ctx.useEffect (
+                handler =
+                    (fun _ ->
+                        task {
+                            let! msg = backgroundTask { return initMainPlayer () |> Finished |> InitMainPlayer }
+                            dispatch msg
+                        }
+                        |> ignore
+
+                        task {
+                            let! msg = backgroundTask { return initSubPlayer () |> Finished |> InitSubPlayer }
+                            dispatch msg
+                        }
+                        |> ignore),
+                triggers = [ EffectTrigger.AfterInit ]
+            )
+
             DockPanel.create [
                 DockPanel.children [
-                    toolWindow readableModel dispatch
-                    headerView readableModel dispatch
-                    drawingProgressView readableModel
-                    mainPlayerView "main-player" readableModel dispatch
+                    match mainPlayer, subPlayer with
+                    | Resolved _, Resolved _ ->
+                        toolWindow model dispatch
+                        headerView model dispatch
+                        drawingProgressView model
+                        mainPlayerView "main-player" model dispatch
+                    | _ ->
+                        Panel.create [
+                            Panel.children [
+                                TextBlock.create [
+                                    TextBlock.text "Loading..."
+                                ]
+                            ]
+                        ]
                 ]
             ])
     )

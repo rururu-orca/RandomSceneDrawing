@@ -18,7 +18,7 @@ let onExitMock =
                 member _.Dispose() = () } }
 
 let mock = fun () -> ()
-let onInit, initCmd = init mock mock DrawingSettings.api onExitMock
+let onInit = init DrawingSettings.api
 
 let tempFilePath = IO.Path.GetTempFileName()
 let tempFolderPath = IO.Path.GetTempPath()

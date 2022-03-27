@@ -39,12 +39,12 @@ type App() =
             let mainPlayer = PlayerLib.LibVLCSharp.initPlayer
             let subPlayer = PlayerLib.LibVLCSharp.initSubPlayer
 
-            let init () =
-                Main.init mainPlayer subPlayer settingsApi mainWindow.Closed
+            let init  =
+                Main.init settingsApi
 
             let update = Main.update mainApi settingsApi playerApi
 
-            mainWindow.Content <- View.cmp (init ()) update
+            mainWindow.Content <- View.cmp mainPlayer subPlayer init update
 
         | _ -> ()
 

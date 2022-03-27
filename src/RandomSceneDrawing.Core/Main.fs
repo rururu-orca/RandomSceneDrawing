@@ -307,32 +307,12 @@ type Cmds<'player>
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> ignore
 
-let init player subPlayer settingsApi onExitHandler =
-    let initMainPlayer =
-        (player >> Finished >> InitMainPlayer) ()
-        |> Cmd.OfFunc.result
-
-    let initSubPlayer =
-        (subPlayer >> Finished >> InitSubPlayer) ()
-        |> Cmd.OfFunc.result
-
-    let onExit =
-        fun dispatch ->
-            onExitHandler
-            |> Observable.add (fun e -> dispatch Exit)
-        |> Cmd.ofSub
-
+let init settingsApi =
     { MainPlayer = HasNotStartedYet
       SubPlayer = HasNotStartedYet
       Settings = DrawingSettings.init settingsApi
       State = Setting
-      RandomizeState = HasNotStartedYet },
-    Cmd.batch [
-        initMainPlayer
-        initSubPlayer
-        onExit
-    ]
-
+      RandomizeState = HasNotStartedYet }
 
 let update api settingsApi playerApi msg m =
     let settingUpdate = (DrawingSettings.Cmds >> DrawingSettings.update) settingsApi
