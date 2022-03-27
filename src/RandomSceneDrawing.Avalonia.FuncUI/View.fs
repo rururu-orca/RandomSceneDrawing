@@ -250,9 +250,7 @@ let subPlayerView model =
                      && isNotInterval state
                      && notFunc Deferred.inProgress randomizeState)
                     |> VideoView.isVideoVisible
-                | _ ->
-
-                    ()
+                | _ -> ()
             ]
     )
 
@@ -623,31 +621,29 @@ let cmp initMainPlayer initSubPlayer init update =
             ]
 
             ctx.useEffect (
-                handler =
-                    (fun _ ->
-                        let lifetime =
-                            Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
+                (fun _ ->
+                    let lifetime =
+                        Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
 
-                        lifetime.MainWindow.Closed
-                        |> Observable.subscribe (fun _ -> dispatch Exit)),
-                triggers = [ EffectTrigger.AfterInit ]
+                    lifetime.MainWindow.Closed
+                    |> Observable.subscribe (fun _ -> dispatch Exit)),
+                [ EffectTrigger.AfterInit ]
             )
 
             ctx.useEffect (
-                handler =
-                    (fun _ ->
-                        task {
-                            let! msg = backgroundTask { return initMainPlayer () |> Finished |> InitMainPlayer }
-                            dispatch msg
-                        }
-                        |> ignore
+                (fun _ ->
+                    task {
+                        let! msg = backgroundTask { return initMainPlayer () |> Finished |> InitMainPlayer }
+                        dispatch msg
+                    }
+                    |> ignore
 
-                        task {
-                            let! msg = backgroundTask { return initSubPlayer () |> Finished |> InitSubPlayer }
-                            dispatch msg
-                        }
-                        |> ignore),
-                triggers = [ EffectTrigger.AfterInit ]
+                    task {
+                        let! msg = backgroundTask { return initSubPlayer () |> Finished |> InitSubPlayer }
+                        dispatch msg
+                    }
+                    |> ignore),
+                [ EffectTrigger.AfterInit ]
             )
 
             DockPanel.create [
