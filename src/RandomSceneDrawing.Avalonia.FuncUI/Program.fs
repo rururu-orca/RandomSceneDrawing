@@ -14,39 +14,37 @@ type App() =
     inherit Application()
 
     override this.OnFrameworkInitializationCompleted() =
-        match this.ApplicationLifetime with
-        | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime ->
 
-            let mainWindow = MainWindow FloatingContent.floating
+        let lifetime =
+            Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
 
+        let mainWindow = MainWindow FloatingContent.floating
 
-            this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
-            let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)
-            this.Styles.Add fluentAvaloniaTheme
-            fluentAvaloniaTheme.ForceWin32WindowToTheme mainWindow
-            this.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
+        this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
+        let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)
+        this.Styles.Add fluentAvaloniaTheme
+        fluentAvaloniaTheme.ForceWin32WindowToTheme mainWindow
+        this.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
 
 #if DEBUG
-            mainWindow.AttachDevTools()
+        mainWindow.AttachDevTools()
 #endif
-            desktopLifetime.MainWindow <- mainWindow
+        lifetime.MainWindow <- mainWindow
 
-            let mainApi = Platform.mainApi mainWindow
+        let mainApi = Platform.mainApi mainWindow
 
-            let settingsApi = Platform.settingsApi mainWindow
-            let playerApi = Platform.playerApi mainWindow
+        let settingsApi = Platform.settingsApi mainWindow
+        let playerApi = Platform.playerApi mainWindow
 
-            let mainPlayer = PlayerLib.LibVLCSharp.initPlayer
-            let subPlayer = PlayerLib.LibVLCSharp.initSubPlayer
+        let initMainPlayer = PlayerLib.LibVLCSharp.initPlayer
+        let initSubPlayer = PlayerLib.LibVLCSharp.initSubPlayer
 
-            let init  =
-                Main.init settingsApi
+        let init = Main.init settingsApi
 
-            let update = Main.update mainApi settingsApi playerApi
+        let update = Main.update mainApi settingsApi playerApi
 
-            mainWindow.Content <- View.cmp mainPlayer subPlayer init update
+        mainWindow.Content <- View.cmp initMainPlayer initSubPlayer init update
 
-        | _ -> ()
 
 module Main =
 
