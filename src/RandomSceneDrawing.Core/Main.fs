@@ -177,7 +177,7 @@ type Api<'player> =
       createSnapShotFolder: string -> Task<Result<string, string>>
       takeSnapshot: 'player -> string -> Task<Result<unit, string>>
       copySubVideo: string -> Task<Result<unit, string>>
-      showInfomation: NotifyMessage -> Task<unit> }
+      showInfomation: NotifyMessage -> Async<unit> }
 
 module Api =
     let mockOk () =
@@ -186,7 +186,7 @@ module Api =
           createSnapShotFolder = fun _ -> task { return Ok "test" }
           takeSnapshot = fun _ _ -> task { return Ok() }
           copySubVideo = fun _ -> task { return Ok() }
-          showInfomation = fun _ -> task { () } }
+          showInfomation = fun _ -> async { () } }
 
     let mockError () =
         { step = fun _ -> async { do! Async.Sleep 1 }
@@ -194,7 +194,7 @@ module Api =
           createSnapShotFolder = fun _ -> task { return Error "Mock." }
           takeSnapshot = fun _ _ -> task { return Error "Mock." }
           copySubVideo = fun _ -> task { return Error "Mock." }
-          showInfomation = fun _ -> task { () } }
+          showInfomation = fun _ -> async { () } }
 
 
 open System.IO

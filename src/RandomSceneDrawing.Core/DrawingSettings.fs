@@ -294,7 +294,7 @@ type Api =
       parsePlayListFile: PlayListFilePath -> Task<Result<RandomizeInfoDto list, string list>>
       pickPlayList: unit -> Task<Result<string, FilePickerError>>
       pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>>
-      showInfomation: NotifyMessage -> Task<unit> }
+      showInfomation: NotifyMessage -> Async<unit> }
 
 module ApiMock =
     let api =
@@ -302,7 +302,7 @@ module ApiMock =
           parsePlayListFile = fun _ -> task { return Ok [ RandomizeInfoDto.mock ] }
           pickPlayList = fun _ -> task { return Ok "Test" }
           pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
-          showInfomation = fun _ -> task { () } }
+          showInfomation = fun _ -> async { () } }
 
 open Elmish
 open FsToolkit.ErrorHandling

@@ -28,7 +28,7 @@ type Api<'player> =
     { playAsync: 'player -> Task<Result<MediaInfo, string>>
       pauseAsync: 'player -> Task<Result<MediaInfo, string>>
       stopAsync: 'player -> Task<Result<unit, string>>
-      showInfomation: NotifyMessage -> Task<unit> }
+      showInfomation: NotifyMessage -> Async<unit> }
 
 module ApiMock =
     let mediaInfo = { Title = ""; Duration = TimeSpan.Zero }
@@ -38,7 +38,7 @@ module ApiMock =
         { playAsync = fun _ -> task { return okMediaInfo }
           pauseAsync = fun _ -> task { return okMediaInfo }
           stopAsync = fun _ -> task { return Ok() }
-          showInfomation = fun _ -> task { () } }
+          showInfomation = fun _ -> async { () } }
 
     let errorResult = Error "Not Implemented"
     let errorFinished = Finished errorResult
@@ -48,7 +48,7 @@ module ApiMock =
         { playAsync = fun _ -> task { return errorResult }
           pauseAsync = fun _ -> task { return errorResult }
           stopAsync = fun _ -> task { return errorResult }
-          showInfomation = fun _ -> task { () } }
+          showInfomation = fun _ -> async { () } }
 
 open Elmish
 open FsToolkit.ErrorHandling

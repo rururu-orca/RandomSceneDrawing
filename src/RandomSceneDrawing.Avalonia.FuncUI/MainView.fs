@@ -1,7 +1,8 @@
 namespace RandomSceneDrawing
 
+
+open Avalonia.Controls
 open Avalonia.Controls.Notifications
-open Avalonia.FuncUI.Hosts
 open Util
 
 module MainWindowConfig =
@@ -18,9 +19,10 @@ module MainWindowConfig =
             + config.RootComponent.Margin * 2
         )
 
-type MainWindow(floatingWindow) =
-    inherit HostWindow
+type MainWindow(floatingName)  =
+    inherit Window
         (
+            new FloatingWindowOwnerImpl(),
             Title = "Random Pause  動画のシーンがランダムで表示されます",
             Height = MainWindowConfig.height,
             Width = MainWindowConfig.width,
@@ -28,12 +30,15 @@ type MainWindow(floatingWindow) =
             MinWidth = MainWindowConfig.width
         )
 
+    let floating = lazy (FloatingWindow.TryGet floatingName |> Option.get)
+
+    let initWindowNotificationManager window =
+        WindowNotificationManager(window, Position = NotificationPosition.BottomRight, MaxItems = 3)
+
     // Setup NotificationManager
     // To avoid the Airspace problem, host is configured with FloatingContent.floating.
-    let notificationManager =
-        if isNull floatingWindow then
-            invalidArg "floatingWindow" "Null Window!!"
+    let floatingManager = lazy initWindowNotificationManager floating.Value
 
-        WindowNotificationManager(floatingWindow, Position = NotificationPosition.BottomRight, MaxItems = 3)
-
-    member _.NotificationManager = notificationManager
+    member x.NotificationManager =
+        floatingManager.Value
+        

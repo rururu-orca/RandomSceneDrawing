@@ -18,7 +18,7 @@ type App() =
         let lifetime =
             Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
 
-        let mainWindow = MainWindow FloatingContent.floating
+        let mainWindow = MainWindow View.mainPlayerFloatingName
 
         this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
         let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)

@@ -6,7 +6,7 @@ open Avalonia.Controls
 open Avalonia.Controls.Shapes
 open Avalonia.Layout
 open Avalonia.Media
-
+open Avalonia.Controls.Notifications
 open LibVLCSharp.Avalonia.FuncUI
 
 open Avalonia.FuncUI
@@ -227,32 +227,54 @@ let headerTopItemsView model dispatch =
             ]
     )
 
-let subPlayerView model =
+open Avalonia
+open Avalonia.Controls.ApplicationLifetimes
+open FSharp.Control.Reactive
+
+let subPlayerView model dispatch =
     Component.create (
         "subPlayer-view",
         fun ctx ->
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.SubPlayer, m.State, m.RandomizeState)
 
+            let outlet = ctx.useState (VideoView(), renderOnChange = false)
+
+            ctx.useEffect ((fun _ -> FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit ])
+
             ctx.attrs [ Component.dock Dock.Right ]
 
-            VideoView.create [
-                VideoView.height config.SubPlayer.Height
-                VideoView.width config.SubPlayer.Width
-                VideoView.margin (4, 4, 0, 4)
-                VideoView.verticalAlignment VerticalAlignment.Top
-                VideoView.horizontalAlignment HorizontalAlignment.Right
-                match player with
-                | Resolved player ->
-                    VideoView.mediaPlayer player.Player
+            View.createWithOutlet
+                outlet.Set
+                VideoView.create
+                [ VideoView.height config.SubPlayer.Height
+                  VideoView.width config.SubPlayer.Width
+                  VideoView.margin (4, 4, 0, 4)
+                  VideoView.verticalAlignment VerticalAlignment.Top
+                  VideoView.horizontalAlignment HorizontalAlignment.Right
+                  match player with
+                  | Resolved player ->
+                      VideoView.mediaPlayer player.Player
 
-                    (Deferred.resolved player.Media
-                     && isNotInterval state
-                     && notFunc Deferred.inProgress randomizeState)
-                    |> VideoView.isVideoVisible
-                | _ -> ()
-            ]
+                      (Deferred.resolved player.Media
+                       && isNotInterval state
+                       && notFunc Deferred.inProgress randomizeState)
+                      |> VideoView.isVideoVisible
+
+                    //   VideoView.content (
+                    //       Button.create [
+                    //           Button.content "Full Screen"
+                    //           Button.onClick (fun e ->
+                    //               let lifetime =
+                    //                   Application.Current.ApplicationLifetime
+                    //                   :?> IClassicDesktopStyleApplicationLifetime
+
+                    //               lifetime.MainWindow.WindowState <- WindowState.FullScreen)
+                    //       ]
+                    //   )
+                  | _ -> () ]
     )
+
 
 let randomizeButtonView model dispatch =
     Component.create (
@@ -431,7 +453,7 @@ let headerView model dispatch =
 
             DockPanel.create [
                 DockPanel.children [
-                    subPlayerView model
+                    subPlayerView model dispatch
                     if isSetting then
                         pathSettings model dispatch
                     StackPanel.create [
@@ -520,37 +542,54 @@ let floatingOnOther id model dispatch =
             ]
     )
 
+let mainPlayerFloatingName = "mainplayer-floating"
+let mainPlayerFloating = FloatingWindow mainPlayerFloatingName
+
 let mainPlayerView id model dispatch =
     Component.create (
         id,
         fun ctx ->
 
+            let mgr = WindowNotificationManager(mainPlayerFloating, Position = NotificationPosition.BottomRight, MaxItems = 3)
+
+
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
-            VideoView.create [
-                VideoView.minHeight config.MainPlayer.Height
-                VideoView.minWidth config.MainPlayer.Width
+            let outlet = ctx.useState (VideoView(), renderOnChange = false)
 
-                match player with
-                | Resolved mainPlayer ->
-                    VideoView.mediaPlayer mainPlayer.Player
+            ctx.useEffect ((fun _ -> 
+                let name = outlet.Current.FloatingWindow.FloatingWindowName
+                FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit ])
 
-                    match state, randomizeState, mainPlayer.Media with
-                    | Interval _, _, _ -> false
-                    | _, InProgress, _ -> false
-                    | _, _, Resolved (Ok _) -> true
-                    | _ -> false
-                    |> VideoView.isVideoVisible
+            View.createWithOutlet
+                outlet.Set
+                VideoView.create
+                [ VideoView.minHeight config.MainPlayer.Height
+                  VideoView.minWidth config.MainPlayer.Width
+                  FloatingOwner.floatingWindow mainPlayerFloating
 
-                | _ -> ()
+                  match player with
+                  | Resolved mainPlayer ->
+                      VideoView.mediaPlayer mainPlayer.Player
 
-                VideoView.hasFloating true
-                match state with
-                | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
-                | _ -> floatingOnOther "floatring-content-other" model dispatch
-                |> VideoView.content
-            ]
+                      Notification("Info", "Test", NotificationType.Information)
+                      |> mgr.Show
+
+
+                      match state, randomizeState, mainPlayer.Media with
+                      | Interval _, _, _ -> false
+                      | _, InProgress, _ -> false
+                      | _, _, Resolved (Ok _) -> true
+                      | _ -> false
+                      |> VideoView.isVideoVisible
+
+                  | _ -> ()
+
+                  match state with
+                  | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
+                  | _ -> floatingOnOther "floatring-content-other" model dispatch
+                  |> VideoView.content ]
     )
 
 let toolWindow model dispatch =
@@ -619,9 +658,10 @@ let cmp initMainPlayer initSubPlayer init update =
             ctx.attrs [
                 Component.margin config.RootComponent.Margin
             ]
-
             ctx.useEffect (
                 (fun _ ->
+
+
                     let lifetime =
                         Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
 
@@ -650,6 +690,7 @@ let cmp initMainPlayer initSubPlayer init update =
                 DockPanel.children [
                     match mainPlayer, subPlayer with
                     | Resolved _, Resolved _ ->
+
                         toolWindow model dispatch
                         headerView model dispatch
                         drawingProgressView model
