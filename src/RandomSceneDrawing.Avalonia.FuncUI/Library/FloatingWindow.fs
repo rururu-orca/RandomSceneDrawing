@@ -168,9 +168,10 @@ type FloatingOwner() =
     member x.FloatingWindow
         with get () = floatingWindow
         and set (value: FloatingWindow) =
-            floatingWindow.Close()
-            value.Content <- floatingWindow.Content
-            floatingWindow <- value
+            if not <| obj.ReferenceEquals(floatingWindow,value) then
+                floatingWindow.Close()
+                value.Content <- floatingWindow.Content
+                floatingWindow <- value
 
     static member FloatingWindowProperty =
         AvaloniaProperty.RegisterDirect<FloatingOwner,_>(
