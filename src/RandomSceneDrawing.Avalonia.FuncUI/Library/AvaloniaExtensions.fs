@@ -5,7 +5,14 @@ open System.Runtime.InteropServices
 
 
 
+[<AutoOpen>]
+module Helper =
 
+    let (|NotEq|_|) x target =
+        if target <> x then
+            Some target
+        else
+            None
 
 module NativeModule =
 
@@ -151,9 +158,6 @@ module AvaloniaExtensions =
         |> Option.map (fun l -> l.Windows)
         |> Option.defaultValue List.Empty
 
-
-
-
     type Styles with
 
         member this.Load(source: string) =
@@ -203,12 +207,6 @@ module AvaloniaExtensions =
     module WindowBase =
         let getHandle (w: WindowBase) = w.PlatformImpl.Handle.Handle
 
-[<AutoOpen>]
-module TemplatedControl =
-    open Avalonia
-    open Avalonia.Controls.Primitives
-    open Avalonia.FuncUI.Types
-    open Avalonia.FuncUI.Builder
 
     type TemplatedControl with
 

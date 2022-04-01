@@ -19,7 +19,7 @@ module MainWindowConfig =
             + config.RootComponent.Margin * 2
         )
 
-type MainWindow(floatingName)  =
+type MainWindow(floating:Window)  =
     inherit Window
         (
             new FloatingWindowOwnerImpl(),
@@ -30,15 +30,9 @@ type MainWindow(floatingName)  =
             MinWidth = MainWindowConfig.width
         )
 
-    let floating = lazy (FloatingWindow.TryGet floatingName |> Option.get)
+    let notificationManager =
+        WindowNotificationManager(floating, Position = NotificationPosition.BottomRight, MaxItems = 3)
 
-    let initWindowNotificationManager window =
-        WindowNotificationManager(window, Position = NotificationPosition.BottomRight, MaxItems = 3)
-
-    // Setup NotificationManager
-    // To avoid the Airspace problem, host is configured with FloatingContent.floating.
-    let floatingManager = lazy initWindowNotificationManager floating.Value
-
-    member x.NotificationManager =
-        floatingManager.Value
+    member x.NotificationManager = notificationManager
+        
         

@@ -260,18 +260,6 @@ let subPlayerView model dispatch =
                        && isNotInterval state
                        && notFunc Deferred.inProgress randomizeState)
                       |> VideoView.isVideoVisible
-
-                    //   VideoView.content (
-                    //       Button.create [
-                    //           Button.content "Full Screen"
-                    //           Button.onClick (fun e ->
-                    //               let lifetime =
-                    //                   Application.Current.ApplicationLifetime
-                    //                   :?> IClassicDesktopStyleApplicationLifetime
-
-                    //               lifetime.MainWindow.WindowState <- WindowState.FullScreen)
-                    //       ]
-                    //   )
                   | _ -> () ]
     )
 
@@ -542,8 +530,7 @@ let floatingOnOther id model dispatch =
             ]
     )
 
-let mainPlayerFloatingName = "mainplayer-floating"
-let mainPlayerFloating = FloatingWindow mainPlayerFloatingName
+let mainPlayerFloating = FloatingWindow ()
 
 let mainPlayerView id model dispatch =
     Component.create (
@@ -553,7 +540,6 @@ let mainPlayerView id model dispatch =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
             let outlet = ctx.useState (VideoView(), renderOnChange = false)
-
 
             ctx.useEffect ((fun _ -> 
                 FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit; EffectTrigger.AfterChange outlet])
@@ -636,8 +622,6 @@ let drawingProgressView model =
             ]
     )
 
-open Avalonia
-open Avalonia.Controls.ApplicationLifetimes
 
 let cmp initMainPlayer initSubPlayer init update =
     Component(
@@ -652,8 +636,6 @@ let cmp initMainPlayer initSubPlayer init update =
             ]
             ctx.useEffect (
                 (fun _ ->
-
-
                     let lifetime =
                         Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
 

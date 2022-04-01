@@ -90,7 +90,11 @@ type VideoView() =
             |> Option.iter (fun np -> np.IsVisible <- value)
 
     static member IsVideoVisibleProperty =
-        AvaloniaProperty.Register<_, bool>(nameof Unchecked.defaultof<VideoView>.IsVideoVisible)
+        AvaloniaProperty.RegisterDirect(
+            nameof Unchecked.defaultof<VideoView>.IsVideoVisible,
+            (fun (o: VideoView) -> o.IsVideoVisible),
+            (fun (o: VideoView) v -> o.IsVideoVisible <- v)
+        )
 
     static member VideoView() =
         [ VideoView.MediaPlayerProperty.Changed

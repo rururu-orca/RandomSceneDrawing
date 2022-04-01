@@ -38,12 +38,6 @@ type FloatingWindowImpl() =
     let (|OwnerHandle|_|) (x: FloatingWindowImpl) =
         tryGetOwner x |> Option.map WindowBase.getHandle
 
-    let (|NotEq|_|) x target =
-        if target <> x then
-            Some target
-        else
-            None
-
     static member Register (floatingWindow: WindowBase) owner =
         Map.add floatingWindow.PlatformImpl.Handle.Handle owner
         |> MailboxProcessor.post ownerList
@@ -63,10 +57,8 @@ type FloatingWindowImpl() =
             ``base``.WndProc(hWnd, msg, wParam, lParam)
         | other -> ``base``.WndProc(hWnd, msg, wParam, lParam)
 
-open System.Diagnostics
-open System.Runtime.CompilerServices
-open System.Runtime.InteropServices
-type FloatingWindow([<Optional; DefaultParameterValue("")>] floatingWindowName:string) =
+
+type FloatingWindow() =
     inherit Window
         (
             new FloatingWindowImpl(),
@@ -78,18 +70,9 @@ type FloatingWindow([<Optional; DefaultParameterValue("")>] floatingWindowName:s
             ShowInTaskbar = false
         )
 
-
-
-    static let floatingList = MailboxProcessor.createAgent Map.empty
-
     let mutable owner: IVisual = base.VisualRoot
 
     let getVisualRoot (visual: IVisual) = visual.VisualRoot :?> WindowBase
-
-
-    static member TryGet name =
-        Map.tryFind name
-        |> MailboxProcessor.postAndReply floatingList
 
     member x.Owner
         with get (): IVisual = owner
@@ -99,30 +82,20 @@ type FloatingWindow([<Optional; DefaultParameterValue("")>] floatingWindowName:s
 
             owner <- value
 
-    member _.FloatingWindowName = floatingWindowName
-
     member x.RaizeOwnerEvent e =
         match x.Owner with
         | :? IInteractive as i -> i.RaiseEvent e
         | _ -> ()
 
-
     override this.OnInitialized() =
-        if not <| String.IsNullOrEmpty floatingWindowName then
-            Map.add floatingWindowName this
-            |> MailboxProcessor.post floatingList
-
-        this.PointerPressed
-        |> Observable.add (fun e ->
+        let callback e =
             match this.Content with
             | :? IControl as c when not c.IsPointerOver && this.IsPointerOver -> this.RaizeOwnerEvent e
-            | _ -> ())
+            | _ -> ()
 
-        this.PointerReleased
-        |> Observable.add (fun e ->
-            match this.Content with
-            | :? IControl as c when not c.IsPointerOver && this.IsPointerOver -> this.RaizeOwnerEvent e
-            | _ -> ())
+        this.PointerPressed |> Observable.add callback
+
+        this.PointerReleased |> Observable.add callback
 
         this.GetPropertyChangedObservable WindowBase.ContentProperty
         |> Observable.add (fun e ->
@@ -168,17 +141,18 @@ type FloatingOwner() =
     member x.FloatingWindow
         with get () = floatingWindow
         and set (value: FloatingWindow) =
-            if not <| obj.ReferenceEquals(floatingWindow,value) then
+            if not <| obj.ReferenceEquals(floatingWindow, value) then
                 floatingWindow.Close()
                 value.Content <- floatingWindow.Content
                 floatingWindow <- value
 
     static member FloatingWindowProperty =
-        AvaloniaProperty.RegisterDirect<FloatingOwner,_>(
+        AvaloniaProperty.RegisterDirect<FloatingOwner, _>(
             nameof Unchecked.defaultof<FloatingOwner>.FloatingWindow,
             (fun o -> o.FloatingWindow),
             (fun o v -> o.FloatingWindow <- v)
         )
+
 module FloatingOwner =
     let floatingWindow<'t when 't :> FloatingOwner> (floatingWindow: FloatingWindow) : IAttr<'t> =
         AttrBuilder<'t>
@@ -345,8 +319,6 @@ type SubWindow() =
         base.OnAttachedToVisualTree e
 
 module SubWindow =
-    open Avalonia.FuncUI.Builder
-    open Avalonia.FuncUI.Types
 
     let create (attrs: IAttr<SubWindow> list) : IView<SubWindow> = ViewBuilder.Create<SubWindow>(attrs)
 

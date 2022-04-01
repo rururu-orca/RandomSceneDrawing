@@ -1,6 +1,6 @@
 namespace RandomSceneDrawing
 
-
+open System
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
@@ -18,7 +18,7 @@ type App() =
         let lifetime =
             Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
 
-        let mainWindow = MainWindow View.mainPlayerFloatingName
+        let mainWindow = MainWindow View.mainPlayerFloating
 
         this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
         let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)

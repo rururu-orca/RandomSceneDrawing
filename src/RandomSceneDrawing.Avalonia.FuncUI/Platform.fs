@@ -23,8 +23,7 @@ open RandomSceneDrawing.Types
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
 let showInfomationAsync (window: MainWindow) msg =
-    // Dispatcher.UIThread.
-    Dispatcher.UIThread.Post (fun _ ->
+    Dispatcher.UIThread.InvokeAsync (fun _ ->
         let mgr = window.NotificationManager
         match msg with
         | InfoMsg info ->
@@ -33,9 +32,8 @@ let showInfomationAsync (window: MainWindow) msg =
         | ErrorMsg err ->
             Notification("Error!!", err, NotificationType.Error)
             |> mgr.Show)
-    async {
-        ()
-    }
+    |> Async.AwaitTask
+
 
 open Player
 
