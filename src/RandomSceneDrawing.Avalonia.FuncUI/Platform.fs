@@ -23,17 +23,15 @@ open RandomSceneDrawing.Types
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
 let showInfomationAsync (window: MainWindow) msg =
-    Dispatcher.UIThread.InvokeAsync (fun _ ->
-        let mgr = window.NotificationManager
+    fun _ ->
         match msg with
         | InfoMsg info ->
             Notification("Info", info, NotificationType.Information)
-            |> mgr.Show
+            |> window.NotificationManager.Show
         | ErrorMsg err ->
             Notification("Error!!", err, NotificationType.Error)
-            |> mgr.Show)
-    |> Async.AwaitTask
-
+            |> window.NotificationManager.Show
+    |> Dispatcher.UIThread.InvokeAsync
 
 open Player
 

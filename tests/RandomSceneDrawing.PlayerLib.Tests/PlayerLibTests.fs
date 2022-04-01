@@ -15,14 +15,14 @@ let playerApi media =
     { playAsync = fun player -> LibVLCSharp.playAsync player media
       pauseAsync = LibVLCSharp.pauseAsync
       stopAsync = LibVLCSharp.stopAsync
-      showInfomation = fun _ -> async { () } }
+      showInfomation = fun _ -> task { () } }
 
 let settingsApi: DrawingSettings.Api =
     { validateMediaInfo = RandomizeInfoDto.validate
       parsePlayListFile = RandomizeInfoDto.parsePlayListFile
       pickPlayList = fun _ -> task { return Ok "Test" }
       pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
-      showInfomation = fun _ -> async { () } }
+      showInfomation = fun _ -> task { () } }
 
 let mainMock: Main.Api<MediaPlayer> = Main.Api.mockOk ()
 
@@ -30,7 +30,7 @@ let mainApi: Main.Api<MediaPlayer> =
     { step = mainMock.step
       createSnapShotFolder = fun _ -> task { return Ok "test" }
       copySubVideo = fun _ -> task { return Ok() }
-      showInfomation = fun _ -> async { () }
+      showInfomation = fun _ -> task { () }
       randomize = Randomize.run
       takeSnapshot = LibVLCSharp.takeSnapshot }
 
