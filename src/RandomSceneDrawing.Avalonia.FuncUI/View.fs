@@ -549,18 +549,14 @@ let mainPlayerView id model dispatch =
     Component.create (
         id,
         fun ctx ->
-
-            let mgr = WindowNotificationManager(mainPlayerFloating, Position = NotificationPosition.BottomRight, MaxItems = 3)
-
-
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
             let outlet = ctx.useState (VideoView(), renderOnChange = false)
 
+
             ctx.useEffect ((fun _ -> 
-                let name = outlet.Current.FloatingWindow.FloatingWindowName
-                FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit ])
+                FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit; EffectTrigger.AfterChange outlet])
 
             View.createWithOutlet
                 outlet.Set
@@ -572,10 +568,6 @@ let mainPlayerView id model dispatch =
                   match player with
                   | Resolved mainPlayer ->
                       VideoView.mediaPlayer mainPlayer.Player
-
-                      Notification("Info", "Test", NotificationType.Information)
-                      |> mgr.Show
-
 
                       match state, randomizeState, mainPlayer.Media with
                       | Interval _, _, _ -> false
