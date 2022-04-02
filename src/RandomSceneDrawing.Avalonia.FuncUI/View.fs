@@ -541,8 +541,7 @@ let mainPlayerView id model dispatch =
 
             let outlet = ctx.useState (VideoView(), renderOnChange = false)
 
-            ctx.useEffect ((fun _ -> 
-                FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit; EffectTrigger.AfterChange outlet])
+            ctx.useEffect ((fun _ -> FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit ])
 
             View.createWithOutlet
                 outlet.Set
