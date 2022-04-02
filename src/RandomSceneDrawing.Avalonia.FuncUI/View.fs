@@ -2,7 +2,9 @@ module RandomSceneDrawing.View
 
 open System
 
+open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Controls.Shapes
 open Avalonia.Layout
 open Avalonia.Media
@@ -13,6 +15,8 @@ open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
+open FSharp.Control.Reactive
+
 open FsToolkit.ErrorHandling
 
 open RandomSceneDrawing.Types
@@ -22,7 +26,6 @@ open RandomSceneDrawing.Player
 open RandomSceneDrawing.Main
 open RandomSceneDrawing.Main.ValueTypes
 open RandomSceneDrawing.AvaloniaExtensions
-
 
 [<AutoOpen>]
 module CustomHooks =
@@ -73,6 +76,72 @@ let inline list fsCollection =
     fsCollection :> Collections.Generic.IEnumerable<'T>
 
 let inline notFunc ([<InlineIfLambda>] f) x = not (f x)
+
+module LibVLCSharp =
+    open LibVLCSharp
+
+    let seekBar id (player: MediaPlayer) writablePosition onPositionChanged =
+        Component.create (
+            id,
+            fun ctx ->
+                let minValue = 0.0
+                let maxValue = 1.0
+
+                let outlet = ctx.useState (Unchecked.defaultof<Slider>, false)
+                let isPressed = ctx.useState (false, false)
+                let position = ctx.usePassed writablePosition
+
+                let handler _ : unit = position.Current |> onPositionChanged
+
+                ctx.useEffect (handler, [ EffectTrigger.AfterChange position ])
+
+                ctx.useEffect (
+                    (fun _ ->
+                        [ player.Opening
+                          |> Observable.merge player.Playing
+                          |> Observable.merge player.Paused
+                          |> Observable.merge player.Stopping
+                          |> Observable.merge player.Stopped
+                          |> Observable.map (fun _ -> float player.Position)
+
+                          player.PositionChanged
+                          |> Observable.map (fun e ->
+                              if player.State = VLCState.Stopping then
+                                  maxValue
+                              else
+                                  float e.Position |> max minValue) ]
+                        |> Observable.mergeSeq
+                        |> Observable.subscribe position.Set),
+                    [ EffectTrigger.AfterInit ]
+                )
+
+                View.createWithOutlet
+                    outlet.Set
+                    Slider.create
+                    [ Slider.minimum minValue
+                      Slider.maximum maxValue
+
+                      if player.IsSeekable then
+                          double position.Current
+                      else
+                          minValue
+                      |> Slider.value
+
+                      Slider.onPointerPressed (fun _ -> isPressed.Set true)
+                      Slider.onPointerReleased (fun _ ->
+                          if player.IsSeekable then
+                              float32 outlet.Current.Value
+                              |> player.SetPosition
+                              |> ignore
+
+                              onPositionChanged outlet.Current.Value
+                          else
+                              outlet.Current.Value <- minValue
+
+                          isPressed.Set false) ]
+        )
+
+
 
 let inline isNotInterval state =
     match state with
@@ -227,9 +296,7 @@ let headerTopItemsView model dispatch =
             ]
     )
 
-open Avalonia
-open Avalonia.Controls.ApplicationLifetimes
-open FSharp.Control.Reactive
+
 
 let subPlayerView model dispatch =
     Component.create (
@@ -451,68 +518,7 @@ let headerView model dispatch =
 
     )
 
-let seekBar id (player: LibVLCSharp.MediaPlayer) writablePosition onPositionChanged =
-    Component.create (
-        id,
-        fun ctx ->
-            let minValue = 0.0
-            let maxValue = 1.0
-
-            let outlet = ctx.useState (Unchecked.defaultof<Slider>, false)
-            let isPressed = ctx.useState (false, false)
-            let position = ctx.usePassed writablePosition
-
-            let handler _ : unit = position.Current |> onPositionChanged
-
-            ctx.useEffect (handler, [ EffectTrigger.AfterChange position ])
-
-            ctx.useEffect (
-                (fun _ ->
-                    [ player.Opening
-                      |> Observable.merge player.Playing
-                      |> Observable.merge player.Paused
-                      |> Observable.merge player.Stopping
-                      |> Observable.merge player.Stopped
-                      |> Observable.map (fun _ -> float player.Position)
-
-                      player.PositionChanged
-                      |> Observable.map (fun e ->
-                          if player.State = LibVLCSharp.VLCState.Stopping then
-                              maxValue
-                          else
-                              float e.Position |> max minValue) ]
-                    |> Observable.mergeSeq
-                    |> Observable.subscribe position.Set),
-                [ EffectTrigger.AfterInit ]
-            )
-
-            View.createWithOutlet
-                outlet.Set
-                Slider.create
-                [ Slider.minimum minValue
-                  Slider.maximum maxValue
-
-                  if player.IsSeekable then
-                      double position.Current
-                  else
-                      minValue
-                  |> Slider.value
-
-                  Slider.onPointerPressed (fun _ -> isPressed.Set true)
-                  Slider.onPointerReleased (fun _ ->
-                      if player.IsSeekable then
-                          float32 outlet.Current.Value
-                          |> player.SetPosition
-                          |> ignore
-
-                          onPositionChanged outlet.Current.Value
-                      else
-                          outlet.Current.Value <- minValue
-
-                      isPressed.Set false) ]
-    )
-
-let playerControler id model dispatch =
+let seekBar id model dispatch =
     Component.create (
         id,
         fun ctx ->
@@ -546,11 +552,13 @@ let playerControler id model dispatch =
             StackPanel.create [
                 StackPanel.children [
                     match deferredModel with
-                    | Resolved model -> seekBar $"{id}-seekber" model.Player position onPositionChanged
+                    | Resolved model -> LibVLCSharp.seekBar $"{id}-seekber" model.Player position onPositionChanged
                     | _ -> ()
                 ]
             ]
     )
+
+let mainSeekBar model dispatch = seekBar "main" model dispatch
 
 let mainPlayerControler id model dispatch =
     Component.create (
@@ -601,7 +609,7 @@ let floatingOnSetting id model dispatch =
                     "floatring-content"
                 ]
                 DockPanel.children [
-                    playerControler "mainplayer" model dispatch
+                    mainSeekBar model dispatch
                     mainPlayerControler "controler" model dispatch
                 ]
             ]
@@ -611,18 +619,12 @@ let floatingOnOther id model dispatch =
     Component.create (
         id,
         fun ctx ->
-            let model = ctx.usePassedRead (model, renderOnChange = false)
-
             DockPanel.create [
                 DockPanel.classes [
                     "floatring-content"
                 ]
                 DockPanel.children [
-                    Rectangle.create [
-                        Rectangle.fill Brushes.DarkBlue
-                        Rectangle.width 200
-                        Rectangle.height 50
-                    ]
+                    mainSeekBar model dispatch
                 ]
             ]
     )
@@ -678,10 +680,11 @@ let toolWindow model dispatch =
             SubWindow.create [
                 state <> Setting |> SubWindow.isVisible
                 SubWindow.content (
-                    Panel.create [
-                        Panel.margin 16
-                        Panel.children [
+                    StackPanel.create [
+                        StackPanel.margin 12
+                        StackPanel.children [
                             randomizeButtonView model dispatch
+                            mainSeekBar model dispatch
                         ]
                     ]
                 )
