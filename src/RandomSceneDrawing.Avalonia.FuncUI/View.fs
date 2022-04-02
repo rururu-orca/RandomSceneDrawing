@@ -406,13 +406,7 @@ let mediaInfoView (model: IReadable<Model<LibVLCSharp.MediaPlayer>>) =
                     ]
 
                     TextBlock.create [
-                        match main.Player.Time with
-                        | 0L -> rs.Position |> timeSpanText
-                        | time ->
-                            PlayerLib.Utils.toSecf time
-                            |> TimeSpan.FromSeconds
-                            |> timeSpanText
-                        |> TextBlock.text
+                        rs.Position |> timeSpanText |> TextBlock.text
                     ]
 
                     TextBlock.create [
@@ -457,13 +451,20 @@ let headerView model dispatch =
 
     )
 
-let seekBar id (player: LibVLCSharp.MediaPlayer) position =
+let seekBar id (player: LibVLCSharp.MediaPlayer) writablePosition onPositionChanged =
     Component.create (
         id,
         fun ctx ->
-            let outlet = ctx.useState (null, false)
+            let minValue = 0.0
+            let maxValue = 1.0
+
+            let outlet = ctx.useState (Unchecked.defaultof<Slider>, false)
             let isPressed = ctx.useState (false, false)
-            let position = ctx.usePassed position
+            let position = ctx.usePassed writablePosition
+
+            let handler _ : unit = position.Current |> onPositionChanged
+
+            ctx.useEffect (handler, [ EffectTrigger.AfterChange position ])
 
             ctx.useEffect (
                 (fun _ ->
@@ -472,14 +473,14 @@ let seekBar id (player: LibVLCSharp.MediaPlayer) position =
                       |> Observable.merge player.Paused
                       |> Observable.merge player.Stopping
                       |> Observable.merge player.Stopped
-                      |> Observable.map (fun e -> float player.Position)
+                      |> Observable.map (fun _ -> float player.Position)
 
                       player.PositionChanged
                       |> Observable.map (fun e ->
                           if player.State = LibVLCSharp.VLCState.Stopping then
-                              1.0
+                              maxValue
                           else
-                              float e.Position |> max 0.0) ]
+                              float e.Position |> max minValue) ]
                     |> Observable.mergeSeq
                     |> Observable.subscribe position.Set),
                 [ EffectTrigger.AfterInit ]
@@ -488,32 +489,64 @@ let seekBar id (player: LibVLCSharp.MediaPlayer) position =
             View.createWithOutlet
                 outlet.Set
                 Slider.create
-                [ Slider.minimum 0.0
-                  Slider.maximum 1.0
-                  Slider.onPointerPressed (fun e -> isPressed.Set true)
-                  Slider.onPointerReleased (fun e ->
-                      float32 outlet.Current.Value
-                      |> player.SetPosition
-                      |> ignore
+                [ Slider.minimum minValue
+                  Slider.maximum maxValue
 
-                      isPressed.Set false)
-                  double position.Current |> Slider.value ]
+                  if player.IsSeekable then
+                      double position.Current
+                  else
+                      minValue
+                  |> Slider.value
+
+                  Slider.onPointerPressed (fun _ -> isPressed.Set true)
+                  Slider.onPointerReleased (fun _ ->
+                      if player.IsSeekable then
+                          float32 outlet.Current.Value
+                          |> player.SetPosition
+                          |> ignore
+
+                          onPositionChanged outlet.Current.Value
+                      else
+                          outlet.Current.Value <- minValue
+
+                      isPressed.Set false) ]
     )
 
 let playerControler id model dispatch =
     Component.create (
         id,
         fun ctx ->
-            let _, deferredModel = ctx.useMapRead model (fun m -> m.MainPlayer)
+            let _, (deferredModel, randomizeState) =
+                ctx.useMapRead model (fun m -> m.MainPlayer, m.RandomizeState)
+
+            let hasRandomizeStateResolved = ctx.useState false
 
             let position = ctx.useState -1.0
+
+            match randomizeState with
+            | Resolved (Ok rs) when not hasRandomizeStateResolved.Current ->
+                rs.Position / rs.MainInfo.Duration |> position.Set
+                hasRandomizeStateResolved.Set true
+            | HasNotStartedYet
+            | InProgress when hasRandomizeStateResolved.Current ->
+                position.Set -1.0
+                hasRandomizeStateResolved.Set false
+            | _ -> ()
+
+            let onPositionChanged p =
+                match model.Current.RandomizeState with
+                | Resolved (Ok rs) ->
+                    rs.MainInfo.Duration * p
+                    |> SetRandomizeResultPosition
+                    |> dispatch
+                | _ -> ()
 
             ctx.attrs [ Component.dock Dock.Bottom ]
 
             StackPanel.create [
                 StackPanel.children [
                     match deferredModel with
-                    | Resolved model -> seekBar $"{id}-seekber" model.Player position
+                    | Resolved model -> seekBar $"{id}-seekber" model.Player position onPositionChanged
                     | _ -> ()
                 ]
             ]

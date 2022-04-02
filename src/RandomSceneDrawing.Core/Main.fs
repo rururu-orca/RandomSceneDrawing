@@ -166,6 +166,7 @@ type Msg<'player> =
     | PlayerMsg of PlayerId * Player.Msg
     | SettingsMsg of DrawingSettings.Msg
     | Randomize of AsyncOperationStatus<Result<RandomizeResult, string>>
+    | SetRandomizeResultPosition of TimeSpan
     | StartDrawing of AsyncOperationStatus<Result<string, string>>
     | StopDrawing
     | Tick
@@ -373,6 +374,14 @@ let update api settingsApi playerApi msg m =
                 .WithState { r with Duration = settings.Duration },
             Cmd.none
         | _ -> Model.withRandomizeResult ignore m result, Cmd.none
+
+    | SetRandomizeResultPosition value ->
+        match m.RandomizeState with
+        | Resolved (Ok rs) ->
+            Ok { rs with Position = value }
+            |> Model.withRandomizeResult ignore m
+        | _ -> m
+        , Cmd.none
     | Tick ->
         let updateRamdomize (model: Model<'player>) =
             { model with RandomizeState = InProgress },
