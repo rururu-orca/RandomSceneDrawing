@@ -60,7 +60,7 @@ module NativeModule =
 
     [<return: MarshalAs(UnmanagedType.Bool)>]
     [<DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)>]
-    extern bool PostMessage(nativeint hWnd, uint msg, nativeint wParam,nativeint lParam)
+    extern bool PostMessage(nativeint hWnd, uint msg, nativeint wParam, nativeint lParam)
 
     open Avalonia.Controls
 
@@ -76,33 +76,6 @@ module NativeModule =
             Marshal.GetLastPInvokeError()
             |> failwith "SetWindowLongPtr Failed: %i"
         | _ -> ()
-
-module MailboxProcessor =
-    [<RequireQualifiedAccess>]
-    type MailboxProcessorMsg<'state, 'u, 'r> =
-        | Post of ('state -> 'state)
-        | Reply of ('u -> 'r) * AsyncReplyChannel<'r>
-
-    let inline createAgent initialState =
-        MailboxProcessor.Start (fun inbox ->
-            let rec loop oldState =
-                async {
-                    match! inbox.Receive() with
-                    | MailboxProcessorMsg.Post postFunc ->
-                        let newState = postFunc oldState
-                        return! loop newState
-                    | MailboxProcessorMsg.Reply (replyFunc, ch) ->
-                        replyFunc oldState |> ch.Reply
-                        return! loop oldState
-                }
-
-            loop initialState)
-
-    let inline post (agent: MailboxProcessor<MailboxProcessorMsg<'p, 'u, 'r>>) postFunc =
-        MailboxProcessorMsg.Post postFunc |> agent.Post
-
-    let inline postAndReply (agent: MailboxProcessor<MailboxProcessorMsg<'p, 'u, 'r>>) replyFunc =
-        agent.PostAndReply(fun reply -> MailboxProcessorMsg.Reply(replyFunc, reply))
 
 
 module AvaloniaExtensions =
@@ -147,7 +120,6 @@ module AvaloniaExtensions =
         target.SetValue(prop, value)
 
 
-
     let inline getLifetime () =
         match Application.Current.ApplicationLifetime with
         | :? IClassicDesktopStyleApplicationLifetime as lifetime -> Some lifetime
@@ -157,6 +129,9 @@ module AvaloniaExtensions =
         getLifetime ()
         |> Option.map (fun l -> l.Windows)
         |> Option.defaultValue List.Empty
+
+    let inline optionRef o =
+        (Option.toObj >> ref) o
 
     type Styles with
 

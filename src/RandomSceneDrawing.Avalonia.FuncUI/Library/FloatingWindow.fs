@@ -21,6 +21,7 @@ open FSharpPlus
 open FSharp.Control
 open FSharp.Control.Reactive
 
+open RandomSceneDrawing.Util
 open RandomSceneDrawing.AvaloniaExtensions
 open RandomSceneDrawing.NativeModule
 
