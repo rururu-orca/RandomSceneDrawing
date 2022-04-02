@@ -45,7 +45,7 @@ let inline orElse ([<InlineIfLambda>] onError: 'u -> Task<Result<'t, 'error>>) a
     }
 
 let inline trimMediaAsync startTime endTime inputPath destinationPath =
-    [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -copyts -i \"{inputPath}\" -c:v copy -an \"{destinationPath}\"" ]
+    [ $"-loglevel warning -y -ss %.3f{startTime} -to %.3f{endTime} -i \"{inputPath}\" -c:v copy -an \"{destinationPath}\"" ]
     |> runAsync
 
 let inline resizeMediaAsync inputPath rescaleParam destinationPath =

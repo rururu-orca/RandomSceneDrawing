@@ -1,4 +1,4 @@
-﻿namespace RandomSceneDrawing.PlayerLib
+namespace RandomSceneDrawing.PlayerLib
 
 open System
 open LibVLCSharp
@@ -119,7 +119,7 @@ module Randomize =
 
 
             // メインプレイヤーの設定、再生
-            let positionTime = Math.Round(startTime + ((endTime - startTime) / 2.0), 2)
+            let positionTime = Math.Round((endTime - startTime) / 2.0, 2)
 
             [ ":no-audio"
               ":start-paused"
@@ -130,7 +130,7 @@ module Randomize =
 
             player.Media <- media
 
-            do!
+            let playMainPlayer =
                 player.PlayAsync()
                 |> TaskResult.requireTrue "Main Player: Play failed."
 
@@ -143,16 +143,15 @@ module Randomize =
 
             subPlayer.Media <- media'
 
-            do!
+            let playSubPlayer =
                 subPlayer.PlayAsync()
                 |> TaskResult.requireTrue "Sub Player: Play failed."
+            
+            do!
+                TaskResult.zip playMainPlayer playSubPlayer
+                |> TaskResult.ignore
 
-            do! Async.Sleep 50 |> Async.Ignore
-
-            while player.State = VLCState.Buffering do
-                do! Async.Sleep 1 |> Async.Ignore
-
-            do! Async.Sleep 50 |> Async.Ignore
+            do! Task.millisecondsDelay 50
 
             return! getRandomizeResult media destination media' destination' startTime endTime positionTime
         }
