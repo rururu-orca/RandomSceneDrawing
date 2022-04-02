@@ -457,6 +457,65 @@ let headerView model dispatch =
 
     )
 
+let seekBar id (player: LibVLCSharp.MediaPlayer) position  =
+    Component.create (
+        id,
+        fun ctx ->
+            let outlet = ctx.useState (null, false)
+            let isPressed = ctx.useState (false, false)
+            let position = ctx.usePassed position
+
+            ctx.useEffect (
+                (fun _ ->
+                    [ player.Playing
+                      |> Observable.merge player.Paused
+                      |> Observable.subscribe (fun e -> float player.Position |> position.Set)
+
+                      player.PositionChanged
+                      |> Observable.map (fun e ->
+                          if player.State = LibVLCSharp.VLCState.Stopping then
+                              1.0
+                          else
+                              float e.Position |> max 0.0)
+                      |> Observable.subscribe position.Set ]
+                    |> Disposables.compose),
+                [ EffectTrigger.AfterInit ]
+            )
+
+            View.createWithOutlet
+                outlet.Set
+                Slider.create
+                [ Slider.minimum 0.0
+                  Slider.maximum 1.0
+                  Slider.onPointerPressed (fun e -> isPressed.Set true)
+                  Slider.onPointerReleased (fun e ->
+                      float32 outlet.Current.Value
+                      |> player.SetPosition
+                      |> ignore
+
+                      isPressed.Set false)
+                  if not isPressed.Current then
+                      double position.Current |> Slider.value ]
+    )
+
+let playerControler id model dispatch =
+    Component.create (
+        id,
+        fun ctx ->
+            let _, deferredModel = ctx.useMapRead model (fun m -> m.MainPlayer)
+
+            let position = ctx.useState -1.0
+
+            ctx.attrs [ Component.dock Dock.Bottom ]
+
+            StackPanel.create [
+                StackPanel.children [
+                    match deferredModel with
+                    | Resolved model -> seekBar $"{id}-seekber" model.Player position
+                    | _ -> ()
+                ]
+            ]
+    )
 
 let mainPlayerControler id model dispatch =
     Component.create (
@@ -496,6 +555,8 @@ let mainPlayerControler id model dispatch =
             ]
     )
 
+
+
 let floatingOnSetting id model dispatch =
     Component.create (
         id,
@@ -505,6 +566,7 @@ let floatingOnSetting id model dispatch =
                     "floatring-content"
                 ]
                 DockPanel.children [
+                    playerControler "mainplayer" model dispatch
                     mainPlayerControler "controler" model dispatch
                 ]
             ]
@@ -530,7 +592,7 @@ let floatingOnOther id model dispatch =
             ]
     )
 
-let mainPlayerFloating = FloatingWindow ()
+let mainPlayerFloating = FloatingWindow()
 
 let mainPlayerView id model dispatch =
     Component.create (
@@ -568,6 +630,8 @@ let mainPlayerView id model dispatch =
                   | _ -> floatingOnOther "floatring-content-other" model dispatch
                   |> VideoView.content ]
     )
+
+
 
 let toolWindow model dispatch =
     Component.create (
@@ -633,6 +697,7 @@ let cmp initMainPlayer initSubPlayer init update =
             ctx.attrs [
                 Component.margin config.RootComponent.Margin
             ]
+
             ctx.useEffect (
                 (fun _ ->
                     let lifetime =
