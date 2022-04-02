@@ -457,7 +457,7 @@ let headerView model dispatch =
 
     )
 
-let seekBar id (player: LibVLCSharp.MediaPlayer) position  =
+let seekBar id (player: LibVLCSharp.MediaPlayer) position =
     Component.create (
         id,
         fun ctx ->
@@ -467,18 +467,21 @@ let seekBar id (player: LibVLCSharp.MediaPlayer) position  =
 
             ctx.useEffect (
                 (fun _ ->
-                    [ player.Playing
+                    [ player.Opening
+                      |> Observable.merge player.Playing
                       |> Observable.merge player.Paused
-                      |> Observable.subscribe (fun e -> float player.Position |> position.Set)
+                      |> Observable.merge player.Stopping
+                      |> Observable.merge player.Stopped
+                      |> Observable.map (fun e -> float player.Position)
 
                       player.PositionChanged
                       |> Observable.map (fun e ->
                           if player.State = LibVLCSharp.VLCState.Stopping then
                               1.0
                           else
-                              float e.Position |> max 0.0)
-                      |> Observable.subscribe position.Set ]
-                    |> Disposables.compose),
+                              float e.Position |> max 0.0) ]
+                    |> Observable.mergeSeq
+                    |> Observable.subscribe position.Set),
                 [ EffectTrigger.AfterInit ]
             )
 
@@ -494,8 +497,7 @@ let seekBar id (player: LibVLCSharp.MediaPlayer) position  =
                       |> ignore
 
                       isPressed.Set false)
-                  if not isPressed.Current then
-                      double position.Current |> Slider.value ]
+                  double position.Current |> Slider.value ]
     )
 
 let playerControler id model dispatch =
