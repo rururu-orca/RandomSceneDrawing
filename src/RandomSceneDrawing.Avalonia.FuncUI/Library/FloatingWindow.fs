@@ -6,6 +6,7 @@ open Avalonia.Controls.Templates
 open Avalonia.Controls.Primitives
 open Avalonia.Interactivity
 open Avalonia.Media
+open Avalonia.Metadata
 open Avalonia.Layout
 open Avalonia.VisualTree
 open Avalonia.Win32
@@ -76,11 +77,11 @@ type FloatingWindow() =
     let getVisualRoot (visual: IVisual) = visual.VisualRoot :?> WindowBase
 
     member x.Owner
-        with get (): IVisual = owner
+        with get (): IVisual =
+            owner
         and set (value) =
             getVisualRoot value
             |> FloatingWindowImpl.Register x
-
             owner <- value
 
     member x.RaizeOwnerEvent e =
@@ -135,29 +136,47 @@ type FloatingWindowOwnerImpl() =
         | other -> ``base``.WndProc(hWnd, msg, wParam, lParam)
 
 
-type FloatingOwner() =
-    inherit ContentControl()
-    let mutable floatingWindow = FloatingWindow()
+type FloatingOwnerHost() =
+    inherit NativeControlHost()
+
+    let floatingWindowSub = FloatingWindow() |> Subject.behavior
 
     member x.FloatingWindow
-        with get () = floatingWindow
+        with get () = floatingWindowSub.Value
         and set (value: FloatingWindow) =
-            if not <| obj.ReferenceEquals(floatingWindow, value) then
-                floatingWindow.Close()
-                value.Content <- floatingWindow.Content
-                floatingWindow <- value
+            if
+                not
+                <| obj.ReferenceEquals(floatingWindowSub.Value, value)
+            then
+                floatingWindowSub.Value.Close()
+                value.Content <- floatingWindowSub.Value.Content
+                floatingWindowSub.OnNext value
 
     static member FloatingWindowProperty =
-        AvaloniaProperty.RegisterDirect<FloatingOwner, _>(
-            nameof Unchecked.defaultof<FloatingOwner>.FloatingWindow,
+        AvaloniaProperty.RegisterDirect<FloatingOwnerHost, _>(
+            nameof
+                Unchecked.defaultof<FloatingOwnerHost>
+                    .FloatingWindow,
             (fun o -> o.FloatingWindow),
             (fun o v -> o.FloatingWindow <- v)
         )
 
-module FloatingOwner =
-    let floatingWindow<'t when 't :> FloatingOwner> (floatingWindow: FloatingWindow) : IAttr<'t> =
+    static member ContentProperty = ContentControl.ContentProperty.AddOwner<FloatingOwnerHost>()
+
+    [<Content>]
+    member x.Content
+        with get () = x.GetValue FloatingOwnerHost.ContentProperty
+        and set value =
+            x.SetValue(FloatingOwnerHost.ContentProperty, value)
+            |> ignore
+
+module FloatingOwnerHost =
+    let floatingWindow<'t when 't :> FloatingOwnerHost> (floatingWindow: FloatingWindow) : IAttr<'t> =
         AttrBuilder<'t>
-            .CreateProperty<FloatingWindow>(FloatingOwner.FloatingWindowProperty, floatingWindow, ValueNone)
+            .CreateProperty<FloatingWindow>(FloatingOwnerHost.FloatingWindowProperty, floatingWindow, ValueNone)
+
+    let content<'t when 't :> FloatingOwnerHost> content : IAttr<'t> =
+        AttrBuilder<'t>.CreateContentSingle (FloatingOwnerHost.ContentProperty, Some content)
 
 module FloatingContent =
 
@@ -180,7 +199,7 @@ module FloatingContent =
         | VerticalAlignment.Center -> (owner.Bounds.Height - target.Bounds.Height) / 2.0
         | _ -> 0.0
 
-    let fitWindowPosition (floating: FloatingWindow) (owner: ContentControl) =
+    let fitWindowPosition (floating: FloatingWindow) (owner: FloatingOwnerHost) =
         floating.GetVisualDescendants()
         |> Seq.tryPick (function
             | :? VisualLayerManager as m -> Some m
@@ -210,7 +229,7 @@ module FloatingContent =
             | newPosition when newPosition <> floating.Position -> floating.Position <- newPosition
             | _ -> ())
 
-    let getFloating (o: FloatingOwner) = o.FloatingWindow
+    let getFloating (o: FloatingOwnerHost) = o.FloatingWindow
 
     let showAtMe control : IDisposable =
         let disposables = Disposable.Composite
@@ -228,9 +247,9 @@ module FloatingContent =
         floating.Owner <- control
 
         floating
-        |> bindToControl ContentControl.ContentProperty
+        |> bindToControl FloatingOwnerHost.ContentProperty
 
-        control.GetObservable ContentControl.BoundsProperty
+        control.GetObservable FloatingOwnerHost.BoundsProperty
         |> subscribeForUpdatelayout
 
         root.PositionChanged |> subscribeForUpdatelayout

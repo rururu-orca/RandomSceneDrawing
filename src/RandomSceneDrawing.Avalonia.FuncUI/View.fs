@@ -80,7 +80,7 @@ let inline notFunc ([<InlineIfLambda>] f) x = not (f x)
 module LibVLCSharp =
     open LibVLCSharp
 
-    let seekBar id (player: MediaPlayer) writablePosition onPositionChanged =
+    let seekBar id (player: MediaPlayer) writablePosition onPositionChanged attrs =
         Component.create (
             id,
             fun ctx ->
@@ -114,6 +114,8 @@ module LibVLCSharp =
                         |> Observable.subscribe position.Set),
                     [ EffectTrigger.AfterInit ]
                 )
+                
+                ctx.attrs attrs
 
                 View.createWithOutlet
                     outlet.Set
@@ -321,7 +323,7 @@ let subPlayerView model dispatch =
                   VideoView.horizontalAlignment HorizontalAlignment.Right
                   match player with
                   | Resolved player ->
-                      VideoView.mediaPlayer player.Player
+                      VideoView.mediaPlayer (Some player.Player)
 
                       (Deferred.resolved player.Media
                        && isNotInterval state
@@ -518,7 +520,7 @@ let headerView model dispatch =
 
     )
 
-let seekBar id model dispatch =
+let seekBar id model dispatch attrs =
     Component.create (
         id,
         fun ctx ->
@@ -547,12 +549,12 @@ let seekBar id model dispatch =
                     |> dispatch
                 | _ -> ()
 
-            ctx.attrs [ Component.dock Dock.Bottom ]
+            ctx.attrs attrs
 
             StackPanel.create [
                 StackPanel.children [
                     match deferredModel with
-                    | Resolved model -> LibVLCSharp.seekBar $"{id}-seekber" model.Player position onPositionChanged
+                    | Resolved model -> LibVLCSharp.seekBar $"{id}-seekber" model.Player position onPositionChanged []
                     | _ -> ()
                 ]
             ]
@@ -609,7 +611,7 @@ let floatingOnSetting id model dispatch =
                     "floatring-content"
                 ]
                 DockPanel.children [
-                    mainSeekBar model dispatch
+                    mainSeekBar model dispatch [Component.dock Dock.Bottom]
                     mainPlayerControler "controler" model dispatch
                 ]
             ]
@@ -620,11 +622,12 @@ let floatingOnOther id model dispatch =
         id,
         fun ctx ->
             DockPanel.create [
+                DockPanel.lastChildFill false
                 DockPanel.classes [
                     "floatring-content"
                 ]
                 DockPanel.children [
-                    mainSeekBar model dispatch
+                    mainSeekBar model dispatch [Component.dock Dock.Bottom]
                 ]
             ]
     )
@@ -647,11 +650,11 @@ let mainPlayerView id model dispatch =
                 VideoView.create
                 [ VideoView.minHeight config.MainPlayer.Height
                   VideoView.minWidth config.MainPlayer.Width
-                  FloatingOwner.floatingWindow mainPlayerFloating
+                  FloatingOwnerHost.floatingWindow mainPlayerFloating
 
                   match player with
                   | Resolved mainPlayer ->
-                      VideoView.mediaPlayer mainPlayer.Player
+                      VideoView.mediaPlayer (Some mainPlayer.Player)
 
                       match state, randomizeState, mainPlayer.Media with
                       | Interval _, _, _ -> false
@@ -665,7 +668,7 @@ let mainPlayerView id model dispatch =
                   match state with
                   | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
                   | _ -> floatingOnOther "floatring-content-other" model dispatch
-                  |> VideoView.content ]
+                  |> FloatingOwnerHost.content ]
     )
 
 
@@ -684,7 +687,7 @@ let toolWindow model dispatch =
                         StackPanel.margin 12
                         StackPanel.children [
                             randomizeButtonView model dispatch
-                            mainSeekBar model dispatch
+                            mainSeekBar model dispatch []
                         ]
                     ]
                 )
