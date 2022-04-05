@@ -137,7 +137,7 @@ type FloatingWindowOwnerImpl() =
 
 
 type FloatingOwnerHost() =
-    inherit NativeControlHost()
+    inherit ContentControl()
 
     let floatingWindowSub = FloatingWindow() |> Subject.behavior
 
@@ -161,22 +161,11 @@ type FloatingOwnerHost() =
             (fun o v -> o.FloatingWindow <- v)
         )
 
-    static member ContentProperty = ContentControl.ContentProperty.AddOwner<FloatingOwnerHost>()
-
-    [<Content>]
-    member x.Content
-        with get () = x.GetValue FloatingOwnerHost.ContentProperty
-        and set value =
-            x.SetValue(FloatingOwnerHost.ContentProperty, value)
-            |> ignore
 
 module FloatingOwnerHost =
     let floatingWindow<'t when 't :> FloatingOwnerHost> (floatingWindow: FloatingWindow) : IAttr<'t> =
         AttrBuilder<'t>
             .CreateProperty<FloatingWindow>(FloatingOwnerHost.FloatingWindowProperty, floatingWindow, ValueNone)
-
-    let content<'t when 't :> FloatingOwnerHost> content : IAttr<'t> =
-        AttrBuilder<'t>.CreateContentSingle (FloatingOwnerHost.ContentProperty, Some content)
 
 module FloatingContent =
 

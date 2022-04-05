@@ -52,13 +52,35 @@ type VideoView() =
             | Some p, Some mp -> MediaPlayer.attachHandle p mp
             | _ -> ())
 
-    member x.MediaPlayer
+    let nativePresenter =
+        { new NativeControlHost(Name = "VideoView-NativePresenter") with
+            override _.CreateNativeControlCore(parent) =
+                base.CreateNativeControlCore parent
+                |> tap (Some >> platformHandleSub.OnNext)
+
+            override _.DestroyNativeControlCore(control) =
+                attacher.Dispose()
+
+                Option.iter MediaPlayer.detachHandle mediaPlayerSub.Value
+                platformHandleSub.OnNext None
+
+                base.DestroyNativeControlCore control }
+
+    override x.OnInitialized() = x.VisualChildren.Add nativePresenter
+
+    member _.MediaPlayer
         with get () =
             if mediaPlayerSub.IsDisposed then
                 None
             else
                 mediaPlayerSub.Value
-        and set value = mediaPlayerSub.OnNext value
+        and set value =
+            match mediaPlayerSub.Value, value with
+            | Some prev, Some next when obj.ReferenceEquals(prev, next) -> ()
+            | Some prev, _ ->
+                MediaPlayer.detachHandle prev
+                mediaPlayerSub.OnNext value
+            | _ -> mediaPlayerSub.OnNext value
 
     static member MediaPlayerProperty =
         AvaloniaProperty.RegisterDirect<VideoView, MediaPlayer option>(
@@ -68,17 +90,16 @@ type VideoView() =
             defaultBindingMode = BindingMode.TwoWay
         )
 
-    override _.CreateNativeControlCore(parent) =
-        base.CreateNativeControlCore parent
-        |> tap (Some >> platformHandleSub.OnNext)
+    member _.IsVideoVisible
+        with get () = nativePresenter.IsVisible
+        and set value = nativePresenter.IsVisible <- value
 
-    override _.DestroyNativeControlCore(control) =
-        attacher.Dispose()
-
-        Option.iter MediaPlayer.detachHandle mediaPlayerSub.Value
-        platformHandleSub.OnNext None
-
-        base.DestroyNativeControlCore control
+    static member IsVideoVisibleProperty =
+        AvaloniaProperty.RegisterDirect(
+            nameof Unchecked.defaultof<VideoView>.IsVideoVisible,
+            (fun (o: VideoView) -> o.IsVideoVisible),
+            (fun (o: VideoView) v -> o.IsVideoVisible <- v)
+        )
 
 module VideoView =
     open Avalonia.FuncUI.Builder
@@ -91,4 +112,4 @@ module VideoView =
 
     let isVideoVisible<'t when 't :> VideoView> (isVideoVisible: bool) : IAttr<'t> =
         AttrBuilder<'t>
-            .CreateProperty<bool>(VideoView.IsVisibleProperty, isVideoVisible, ValueNone)
+            .CreateProperty<bool>(VideoView.IsVideoVisibleProperty, isVideoVisible, ValueNone)
