@@ -114,7 +114,7 @@ module LibVLCSharp =
                         |> Observable.subscribe position.Set),
                     [ EffectTrigger.AfterInit ]
                 )
-                
+
                 ctx.attrs attrs
 
                 View.createWithOutlet
@@ -308,8 +308,6 @@ let subPlayerView model dispatch =
                 ctx.useMapRead model (fun m -> m.SubPlayer, m.State, m.RandomizeState)
 
             let outlet = ctx.useState (VideoView(), renderOnChange = false)
-
-            ctx.useEffect ((fun _ -> FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit ])
 
             ctx.attrs [ Component.dock Dock.Right ]
 
@@ -611,7 +609,7 @@ let floatingOnSetting id model dispatch =
                     "floatring-content"
                 ]
                 DockPanel.children [
-                    mainSeekBar model dispatch [Component.dock Dock.Bottom]
+                    mainSeekBar model dispatch [ Component.dock Dock.Bottom ]
                     mainPlayerControler "controler" model dispatch
                 ]
             ]
@@ -627,7 +625,7 @@ let floatingOnOther id model dispatch =
                     "floatring-content"
                 ]
                 DockPanel.children [
-                    mainSeekBar model dispatch [Component.dock Dock.Bottom]
+                    mainSeekBar model dispatch [ Component.dock Dock.Bottom ]
                 ]
             ]
     )
@@ -643,14 +641,12 @@ let mainPlayerView id model dispatch =
 
             let outlet = ctx.useState (VideoView(), renderOnChange = false)
 
-            ctx.useEffect ((fun _ -> FloatingContent.showAtMe outlet.Current), [ EffectTrigger.AfterInit ])
-
             View.createWithOutlet
                 outlet.Set
                 VideoView.create
                 [ VideoView.minHeight config.MainPlayer.Height
                   VideoView.minWidth config.MainPlayer.Width
-                  FloatingOwnerHost.floatingWindow mainPlayerFloating
+                  FloatingWindowHost.floatingWindow mainPlayerFloating
 
                   match player with
                   | Resolved mainPlayer ->
@@ -668,7 +664,7 @@ let mainPlayerView id model dispatch =
                   match state with
                   | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
                   | _ -> floatingOnOther "floatring-content-other" model dispatch
-                  |> FloatingOwnerHost.content ]
+                  |> FloatingWindowHost.content ]
     )
 
 

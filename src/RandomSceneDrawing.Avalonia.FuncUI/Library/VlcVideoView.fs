@@ -24,15 +24,23 @@ open RandomSceneDrawing
 open RandomSceneDrawing.AvaloniaExtensions
 
 module MediaPlayer =
+    let isAttached (platformHandle: IPlatformHandle) (mediaPlayer: MediaPlayer) =
+        match Environment.OSVersion.Platform with
+        | PlatformID.Win32NT -> mediaPlayer.Hwnd = platformHandle.Handle
+        | PlatformID.MacOSX -> mediaPlayer.XWindow = uint platformHandle.Handle
+        | PlatformID.Unix -> mediaPlayer.NsObject = platformHandle.Handle
+        | _ -> false
 
-    let inline attachHandle (platformHandle: IPlatformHandle) (mediaPlayer: MediaPlayer) =
+    let attachHandle (platformHandle: IPlatformHandle) (mediaPlayer: MediaPlayer) =
         match Environment.OSVersion.Platform with
         | PlatformID.Win32NT -> mediaPlayer.Hwnd <- platformHandle.Handle
         | PlatformID.MacOSX -> mediaPlayer.XWindow <- uint platformHandle.Handle
         | PlatformID.Unix -> mediaPlayer.NsObject <- platformHandle.Handle
         | _ -> ()
 
-    let inline detachHandle (mediaPlayer: MediaPlayer) =
+    let detachHandle (mediaPlayer: MediaPlayer) =
+        mediaPlayer.Stop() |> ignore
+
         match Environment.OSVersion.Platform with
         | PlatformID.Win32NT -> mediaPlayer.Hwnd <- IntPtr.Zero
         | PlatformID.MacOSX -> mediaPlayer.XWindow <- 0u
@@ -40,47 +48,43 @@ module MediaPlayer =
         | _ -> ()
 
 type VideoView() =
-    inherit FloatingOwnerHost()
+    inherit FloatingWindowHost()
 
-    let mediaPlayerSub = Subject<MediaPlayer option>.behavior None
-    let platformHandleSub = Subject<IPlatformHandle option>.behavior None
+    let mutable mediaPlayer = Option<MediaPlayer>.None
+    let mutable platformHandle = Option<IPlatformHandle>.None
 
-    let attacher =
-        mediaPlayerSub
-        |> Observable.combineLatest platformHandleSub
-        |> Observable.subscribe (function
-            | Some p, Some mp -> MediaPlayer.attachHandle p mp
-            | _ -> ())
+    let onUpdateHandleOrMediaPlayer () =
+        match mediaPlayer, platformHandle with
+        | Some mp, Some p when MediaPlayer.isAttached p mp -> ()
+        | Some mp, Some p -> MediaPlayer.attachHandle p mp
+        | Some mp, None -> MediaPlayer.detachHandle mp
+        | _ -> ()
 
     let nativePresenter =
         { new NativeControlHost(Name = "VideoView-NativePresenter") with
             override _.CreateNativeControlCore(parent) =
                 base.CreateNativeControlCore parent
-                |> tap (Some >> platformHandleSub.OnNext)
+                |> tap (fun handle ->
+                    platformHandle <- Some handle
+                    onUpdateHandleOrMediaPlayer ())
 
             override _.DestroyNativeControlCore(control) =
-                attacher.Dispose()
-
-                Option.iter MediaPlayer.detachHandle mediaPlayerSub.Value
-                platformHandleSub.OnNext None
-
+                platformHandle <- None
+                onUpdateHandleOrMediaPlayer ()
                 base.DestroyNativeControlCore control }
 
-    override x.OnInitialized() = x.VisualChildren.Add nativePresenter
+    override x.OnInitialized() =
+        x.VisualChildren.Add nativePresenter
+        base.OnInitialized()
 
-    member _.MediaPlayer
-        with get () =
-            if mediaPlayerSub.IsDisposed then
-                None
-            else
-                mediaPlayerSub.Value
+    member x.MediaPlayer
+        with get () = mediaPlayer
         and set value =
-            match mediaPlayerSub.Value, value with
-            | Some prev, Some next when obj.ReferenceEquals(prev, next) -> ()
-            | Some prev, _ ->
-                MediaPlayer.detachHandle prev
-                mediaPlayerSub.OnNext value
-            | _ -> mediaPlayerSub.OnNext value
+            if obj.ReferenceEquals(mediaPlayer, value) then
+                ()
+            else
+                mediaPlayer <- value
+                onUpdateHandleOrMediaPlayer ()
 
     static member MediaPlayerProperty =
         AvaloniaProperty.RegisterDirect<VideoView, MediaPlayer option>(
@@ -90,7 +94,7 @@ type VideoView() =
             defaultBindingMode = BindingMode.TwoWay
         )
 
-    member _.IsVideoVisible
+    member x.IsVideoVisible
         with get () = nativePresenter.IsVisible
         and set value = nativePresenter.IsVisible <- value
 
@@ -102,13 +106,12 @@ type VideoView() =
         )
 
 module VideoView =
-    open Avalonia.FuncUI.Builder
 
     let create (attrs: IAttr<VideoView> list) : IView<VideoView> = ViewBuilder.Create<VideoView>(attrs)
 
     let mediaPlayer<'t when 't :> VideoView> (player: MediaPlayer option) : IAttr<'t> =
         AttrBuilder<'t>
-            .CreateProperty<MediaPlayer option>(VideoView.MediaPlayerProperty, player, ValueNone)
+            .CreateProperty<MediaPlayer option>(VideoView.MediaPlayerProperty, player, ValueSome obj.ReferenceEquals)
 
     let isVideoVisible<'t when 't :> VideoView> (isVideoVisible: bool) : IAttr<'t> =
         AttrBuilder<'t>

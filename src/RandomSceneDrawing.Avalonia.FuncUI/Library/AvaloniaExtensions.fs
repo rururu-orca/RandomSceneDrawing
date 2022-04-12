@@ -7,12 +7,25 @@ open System.Runtime.InteropServices
 
 [<AutoOpen>]
 module Helper =
+    open Avalonia
 
     let (|NotEq|_|) x target =
         if target <> x then
             Some target
         else
             None
+
+    let inline (!) property =
+        AvaloniaProperty.op_OnesComplement property
+
+module Observable =
+    let inline ignore source = Observable.map ignore source
+
+    let inline mergeIgnore a = (ignore >> Observable.merge) a
+
+module Task =
+    open System.Threading.Tasks
+    let delayMilliseconds time = Task.Delay(millisecondsDelay = time)
 
 module NativeModule =
 
@@ -130,8 +143,7 @@ module AvaloniaExtensions =
         |> Option.map (fun l -> l.Windows)
         |> Option.defaultValue List.Empty
 
-    let inline optionRef o =
-        (Option.toObj >> ref) o
+    let inline optionRef o = (Option.toObj >> ref) o
 
     type Styles with
 
@@ -207,3 +219,11 @@ module AvaloniaExtensions =
             =
             CornerRadius(topLeft, topRight, bottomRight, bottomLeft)
             |> TemplatedControl.cornerRadius
+
+    type WindowWrapper =
+        inherit Window
+
+        new(impl) =
+            match impl with
+            | Some (impl) -> { inherit Window(impl) }
+            | None -> { inherit Window() }
