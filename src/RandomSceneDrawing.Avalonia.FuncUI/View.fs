@@ -602,6 +602,19 @@ let mainPlayerControler id model dispatch attrs =
 
 
 let floatingOnSetting id model dispatch =
+    let opacityMask: IBrush =
+        LinearGradientBrush(
+            StartPoint = RelativePoint(Point(0.0, 1.0), RelativeUnit.Relative),
+            EndPoint = RelativePoint(Point(0.0, 0.0), RelativeUnit.Relative),
+            GradientStops =
+                (GradientStops()
+                 |> tap (fun s ->
+                     [ GradientStop(Color.Parse "Black", 0.0)
+                       GradientStop(Color.Parse "Gray", 0.8)
+                       GradientStop(Color.Parse "Transparent", 1.0) ]
+                     |> s.AddRange))
+        )
+
     Component.create (
         id,
         fun ctx ->
@@ -616,7 +629,8 @@ let floatingOnSetting id model dispatch =
                         Rectangle.column 0
                         Rectangle.columnSpan 3
                         Rectangle.fill Brushes.Black
-                        Rectangle.opacity 0.3
+                        Rectangle.opacity 0.5
+                        Rectangle.opacityMask opacityMask
                     ]
                     mainPlayerControler
                         "controler"
