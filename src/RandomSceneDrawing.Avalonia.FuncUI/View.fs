@@ -560,7 +560,7 @@ let seekBar id model dispatch attrs =
 
 let mainSeekBar model dispatch = seekBar "main" model dispatch
 
-let mainPlayerControler id model dispatch =
+let mainPlayerControler id model dispatch attrs =
     Component.create (
         id,
         fun ctx ->
@@ -569,8 +569,9 @@ let mainPlayerControler id model dispatch =
                 ctx.useMapRead model (fun m ->
                     isMediaResolved m.MainPlayer, notFunc Deferred.inProgress m.RandomizeState)
 
+            ctx.attrs attrs
+
             StackPanel.create [
-                StackPanel.dock Dock.Bottom
                 StackPanel.horizontalAlignment HorizontalAlignment.Center
                 StackPanel.verticalAlignment VerticalAlignment.Bottom
                 StackPanel.orientation Orientation.Horizontal
@@ -604,13 +605,32 @@ let floatingOnSetting id model dispatch =
     Component.create (
         id,
         fun ctx ->
-            DockPanel.create [
-                DockPanel.classes [
-                    "floatring-content"
-                ]
-                DockPanel.children [
-                    mainSeekBar model dispatch [ Component.dock Dock.Bottom ]
-                    mainPlayerControler "controler" model dispatch
+            Grid.create [
+                Grid.rowDefinitions "*,Auto,Auto"
+                Grid.columnDefinitions "*,Auto,*"
+                Grid.classes [ "floatring-content" ]
+                Grid.children [
+                    Rectangle.create [
+                        Rectangle.row 1
+                        Rectangle.rowSpan 2
+                        Rectangle.column 0
+                        Rectangle.columnSpan 3
+                        Rectangle.fill Brushes.Black
+                        Rectangle.opacity 0.3
+                    ]
+                    mainPlayerControler
+                        "controler"
+                        model
+                        dispatch
+                        [ Component.row 1
+                          Component.column 1
+                          Component.margin 8 ]
+                    mainSeekBar
+                        model
+                        dispatch
+                        [ Component.row 2
+                          Component.column 0
+                          Component.columnSpan 3 ]
                 ]
             ]
     )
@@ -619,13 +639,17 @@ let floatingOnOther id model dispatch =
     Component.create (
         id,
         fun ctx ->
-            DockPanel.create [
-                DockPanel.lastChildFill false
-                DockPanel.classes [
-                    "floatring-content"
-                ]
-                DockPanel.children [
-                    mainSeekBar model dispatch [ Component.dock Dock.Bottom ]
+            Grid.create [
+                Grid.rowDefinitions "*,Auto,Auto"
+                Grid.columnDefinitions "*,Auto,*"
+                Grid.classes [ "floatring-content" ]
+                Grid.children [
+                    mainSeekBar
+                        model
+                        dispatch
+                        [ Component.row 2
+                          Component.column 0
+                          Component.columnSpan 3 ]
                 ]
             ]
     )
