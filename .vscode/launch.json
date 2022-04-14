@@ -46,7 +46,8 @@
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
-            "console": "internalConsole"
+            "console": "internalConsole",
+            "requireExactSource": false
         }
     ]
 }
