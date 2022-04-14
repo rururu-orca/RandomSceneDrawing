@@ -11,26 +11,25 @@ type Cmd<'msg> = Sub<'msg> list
 
 
 
-type State =
-    { Count : int }
+type State = { Count: int }
 
 type Msg =
     | Increment
     | Decrement
 
-let update (msg: Msg) (state: State): State =
+let update (msg: Msg) (state: State) : State =
     match msg with
-    | Increment ->
-        { state with Count = state.Count + 1 }
+    | Increment -> { state with Count = state.Count + 1 }
 
-    | Decrement ->
-        { state with Count = state.Count - 1 }
+    | Decrement -> { state with Count = state.Count - 1 }
 
-let dispatchImpl :Dispatch<'msg>  = fun msg -> printfn $"{msg}"
-let cmd:Cmd<_> = [fun dispatch -> dispatch Increment]
-cmd |> List.iter (fun sub -> sub dispatchImpl )
-let ms msg :Sub<'msg>= fun (dispatch:Dispatch<'msg>) ->
-    dispatch msg
+let dispatchImpl: Dispatch<'msg> = fun msg -> printfn $"{msg}"
+let cmd: Cmd<_> = [ fun dispatch -> dispatch Increment ]
+cmd |> List.iter (fun sub -> sub dispatchImpl)
+
+let ms msg : Sub<'msg> =
+    fun (dispatch: Dispatch<'msg>) -> dispatch msg
+
 ms Increment dispatchImpl
 
 [<Struct>]
@@ -50,21 +49,22 @@ let (|Valid|Invalid|) (validated: Validated<'value, 'wrapped, 'error>) =
     | Valid value -> Valid value
     | Invalid (current, arg, error) -> Invalid(current, arg, error)
 
-type Point2D = { X: float; Y: float; } with
-  static member add (lhs: Point2D) ( rhs: Point2D) =
-    { X = lhs.X + rhs.X; Y = lhs.Y + rhs.Y; }
+type Point2D =
+    { X: float
+      Y: float }
+
+    static member add (lhs: Point2D) (rhs: Point2D) =
+        { X = lhs.X + rhs.X; Y = lhs.Y + rhs.Y }
 
 module V2 =
-    let inline (|Id|) x =
-        fun () -> (^a : (member Id: string) x)
+    let inline (|Id|) x = fun () -> (^a: (member Id: string) x)
 
-    let inline id (Id f) = f()
+    let inline id (Id f) = f ()
 
 module T =
-    let inline (|Id|) x =
-        fun () -> (^a : (member Id: string) x)
+    let inline (|Id|) x = fun () -> (^a: (member Id: string) x)
 
-    let inline id (Id f) = f()
+    let inline id (Id f) = f ()
 
     let inline test< ^a> param =
         let aT = typeof< ^a>.Name
@@ -73,7 +73,7 @@ module T =
 
     type C =
         { Name: string }
-        with
+
         member __.Id = "1"
 
     let c = { Name = "abc" }
@@ -215,41 +215,77 @@ type CreatePostRequestDto =
     { Tweet: string
       Location: LocationDto }
 
-module M = 
+module M =
     type Validated'<'value, 'wrapped, 'error when 'wrapped: (static member wrap: 'value -> 'wrapped) and 'wrapped: (static member unwrap:
         'wrapped -> 'value) and 'wrapped: (static member validate: 'value -> Result<'value, 'error>)> =
         private
         | Valid of wrapped: 'wrapped
         | Invalid of current: 'wrapped voption * arg: 'value * error: 'error
-        // with
-        // static member wrap x = ()
+    // with
+    // static member wrap x = ()
 
     type BindImpl =
-        static member ( >>= ) (m: _ option, f) = Option.bind f m
-        static member ( >>= ) (m: _ list,   f) = List.collect f m
+        static member (>>=)(m: _ option, f) = Option.bind f m
+        static member (>>=)(m: _ list, f) = List.collect f m
 
     type Bind =
-        static member inline Invoke (value: ^Ma, binder: 'a -> ^Mb) : ^Mb =
+        static member inline Invoke(value: ^Ma, binder: 'a -> ^Mb) : ^Mb =
             // このヘルパー関数は書き方によって警告が出たり出なかったりする
             // 警告が出るのはオーバーロード解決が早く起こりすぎてしまうのが原因だが，
             // オーバーロード解決を遅延させる一般的な方法はよくわからない
             let inline call (_impl: ^impl, m: ^m, _r: ^r, f) =
-                ((^impl or ^m or ^r): (static member (>>=): _*_->_) m,f)
-            call (Unchecked.defaultof<BindImpl>, value, Unchecked.defaultof< ^Mb >, binder)
+                ((^impl or ^m or ^r): (static member (>>=): _ * _ -> _) m, f)
 
-    let inline (>>=) m f = Bind.Invoke (m, f)
+            call (Unchecked.defaultof<BindImpl>, value, Unchecked.defaultof< ^Mb>, binder)
 
-    type M<'t> = M of 't with
-        static member (>>=) (M x, f) : M<_> = f x
+    let inline (>>=) m f = Bind.Invoke(m, f)
 
-    let m1 = Some 2  >>= fun x -> Some (x + 1)
-    let m2 = [1;2;3] >>= fun x -> [x; x+1; x+2]
-    let m3 = M 2     >>= fun x -> M    (x + 1)
+    type M<'t> =
+        | M of 't
 
-    type Default1 = class inherit Default2 end
-    and  Default2 = class inherit Default3 end
-    and  Default3 = class end
+        static member (>>=)(M x, f) : M<_> = f x
 
-    type Dummy1<'t>(x: 't) = class member val Value1 = x end
-    type Dummy2<'t>(x: 't) = class member val Value2 = x end
+    let m1 = Some 2 >>= fun x -> Some(x + 1)
+    let m2 = [ 1; 2; 3 ] >>= fun x -> [ x; x + 1; x + 2 ]
+    let m3 = M 2 >>= fun x -> M(x + 1)
 
+    type Default1 =
+        class
+            inherit Default2
+        end
+
+    and Default2 =
+        class
+            inherit Default3
+        end
+
+    and Default3 =
+        class
+        end
+
+    type Dummy1<'t>(x: 't) =
+        class
+            member val Value1 = x
+        end
+
+    type Dummy2<'t>(x: 't) =
+        class
+            member val Value2 = x
+        end
+
+open System.Net
+// open System.Net
+open System.IO
+
+let responseStreamToString =
+    fun (responseStream: WebResponse) ->
+        let reader = new StreamReader(responseStream.GetResponseStream())
+        reader.ReadToEnd()
+
+let client = 
+let webRequest = WebRequest.Create("http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.m")
+
+let result =
+    webRequest.AsyncGetResponse()
+    |> Async.RunSynchronously
+    |> responseStreamToString
