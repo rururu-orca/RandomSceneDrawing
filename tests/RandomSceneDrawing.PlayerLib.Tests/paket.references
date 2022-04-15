@@ -4,4 +4,4 @@ Expecto.FsCheck
 Expecto.Hopac
 YoloDev.Expecto.TestSdk
 Microsoft.NET.Test.Sdk
-FSharp.Interop.Dynamic
+VideoLAN.LibVLC.Windows

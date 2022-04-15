@@ -15,12 +15,10 @@ nuget Microsoft.Xaml.Behaviors.Wpf
 nuget ProcessX
 nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console
-nuget VideoLAN.LibVLC.Windows
-nuget LibVLCSharp.WPF
 
-nuget JaggerJo.Avalonia.FuncUI prerelease
-nuget JaggerJo.Avalonia.FuncUI.DSL prerelease
-nuget JaggerJo.Avalonia.FuncUI.Elmish prerelease
+nuget JaggerJo.Avalonia.FuncUI
+nuget JaggerJo.Avalonia.FuncUI.DSL
+nuget JaggerJo.Avalonia.FuncUI.Elmish
 nuget Avalonia
 nuget Avalonia.Desktop
 nuget Avalonia.Diagnostics
@@ -32,3 +30,9 @@ nuget Expecto.FsCheck
 nuget Expecto.Hopac
 nuget YoloDev.Expecto.TestSdk
 nuget Microsoft.NET.Test.Sdk
+
+source https://f.feedz.io/videolan/preview/nuget/index.json
+
+nuget VideoLAN.LibVLC.Windows prerelease
+nuget LibVLCSharp prerelease
+nuget LibVLCSharp.WPF prerelease

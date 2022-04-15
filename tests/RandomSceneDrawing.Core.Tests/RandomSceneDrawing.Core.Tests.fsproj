@@ -2,12 +2,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="PlayerLibTests.fs" />
+    <Compile Include="TestUtils.fs" />
+    <Compile Include="PlayerCoreTests.fs" />
+    <Compile Include="DrawingSettingsTests.fs" />
+    <Compile Include="MainCoreTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

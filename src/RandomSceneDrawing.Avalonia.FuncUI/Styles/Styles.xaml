@@ -7,18 +7,33 @@
   </Style>
   <Style Selector="StackPanel">
     <Setter Property="Spacing" Value="20"/>
-    <Setter Property="Orientation" Value="Horizontal"/>
-  </Style>
-  <Style Selector="StackPanel.floating">
-    <Setter Property="Margin" Value="0, 8, 0, 0"/>
-    <Setter Property="DockPanel.Dock" Value="Top"/>
-    <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
   <Style Selector="TextBlock">
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="TextAlignment" Value="Center"/>
   </Style>
-  <Style Selector="DockPanel">
-    <Setter Property="Margin" Value="4,0"/>
+  <Style Selector="Grid.floatring-content[IsPointerOver=false]">
+    <Style.Animations>
+      <Animation Duration="0:0:2" FillMode="Forward" Easing="QuadraticEaseInOut"> 
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="1.0"/>
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.0"/>
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Grid.floatring-content[IsPointerOver=true]">
+    <Style.Animations>
+      <Animation Duration="0:0:0.2" FillMode="Forward"> 
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0.0"/>
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1.0"/>
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
   </Style>
 </Styles>

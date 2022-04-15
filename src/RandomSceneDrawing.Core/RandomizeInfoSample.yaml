@@ -1,0 +1,10 @@
+RandomizeInfoDto:
+- MediaInfo:
+    Title: BigBuckBunny
+    Duration: 00:09:56
+  Path: sample/BigBuckBunny.mp4
+  TrimDurations:
+    - Start: 00:00:03
+      End: 00:04:24
+    - Start: 00:05:32
+      End: 00:09:56

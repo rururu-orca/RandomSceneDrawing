@@ -6,7 +6,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Library\AvaloniaExtensions.fs" />
+    <Compile Include="Library\FloatingWindow.fs" />
     <Compile Include="Library\VlcVideoView.fs" />
+    <Compile Include="View.fs" />
     <Compile Include="MainView.fs" />
     <Compile Include="Platform.fs" />
     <Compile Include="Program.fs" />
@@ -14,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RandomSceneDrawing.Core\RandomSceneDrawing.Core.fsproj" />
+    <ProjectReference Include="..\RandomSceneDrawing.PlayerLib\RandomSceneDrawing.PlayerLib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

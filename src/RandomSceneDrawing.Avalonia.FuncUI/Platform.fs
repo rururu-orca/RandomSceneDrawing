@@ -10,89 +10,33 @@ open Avalonia.Controls
 open Avalonia.Controls.Notifications
 open Avalonia.Threading
 
-open Elmish
 open Avalonia.FuncUI.DSL
-open Avalonia.FuncUI.Components.Hosts
 
-open LibVLCSharp.Shared
+open LibVLCSharp
 
 open FSharpPlus
 open FSharp.Control
-open FSharp.Control.Reactive
+open FsToolkit.ErrorHandling
 
 open RandomSceneDrawing.Types
 
-
-let private drawingDisporsables = Disposable.Composite
-
-let setupTimer dispatch =
-    DispatcherTimer.Run(
-        (fun () ->
-            dispatch Tick
-            true),
-        TimeSpan.FromSeconds 1.0
-    )
-    |> Disposable.disposeWith drawingDisporsables
-
-let startTimer onSuccess =
-    Cmd.batch [
-        Cmd.ofSub setupTimer
-        Cmd.ofMsg onSuccess
-    ]
-
-let stopTimer onSuccess =
-    drawingDisporsables.Clear()
-    onSuccess
-
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
-let selectPlayListFileAsync window =
-    async {
-        let dialog =
-            OpenFileDialog(
-                Title = "Open Playlist",
-                AllowMultiple = false,
-                Directory = GetFolderPath(SpecialFolder.MyVideos),
-                Filters =
-                    list [
-                        FileDialogFilter(Name = "Playlist", Extensions = list [ "xspf" ])
-                    ]
-            )
+let showInfomationAsync (window: MainWindow) msg =
+    fun _ ->
+        match msg with
+        | InfoMsg info ->
+            Notification("Info", info, NotificationType.Information)
+            |> window.NotificationManager.Show
+        | ErrorMsg err ->
+            Notification("Error!!", err, NotificationType.Error)
+            |> window.NotificationManager.Show
+    |> Dispatcher.UIThread.InvokeAsync
 
-        match! dialog.ShowAsync window |> Async.AwaitTask with
-        | [| path |] -> return SelectPlayListFilePathSuccess path
+open Player
 
-        | _ -> return SelectPlayListFilePathCanceled
-    }
-
-let selectSnapShotFolderAsync window =
-    async {
-
-        let dialog =
-            OpenFolderDialog(
-                Title = "Select SnapShot save root folder",
-                Directory = GetFolderPath(SpecialFolder.MyPictures)
-            )
-
-        match! dialog.ShowAsync window |> Async.AwaitTask with
-        | notSelect when String.IsNullOrEmpty notSelect -> return SelectSnapShotFolderPathCandeled
-        | folderPath -> return SelectSnapShotFolderPathSuccess folderPath
-
-    }
-
-let playAsync player media =
-    async {
-        match! PlayerLib.playAsync player PlaySuccess media with
-        | Ok msg ->
-            return
-                msg
-                    { Title = media.Meta MetadataType.Title
-                      Duration = float media.Duration |> TimeSpan.FromMilliseconds }
-        | Error e -> return PlayFailed e
-    }
-
-let selectMediaAndPlayAsync window player =
-    async {
+let selectMediaAsync window =
+    task {
         let dialog =
             OpenFileDialog(
                 Title = "Open Video File",
@@ -104,17 +48,69 @@ let selectMediaAndPlayAsync window player =
                     ]
             )
 
-        match! dialog.ShowAsync window |> Async.AwaitTask with
-        | [| path |] ->
-            return!
-                Uri path
-                |> PlayerLib.getMediaFromUri
-                |> playAsync player
-
-        | _ -> return PlayCandeled
+        match! dialog.ShowAsync window with
+        | [| path |] -> return (Uri >> PlayerLib.LibVLCSharp.Media.ofUri >> Ok) path
+        | _ -> return Error "Conceled"
     }
 
-let createCurrentSnapShotFolder root =
+
+let playAsync window (player: MediaPlayer) =
+    taskResult {
+        let! media = selectMediaAsync window
+        return! PlayerLib.LibVLCSharp.playAsync player media
+    }
+
+let playerApi (window: MainWindow) =
+    { playAsync = playAsync window
+      pauseAsync = PlayerLib.LibVLCSharp.pauseAsync
+      stopAsync = PlayerLib.LibVLCSharp.stopAsync
+      showInfomation = showInfomationAsync window }
+
+open RandomSceneDrawing.Types.ErrorTypes
+
+let pickPlayListAsync window () =
+    task {
+        let dialog =
+            OpenFileDialog(
+                Title = "Open Playlist",
+                AllowMultiple = false,
+                Directory = GetFolderPath(SpecialFolder.MyVideos),
+                Filters =
+                    list [
+                        FileDialogFilter(Name = "Playlist", Extensions = list [ "xspf" ])
+                    ]
+            )
+
+        match! dialog.ShowAsync window with
+        | [| path |] -> return Ok path
+
+        | _ -> return Error Canceled
+    }
+
+let pickSnapshotFolderAsync window () =
+    task {
+        let dialog =
+            OpenFolderDialog(
+                Title = "Select SnapShot save root folder",
+                Directory = GetFolderPath(SpecialFolder.MyPictures)
+            )
+
+        match! dialog.ShowAsync window with
+        | notSelect when String.IsNullOrEmpty notSelect -> return Error Canceled
+        | folderPath -> return Ok folderPath
+
+    }
+
+let settingsApi (window: MainWindow) : DrawingSettings.Api =
+    { validateMediaInfo = PlayerLib.RandomizeInfoDto.validate
+      parsePlayListFile = PlayerLib.RandomizeInfoDto.parsePlayListFile
+      pickPlayList = pickPlayListAsync window
+      pickSnapshotFolder = pickSnapshotFolderAsync window
+      showInfomation = showInfomationAsync window }
+
+let stepAsync () = async { do! Async.Sleep 1000 }
+
+let createCurrentSnapShotFolderAsync root =
     let unfolder state =
         match state with
         | -1 -> None
@@ -131,63 +127,15 @@ let createCurrentSnapShotFolder root =
                 Directory.CreateDirectory path |> ignore
                 Some(path, -1)
 
-    Seq.unfold unfolder 0
-    |> Seq.last
-    |> CreateCurrentSnapShotFolderSuccess
+    taskResult { return Seq.unfold unfolder 0 |> Seq.last }
 
-let showErrorNotification (notificationManager: IManagedNotificationManager) info msg =
-    async {
-        Notification("Error!!", info, NotificationType.Error)
-        |> notificationManager.Show
+let copySubVideoAsync dest =
+    taskResult { File.Copy(PlayerLib.Randomize.destination', dest) }
 
-        return msg
-    }
-
-let toCmd (window: MainWindow) cmdMsg =
-
-    match cmdMsg with
-    | Play player -> Cmd.OfAsyncImmediate.either (selectMediaAndPlayAsync window) player id PlayFailed
-    | Pause player ->
-        Cmd.OfAsyncImmediate.either (PlayerLib.togglePauseAsync player) (Playing, Paused) PauseSuccess PauseFailed
-    | Stop player -> Cmd.OfAsyncImmediate.either (PlayerLib.stopAsync player) StopSuccess id StopFailed
-    | Randomize (player, subPlayer, pl) ->
-        let randomize pl =
-            PlayerLib.randomize player subPlayer pl
-            |> Async.AwaitTask
-        Cmd.OfAsyncImmediate.either randomize (Uri pl) id RandomizeFailed
-    | SelectPlayListFilePath ->
-        Cmd.OfAsyncImmediate.either selectPlayListFileAsync window id SelectPlayListFilePathFailed
-    | SelectSnapShotFolderPath ->
-        Cmd.OfAsyncImmediate.either selectSnapShotFolderAsync window id SelectSnapShotFolderPathFailed
-    | CreateCurrentSnapShotFolder root -> createCurrentSnapShotFolder root |> Cmd.ofMsg
-    | TakeSnapshot (player, path) ->
-        async {
-            do!
-                Text.RegularExpressions.Regex.Replace(path,"png","mp4")
-                |> PlayerLib.copySubVideo
-                |> Async.AwaitTask
-            match PlayerLib.takeSnapshot (PlayerLib.getSize player) 0u path with
-            | Some path -> return TakeSnapshotSuccess
-            | None -> return TakeSnapshotFailed(SnapShotFailedException "Snapshotに失敗しました。")
-        }
-        |> Cmd.OfAsyncImmediate.result
-    | StartDrawing ->
-        Notification("Start", "Start Drawing.", NotificationType.Information)
-        |> window.NotificationManager.Show
-
-        startTimer StartDrawingSuccess
-    | StopDrawing -> stopTimer StopDrawingSuccess |> Cmd.OfFunc.result
-    | ShowErrorInfomation message ->
-        showErrorNotification window.NotificationManager message ShowErrorInfomationSuccess
-        |> Cmd.OfAsyncImmediate.result
-
-let onClosed (window: HostWindow) dispatch =
-    window.Closed
-    |> Observable.add (fun e -> dispatch WindowClosed)
-
-let subs (window: HostWindow) model =
-    Cmd.batch [
-        Cmd.ofSub (onClosed window)
-        Cmd.ofSub (PlayerLib.timeChanged model.Player)
-        Cmd.ofSub (PlayerLib.playerBuffering model.Player)
-    ]
+let mainApi (window: MainWindow) : Main.Api<'player> =
+    { step = stepAsync
+      randomize = PlayerLib.Randomize.run
+      createSnapShotFolder = createCurrentSnapShotFolderAsync
+      takeSnapshot = PlayerLib.LibVLCSharp.takeSnapshot
+      copySubVideo = copySubVideoAsync
+      showInfomation = showInfomationAsync window }

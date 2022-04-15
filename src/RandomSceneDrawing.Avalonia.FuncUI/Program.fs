@@ -1,66 +1,50 @@
 namespace RandomSceneDrawing
 
-
+open System
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
 open FluentAvalonia.Styling
 
-open Elmish
-open Avalonia.FuncUI.Elmish
-
-open FSharpPlus
-
 open LibVLCSharp.Avalonia.FuncUI
 
-module Program =
-    let mkProgramWithCmdMsg
-        (init: unit -> 'model * 'cmdMsg list)
-        (update: 'msg -> 'model -> 'model * 'cmdMsg list)
-        (view: 'model -> Dispatch<'msg> -> 'view)
-        (toCmd: 'cmdMsg -> Cmd<'msg>)
-        =
-        let convert (model, cmdMsgs) =
-            model, (cmdMsgs |> List.map toCmd |> Cmd.batch)
-
-        Program.mkProgram (init >> convert) (fun msg model -> update msg model |> convert) view
+open RandomSceneDrawing.AvaloniaExtensions
 
 type App() =
     inherit Application()
 
-    let applyFluentTheme (app: App) mainWindow =
+    override this.OnFrameworkInitializationCompleted() =
+
+        let lifetime =
+            Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
+
+        let mainWindow = MainWindow View.mainPlayerFloating
+
+        this.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
         let fluentAvaloniaTheme = FluentAvaloniaTheme(baseUri = null)
-        app.Styles.Add(FluentTheme(baseUri = null, Mode = FluentThemeMode.Dark))
-        app.Styles.Add fluentAvaloniaTheme
+        this.Styles.Add fluentAvaloniaTheme
         fluentAvaloniaTheme.ForceWin32WindowToTheme mainWindow
+        this.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
 
-    let startMainLoop (mainWindow: MainWindow) =
-        Program.mkProgramWithCmdMsg Program.init Program.update MainView.view (Platform.toCmd mainWindow)
-        |> Program.withHost mainWindow
-        |> Program.withSubscription (Platform.subs mainWindow)
-#if DEBUG
-        |> Program.withConsoleTrace
-#endif
-        |> Program.run
-
-    let run (app: App) (desktopLifetime: IClassicDesktopStyleApplicationLifetime) =
-        LibVLCSharp.Shared.Core.Initialize()
-
-        let mainWindow = MainWindow FloatingContent.floating
 #if DEBUG
         mainWindow.AttachDevTools()
 #endif
-        desktopLifetime.MainWindow <- mainWindow
+        lifetime.MainWindow <- mainWindow
 
-        applyFluentTheme app mainWindow
-        app.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
+        let mainApi = Platform.mainApi mainWindow
 
-        startMainLoop mainWindow
+        let settingsApi = Platform.settingsApi mainWindow
+        let playerApi = Platform.playerApi mainWindow
 
-    override this.OnFrameworkInitializationCompleted() =
-        match this.ApplicationLifetime with
-        | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime -> run this desktopLifetime
-        | _ -> ()
+        let initMainPlayer = PlayerLib.LibVLCSharp.initPlayer
+        let initSubPlayer = PlayerLib.LibVLCSharp.initSubPlayer
+
+        let init = Main.init settingsApi
+
+        let update = Main.update mainApi settingsApi playerApi
+
+        mainWindow.Content <- View.cmp initMainPlayer initSubPlayer init update
+
 
 module Main =
 

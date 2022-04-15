@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/tests/RandomSceneDrawing.Core.Tests/bin/Debug/net5.0-windows10.0.19041.0/RandomSceneDrawing.Core.Tests.dll",
+            "program": "${workspaceFolder}/tests/RandomSceneDrawing.Core.Tests/bin/Debug/net6.0/RandomSceneDrawing.Core.Tests.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -46,7 +46,8 @@
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
-            "console": "internalConsole"
+            "console": "internalConsole",
+            "requireExactSource": false
         }
     ]
 }

@@ -11,6 +11,11 @@ PlayerLib:
   PlayFailedMsg: "{0}の再生に失敗しました。"
 SubPlayer:
   Width: 300
-  Height: 150
+  Height: 172
   Rate: 0.5
   RepeatDuration: 3000
+MainPlayer:
+  Height: 720
+  Width: 1280
+RootComponent:
+  Margin: 8
