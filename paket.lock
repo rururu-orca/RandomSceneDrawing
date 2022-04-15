@@ -1,5 +1,5 @@
 STORAGE: NONE
-RESTRICTION: || (== net6.0) (== net6.0-windows10.0.19041.0)
+RESTRICTION: == net6.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     Avalonia (0.10.13)
@@ -89,7 +89,7 @@ NUGET
     Expecto.Hopac (9.0.4)
       Expecto (>= 9.0.4)
       Hopac (>= 0.4.1)
-    FluentAvaloniaUI (1.3.3)
+    FluentAvaloniaUI (1.3.4)
       Avalonia (>= 0.10.13)
       Avalonia.Desktop (>= 0.10.13)
       Avalonia.Diagnostics (>= 0.10.13)
@@ -273,7 +273,7 @@ NUGET
       FSharp.Core (>= 4.6)
       System.Collections.Immutable (>= 1.7.1)
   remote: https://f.feedz.io/videolan/preview/nuget/index.json
-    LibVLCSharp (4.0.0-alpha-20220412-5637)
-    LibVLCSharp.WPF (4.0.0-alpha-20220412-5637)
-      LibVLCSharp (>= 4.0.0-alpha-20220412-5637)
-    VideoLAN.LibVLC.Windows (4.0.0-alpha-20220412)
+    LibVLCSharp (4.0.0-alpha-20220414-5643)
+    LibVLCSharp.WPF (4.0.0-alpha-20220414-5643)
+      LibVLCSharp (>= 4.0.0-alpha-20220414-5643)
+    VideoLAN.LibVLC.Windows (4.0.0-alpha-20220414)
