@@ -22,6 +22,7 @@ nuget JaggerJo.Avalonia.FuncUI.Elmish
 nuget Avalonia
 nuget Avalonia.Desktop
 nuget Avalonia.Diagnostics
+nuget Avalonia.Angle.Windows.Natives 2.1.0.2020091801
 nuget FluentAvaloniaUI
 
 nuget Expecto
@@ -33,6 +34,6 @@ nuget Microsoft.NET.Test.Sdk
 
 source https://f.feedz.io/videolan/preview/nuget/index.json
 
-nuget VideoLAN.LibVLC.Windows prerelease
-nuget LibVLCSharp prerelease
-nuget LibVLCSharp.WPF prerelease
+nuget VideoLAN.LibVLC.Windows 4.0.0-alpha-20220518 prerelease
+nuget LibVLCSharp 4.0.0-alpha-20220517-5734 prerelease
+nuget LibVLCSharp.WPF 4.0.0-alpha-20220517-5734 prerelease
