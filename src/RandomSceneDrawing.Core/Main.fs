@@ -325,7 +325,7 @@ let update api settingsApi playerApi msg m =
     match msg with
     | InitMainPlayer (Finished player) -> { m with MainPlayer = (Player.init >> Resolved) player }, Cmd.none
     | InitMainPlayer _ -> m, Cmd.none
-    | InitSubPlayer (Finished player) -> { m with SubPlayer = (Player.init >> Resolved) player }, Cmd.none
+    | InitSubPlayer (Finished subPlayer) -> { m with SubPlayer = (Player.init >> Resolved) subPlayer }, Cmd.none
     | InitSubPlayer _ -> m, Cmd.none
     | PlayerMsg (MainPlayer, msg) ->
         match m.MainPlayer with
