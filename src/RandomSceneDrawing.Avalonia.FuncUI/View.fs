@@ -132,10 +132,7 @@ module LibVLCSharp =
                       Slider.onPointerPressed (fun _ -> isPressed.Set true)
                       Slider.onPointerReleased (fun _ ->
                           if player.IsSeekable then
-                              float32 outlet.Current.Value
-                              |> player.SetPosition
-                              |> ignore
-
+                              float32 outlet.Current.Value |> player.SetPosition |> ignore
                               onPositionChanged outlet.Current.Value
                           else
                               outlet.Current.Value <- minValue
@@ -786,14 +783,12 @@ let cmp initMainPlayer initSubPlayer init update =
             ctx.useEffect (
                 (fun _ ->
                     task {
-                        let! msg = backgroundTask { return initMainPlayer () |> Finished |> InitMainPlayer }
-                        dispatch msg
-                    }
-                    |> ignore
-
-                    task {
-                        let! msg = backgroundTask { return initSubPlayer () |> Finished |> InitSubPlayer }
-                        dispatch msg
+                        let! msgs = Threading.Tasks.Task.WhenAll [
+                            task { return initMainPlayer () |> Finished |> InitMainPlayer }
+                            task { return initSubPlayer () |> Finished |> InitSubPlayer }
+                        ]
+                        for msg in msgs do
+                            dispatch msg
                     }
                     |> ignore),
                 [ EffectTrigger.AfterInit ]
