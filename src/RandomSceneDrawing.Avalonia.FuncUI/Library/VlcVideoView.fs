@@ -79,10 +79,11 @@ type VideoView() =
 
     member x.MediaPlayer
         with get () = mediaPlayer
-        and set value =
-            if obj.ReferenceEquals(mediaPlayer, value) then
+        and set (value : MediaPlayer option) =
+            match mediaPlayer, value with
+            | Some mp , Some v when mp.NativeReference = v.NativeReference ->
                 ()
-            else
+            | _ -> 
                 mediaPlayer <- value
                 onUpdateHandleOrMediaPlayer ()
 
@@ -91,7 +92,7 @@ type VideoView() =
             nameof MediaPlayer,
             (fun o -> o.MediaPlayer),
             (fun o v -> o.MediaPlayer <- v),
-            defaultBindingMode = BindingMode.TwoWay
+            defaultBindingMode = BindingMode.OneWay
         )
 
     member x.IsVideoVisible
@@ -106,12 +107,16 @@ type VideoView() =
         )
 
 module VideoView =
-
     let create (attrs: IAttr<VideoView> list) : IView<VideoView> = ViewBuilder.Create<VideoView>(attrs)
 
     let mediaPlayer<'t when 't :> VideoView> (player: MediaPlayer option) : IAttr<'t> =
         AttrBuilder<'t>
-            .CreateProperty<MediaPlayer option>(VideoView.MediaPlayerProperty, player, ValueSome obj.ReferenceEquals)
+            .CreateProperty<MediaPlayer option>(VideoView.MediaPlayerProperty, player, ValueSome (fun (objA: obj,objB: obj) ->
+                match (objA :?> MediaPlayer option),(objB :?> MediaPlayer option) with
+                | Some a, Some b ->
+                    a.NativeReference = b.NativeReference
+                | _ -> false
+                ))
 
     let isVideoVisible<'t when 't :> VideoView> (isVideoVisible: bool) : IAttr<'t> =
         AttrBuilder<'t>
