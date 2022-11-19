@@ -2,7 +2,7 @@ RandomizeInfoDto:
 - MediaInfo:
     Title: BigBuckBunny
     Duration: 00:09:56
-  Path: sample/BigBuckBunny.mp4
+  Path: rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov
   TrimDurations:
     - Start: 00:00:03
       End: 00:04:24
