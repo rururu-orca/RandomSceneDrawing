@@ -54,24 +54,24 @@ type FloatingWindowImpl() =
             Map.remove impl.Handle.Handle
             |> MailboxProcessor.post floatingHostList
 
-    override x.WndProc(hWnd, msg, wParam, lParam) =
-        match msg, wParam, x with
-        | WM_NCACTIVATE, Active, FloatingHosteHandle hostRoot ->
-            // 自身がアクティブになるときに親もアクティブにする
-            PostMessage(hostRoot, msg, nativeBool true, 0)
-            |> ignore
+    // override x.WndProc(hWnd, msg, wParam, lParam) =
+    //     match msg, wParam, x with
+    //     | WM_NCACTIVATE, Active, FloatingHosteHandle hostRoot ->
+    //         // 自身がアクティブになるときに親もアクティブにする
+    //         PostMessage(hostRoot, msg, nativeBool true, 0)
+    //         |> ignore
 
-            ``base``.WndProc(hWnd, msg, wParam, lParam)
+    //         ``base``.WndProc(hWnd, msg, wParam, lParam)
 
-        | WM_NCACTIVATE, Deactive, FloatingHosteHandle (NotEq lParam hostRoot) ->
+    //     | WM_NCACTIVATE, Deactive, FloatingHosteHandle (NotEq lParam hostRoot) ->
 
-            // 次にアクティブになるウィンドウが親以外の場合、
-            // 親を非アクティブ化する。
-            PostMessage(hostRoot, msg, wParam, lParam)
-            |> ignore
+    //         // 次にアクティブになるウィンドウが親以外の場合、
+    //         // 親を非アクティブ化する。
+    //         PostMessage(hostRoot, msg, wParam, lParam)
+    //         |> ignore
 
-            ``base``.WndProc(hWnd, msg, wParam, lParam)
-        | _ -> ``base``.WndProc(hWnd, msg, wParam, lParam)
+    //         ``base``.WndProc(hWnd, msg, wParam, lParam)
+    //     | _ -> ``base``.WndProc(hWnd, msg, wParam, lParam)
 
 module FloatingWindowImpl =
     let tryGet () =
@@ -169,12 +169,12 @@ type FloatingWindowHostRootImpl() =
             | f when isToClientFloating f handle floatingHostImpl -> Some ToClientFloating
             | _ -> None)
 
-    override x.WndProc(hWnd, msg, wParam, lParam) =
+    // override x.WndProc(hWnd, msg, wParam, lParam) =
 
-        match msg, wParam, (x, lParam) with
-        // 遷移先が自身の子であるFloatingWindowならタイトルバーの表示をアクティブなまま非アクティブ化する。
-        | WM_NCACTIVATE, Deactive, ToClientFloating -> ``base``.WndProc(hWnd, msg, nativeBool true, 0)
-        | _ -> ``base``.WndProc(hWnd, msg, wParam, lParam)
+    //     match msg, wParam, (x, lParam) with
+    //     // 遷移先が自身の子であるFloatingWindowならタイトルバーの表示をアクティブなまま非アクティブ化する。
+    //     | WM_NCACTIVATE, Deactive, ToClientFloating -> ``base``.WndProc(hWnd, msg, nativeBool true, 0)
+    //     | _ -> ``base``.WndProc(hWnd, msg, wParam, lParam)
 
 module FloatingWindowHostRootImpl =
     let tryGet () =
