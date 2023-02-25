@@ -49,7 +49,13 @@ module LibVLCSharp =
 
         new LibVLC(options)
 
-    let initPlayer () = new MediaPlayer(libVLC)
+    let initPlayer () =
+        new MediaPlayer(libVLC)
+        |> tap (fun p ->
+            float32 config.SubPlayer.Rate
+            |> p.SetRate
+            |> ignore
+        )
 
     let initSubPlayer () =
         let caching = uint config.SubPlayer.RepeatDuration

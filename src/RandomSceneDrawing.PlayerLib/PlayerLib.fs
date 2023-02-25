@@ -119,39 +119,60 @@ module Randomize =
 
 
             // メインプレイヤーの設定、再生
-            let positionTime = Math.Round((endTime - startTime) / 2.0, 2)
+            let positionTime = Math.Round((float media.Duration) / 2.0, 2)
 
             [ ":no-audio"
               ":start-paused"
-              ":clock-jitter=0"
-              ":clock-synchro=0"
-              $":start-time=%.2f{positionTime}" ]
+            //   ":clock-jitter=0"
+            //   ":clock-synchro=0"
+              ":input-repeat=65535"
+               ]
             |> Media.addOptions media
+ 
 
             player.Media <- media
 
-            let playMainPlayer =
-                player.PlayAsync()
-                |> TaskResult.requireTrue "Main Player: Play failed."
+            let playMainPlayer = taskResult {
+                do!
+                    player.PlayAsync()
+                    |> TaskResult.requireTrue "Main Player: Play failed."
+
+                if not player.IsSeekable then
+                    do! player.SeekableChanged |> Async.AwaitEvent |> Async.Ignore
+                int64 positionTime
+                |> player.SetTime
+                |> ignore
+            }
 
             // サブプレイヤーの設定、再生
             [ ":no-start-paused"
-              ":clock-jitter=0"
-              ":clock-synchro=0"
+            //   ":clock-jitter=0"
+            //   ":clock-synchro=0"
               ":input-repeat=65535" ]
             |> Media.addOptions media'
 
             subPlayer.Media <- media'
 
             let playSubPlayer =
-                subPlayer.PlayAsync()
-                |> TaskResult.requireTrue "Sub Player: Play failed."
-            
+                taskResult{()}
+                // subPlayer.PlayAsync()
+                // |> TaskResult.requireTrue "Sub Player: Play failed."
+                        
             do!
                 TaskResult.zip playMainPlayer playSubPlayer
                 |> TaskResult.ignore
 
+            // let setRandomTImeTask = task {
+            //     let! _ = player.Paused |> Async.AwaitEvent
+                
+            //     let time = random.Next(int startTime ,int endTime)
+            //     player.SeekTo(TimeSpan.FromMilliseconds  time) |> ignore
+            //     player.NextFrame()
+            // }
+
             do! Task.millisecondsDelay 50
+
+            // do! setRandomTImeTask
 
             return! getRandomizeResult media destination media' destination' startTime endTime positionTime
         }

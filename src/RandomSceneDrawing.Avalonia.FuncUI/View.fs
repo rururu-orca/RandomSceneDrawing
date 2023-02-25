@@ -95,49 +95,98 @@ module LibVLCSharp =
 
                 ctx.useEffect (handler, [ EffectTrigger.AfterChange position ])
 
+                // player.Media
+
+
+                ctx.useEffect (
+                    (fun _ -> 
+                        player.MediaChanged
+                        |> Observable.subscribe (fun e ->
+                            task {
+                                let! sts = e.Media.ParseAsync()
+                                printfn $"\nplayerLog.MediaChanged: Duration- {e.Media.Duration}\n"
+                                printfn $"\nplayerLog.MediaChanged: player.Time- {player.Time}\n"
+                            }
+                            |> ignore
+                        )
+                        ),
+                    [ EffectTrigger.AfterInit ]
+                )
+                ctx.useEffect (
+                    (fun _ -> 
+                        player.TimeChanged
+                        |> Observable.subscribe (fun e ->
+                            printfn $"\nplayerLog.TimeChanged: {e.Time}\n"
+                        )
+                        ),
+                    [ EffectTrigger.AfterInit ]
+                )
+                ctx.useEffect (
+                    (fun _ -> 
+                        player.PositionChanged
+                        |> Observable.subscribe (fun e ->
+                            printfn $"\nplayerLog.PositionChanged: {e.Position}\n"
+                        )
+                        ),
+                    [ EffectTrigger.AfterInit ]
+                )
+
                 ctx.useEffect (
                     (fun _ ->
-                        [ player.Opening
-                          |> Observable.merge player.Playing
-                          |> Observable.merge player.Paused
-                          |> Observable.merge player.Stopping
-                          |> Observable.merge player.Stopped
-                          |> Observable.map (fun _ -> float player.Position)
+                        [
+                            // player.Opening
+                            // |> Observable.merge player.Playing
+                            // |> Observable.merge player.Paused
+                            // |> Observable.merge player.Stopping
+                            // |> Observable.merge player.Stopped
+                            // |> Observable.map (fun _ -> float player.Position)
 
-                          player.PositionChanged
-                          |> Observable.map (fun e ->
-                              if player.State = VLCState.Stopping then
-                                  maxValue
-                              else
-                                  float e.Position |> max minValue) ]
+                            player.PositionChanged
+                            |> Observable.map (fun e ->
+                                if player.State = VLCState.Stopping then
+                                    maxValue
+                                else
+                                    float e.Position |> max minValue)
+                        ]
                         |> Observable.mergeSeq
+                        |> Observable.filter(fun _ -> not isPressed.Current)
                         |> Observable.subscribe position.Set),
                     [ EffectTrigger.AfterInit ]
                 )
 
                 ctx.attrs attrs
 
-                View.createWithOutlet
-                    outlet.Set
-                    Slider.create
-                    [ Slider.minimum minValue
-                      Slider.maximum maxValue
+                View.createWithOutlet outlet.Set Slider.create [
+                    Slider.minimum minValue
+                    Slider.maximum maxValue
 
-                      if player.IsSeekable then
-                          double position.Current
-                      else
-                          minValue
-                      |> Slider.value
+                    if player.IsSeekable then
+                        double position.Current
+                    else
+                        minValue
+                    |> Slider.value
 
-                      Slider.onPointerPressed (fun _ -> isPressed.Set true)
-                      Slider.onPointerReleased (fun _ ->
-                          if player.IsSeekable then
-                              float32 outlet.Current.Value |> player.SetPosition |> ignore
-                              onPositionChanged outlet.Current.Value
-                          else
-                              outlet.Current.Value <- minValue
+                    player.IsSeekable
+                    |> Slider.isEnabled
 
-                          isPressed.Set false) ]
+                    Slider.onPointerPressed (fun _ -> isPressed.Set true)
+                    Slider.onPointerReleased (fun _ ->
+                        if isPressed.Current then   
+                            let rec trySeek = function
+                                | true -> ()
+                                | false ->
+                                    while not player.IsSeekable do
+                                        while not (Threading.Thread.Yield()) do
+                                            ()
+                                    player.SetPosition(float32 outlet.Current.Value, true)
+                                    |> trySeek
+                            
+                            trySeek false
+
+                            isPressed.Set false
+                            onPositionChanged outlet.Current.Value
+                    )
+                ]
         )
 
 
@@ -718,7 +767,8 @@ let toolWindow model dispatch =
                         StackPanel.margin 12
                         StackPanel.children [
                             randomizeButtonView model dispatch
-                            mainSeekBar model dispatch []
+                            mainPlayerControler "tool-controler" model dispatch []
+                            seekBar "tool-seekber" model dispatch []
                         ]
                     ]
                 )

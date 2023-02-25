@@ -22,7 +22,7 @@ nuget JaggerJo.Avalonia.FuncUI.Elmish
 nuget Avalonia
 nuget Avalonia.Desktop
 nuget Avalonia.Diagnostics
-nuget Avalonia.Angle.Windows.Natives 2.1.0.2020091801
+nuget Avalonia.Angle.Windows.Natives 2.1.0.2023020321
 nuget FluentAvaloniaUI
 
 nuget Expecto

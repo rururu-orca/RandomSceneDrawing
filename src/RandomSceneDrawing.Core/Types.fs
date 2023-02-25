@@ -248,6 +248,8 @@ type AsyncOperationStatus<'t> =
     | Started
     | Finished of 't
 
+type AsyncOperationStatusResult<'t,'error> = AsyncOperationStatus<Result<'t,'error>>
+
 type Deferred<'t> =
     | HasNotStartedYet
     | InProgress
