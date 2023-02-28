@@ -57,6 +57,5 @@ module Main =
             .UseSkia()
             .With( Win32PlatformOptions(
                 UseWindowsUIComposition=true,
-                UseWgl=true,
                 OverlayPopups=true
             )).StartWithClassicDesktopLifetime(args)
