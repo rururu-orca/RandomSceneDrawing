@@ -201,12 +201,14 @@ let validatedTextBox (domain: Domain<string, _, _>) value addAttrs dispatchSetVa
         TextBox.onTextChanged dispatchSetValueMsg
     ]
 
-let drawingSwtchBottonView model dispatch =
+let drawingSwtchBottonView model dispatch attrs =
     Component.create (
         "drawingSwtchBotton-view",
         fun ctx ->
             let _, (state, settings) =
                 ctx.useMapRead model (fun m -> m.State, m.Settings.Settings)
+
+            ctx.attrs attrs
 
             Button.create [
 
@@ -306,7 +308,7 @@ let headerTopItemsView model dispatch =
             StackPanel.create [
                 StackPanel.orientation Orientation.Horizontal
                 StackPanel.children [
-                    drawingSwtchBottonView model dispatch
+                    drawingSwtchBottonView model dispatch []
                     match state with
                     | Setting ->
                         durationBoxView model dispatch
@@ -358,12 +360,14 @@ let subPlayerView model dispatch =
     )
 
 
-let randomizeButtonView model dispatch =
+let randomizeButtonView model dispatch attrs =
     Component.create (
         "randomizeButton-view",
         fun ctx ->
             let _, (randomizeState, settings) =
                 ctx.useMapRead model (fun m -> m.RandomizeState, m.Settings.Settings)
+
+            ctx.attrs attrs
 
             Button.create [
                 Button.content "🔀 Show Random 🔀"
@@ -379,7 +383,7 @@ let mediaPlayerControler model dispatch =
     StackPanel.create [
         StackPanel.orientation Orientation.Horizontal
         StackPanel.children [
-            randomizeButtonView model dispatch
+            randomizeButtonView model dispatch []
         ]
     ]
 
@@ -598,6 +602,8 @@ let mainPlayerControler id model dispatch attrs =
 
             ctx.attrs attrs
 
+            let isSetting = model.Current.State = Setting
+
             StackPanel.create [
                 StackPanel.horizontalAlignment HorizontalAlignment.Center
                 StackPanel.verticalAlignment VerticalAlignment.Bottom
@@ -606,6 +612,7 @@ let mainPlayerControler id model dispatch attrs =
                     Button.create [
                         Button.content "Play"
                         notRandomizeInPregress |> Button.isEnabled
+                        isSetting |> Button.isVisible
                         Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
                     ]
                     Button.create [
@@ -618,6 +625,7 @@ let mainPlayerControler id model dispatch attrs =
                         Button.content "Stop"
                         (isMediaResolved && notRandomizeInPregress)
                         |> Button.isEnabled
+                        isSetting |> Button.isVisible
                         Button.onClick (fun _ ->
                             PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
                             PlayerMsg(SubPlayer, (Stop Started)) |> dispatch)
@@ -745,9 +753,16 @@ let toolWindow model dispatch =
                 state <> Setting |> SubWindow.isVisible
                 SubWindow.content (
                     StackPanel.create [
-                        StackPanel.margin 12
+                        StackPanel.width 500
+                        StackPanel.margin 4
                         StackPanel.children [
-                            randomizeButtonView model dispatch
+                            DockPanel.create [
+                                DockPanel.lastChildFill false
+                                DockPanel.children [
+                                    randomizeButtonView model dispatch [Component.dock Dock.Left]
+                                    drawingSwtchBottonView model dispatch [Component.dock Dock.Right]
+                                ]
+                            ]
                             mainPlayerControler "tool-controler" model dispatch []
                             seekBar "tool-seekber" model dispatch []
                         ]
