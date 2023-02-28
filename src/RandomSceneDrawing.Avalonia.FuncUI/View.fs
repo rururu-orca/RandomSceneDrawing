@@ -95,62 +95,35 @@ module LibVLCSharp =
 
                 ctx.useEffect (handler, [ EffectTrigger.AfterChange position ])
 
-                // player.Media
-
-
                 ctx.useEffect (
                     (fun _ -> 
                         player.MediaChanged
-                        |> Observable.subscribe (fun e ->
-                            task {
-                                let! sts = e.Media.ParseAsync()
-                                printfn $"\nplayerLog.MediaChanged: Duration- {e.Media.Duration}\n"
-                                printfn $"\nplayerLog.MediaChanged: player.Time- {player.Time}\n"
-                            }
-                            |> ignore
+                        |> Observable.ignore
+                        |> Observable.merge (player.Stopping |> Observable.ignore)
+                        |> Observable.subscribe (fun _ ->
+                            isPressed.Set false
                         )
                         ),
                     [ EffectTrigger.AfterInit ]
                 )
-                ctx.useEffect (
-                    (fun _ -> 
-                        player.TimeChanged
-                        |> Observable.subscribe (fun e ->
-                            printfn $"\nplayerLog.TimeChanged: {e.Time}\n"
-                        )
-                        ),
-                    [ EffectTrigger.AfterInit ]
-                )
-                ctx.useEffect (
-                    (fun _ -> 
-                        player.PositionChanged
-                        |> Observable.subscribe (fun e ->
-                            printfn $"\nplayerLog.PositionChanged: {e.Position}\n"
-                        )
-                        ),
-                    [ EffectTrigger.AfterInit ]
-                )
-
                 ctx.useEffect (
                     (fun _ ->
                         [
-                            // player.Opening
-                            // |> Observable.merge player.Playing
-                            // |> Observable.merge player.Paused
-                            // |> Observable.merge player.Stopping
-                            // |> Observable.merge player.Stopped
-                            // |> Observable.map (fun _ -> float player.Position)
+                            player.Opening
+                            |> Observable.merge player.Playing
+                            |> Observable.merge player.Paused
+                            |> Observable.merge player.Stopping
+                            |> Observable.merge player.Stopped
+                            |> Observable.map (fun _ -> float player.Position)
 
                             player.PositionChanged
-                            |> Observable.map (fun e ->
-                                if player.State = VLCState.Stopping then
-                                    maxValue
-                                else
-                                    float e.Position |> max minValue)
+                            |> Observable.map (fun e ->float player.Position)
                         ]
                         |> Observable.mergeSeq
-                        |> Observable.filter(fun _ -> not isPressed.Current)
-                        |> Observable.subscribe position.Set),
+                        |> Observable.filter(fun p ->
+                            not isPressed.Current && minValue <= p && p <= maxValue)
+                        |> Observable.subscribe (fun p ->
+                            position.Set p)),
                     [ EffectTrigger.AfterInit ]
                 )
 
@@ -171,20 +144,24 @@ module LibVLCSharp =
 
                     Slider.onPointerPressed (fun _ -> isPressed.Set true)
                     Slider.onPointerReleased (fun _ ->
-                        if isPressed.Current then   
+                        if isPressed.Current then
+                            outlet.Current.IsEnabled <- false
+                            
+                            let newPosition = outlet.Current.Value
                             let rec trySeek = function
                                 | true -> ()
                                 | false ->
                                     while not player.IsSeekable do
                                         while not (Threading.Thread.Yield()) do
                                             ()
-                                    player.SetPosition(float32 outlet.Current.Value, true)
+                                    player.SetPosition( newPosition, false)
                                     |> trySeek
                             
                             trySeek false
 
+                            onPositionChanged newPosition
+                            outlet.Current.IsEnabled <- true
                             isPressed.Set false
-                            onPositionChanged outlet.Current.Value
                     )
                 ]
         )
@@ -353,7 +330,7 @@ let subPlayerView model dispatch =
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.SubPlayer, m.State, m.RandomizeState)
 
-            let outlet = ctx.useState (VideoView(), renderOnChange = false)
+            let outlet = ctx.useState (Unchecked.defaultof<_>, renderOnChange = false)
 
             ctx.attrs [ Component.dock Dock.Right ]
 
@@ -369,10 +346,14 @@ let subPlayerView model dispatch =
                   | Resolved player ->
                       VideoView.mediaPlayer (Some player.Player)
 
-                      (Deferred.resolved player.Media
-                       && isNotInterval state
-                       && notFunc Deferred.inProgress randomizeState)
+                    //   match state, randomizeState, player.Media with
+                    //   | Interval _, _, _ -> false
+                    //   | _, InProgress, _ -> false
+                    //   | _, _, Resolved (Ok _) -> true
+                    //   | _ -> false
+                      true
                       |> VideoView.isVideoVisible
+
                   | _ -> () ]
     )
 
@@ -573,7 +554,7 @@ let seekBar id model dispatch attrs =
 
             let hasRandomizeStateResolved = ctx.useState false
 
-            let position = ctx.useState -1.0
+            let position = ctx.useState 0.0
 
             match randomizeState with
             | Resolved (Ok rs) when not hasRandomizeStateResolved.Current ->
@@ -581,7 +562,7 @@ let seekBar id model dispatch attrs =
                 hasRandomizeStateResolved.Set true
             | HasNotStartedYet
             | InProgress when hasRandomizeStateResolved.Current ->
-                position.Set -1.0
+                position.Set 0.0
                 hasRandomizeStateResolved.Set false
             | _ -> ()
 
@@ -723,7 +704,7 @@ let mainPlayerView id model dispatch =
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
-            let outlet = ctx.useState (VideoView(), renderOnChange = false)
+            let outlet = ctx.useState (Unchecked.defaultof<_>, renderOnChange = false)
 
             View.createWithOutlet
                 outlet.Set

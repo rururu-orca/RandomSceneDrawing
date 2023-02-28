@@ -20,18 +20,29 @@ open FsToolkit.ErrorHandling
 
 open RandomSceneDrawing.Types
 
+module UIThread =
+    open System.Threading.Tasks
+    let UIThread = Dispatcher.UIThread
+    let inline invokeAsync priority (f:unit -> Task<'t>) =
+        UIThread.InvokeAsync<'t>(f,priority)
+    
+    let inline post priority (f:unit -> unit) =
+        UIThread.Post(f,priority)
+
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
 let showInfomationAsync (window: MainWindow) msg =
     fun _ ->
-        match msg with
-        | InfoMsg info ->
-            Notification("Info", info, NotificationType.Information)
-            |> window.NotificationManager.Show
-        | ErrorMsg err ->
-            Notification("Error!!", err, NotificationType.Error)
-            |> window.NotificationManager.Show
-    |> Dispatcher.UIThread.InvokeAsync
+        task {
+            match msg with
+            | InfoMsg info ->
+                Notification("Info", info, NotificationType.Information)
+                |> window.NotificationManager.Show
+            | ErrorMsg err ->
+                Notification("Error!!", err, NotificationType.Error)
+                |> window.NotificationManager.Show
+        }
+    |> UIThread.invokeAsync DispatcherPriority.Layout
 
 open Player
 
@@ -132,9 +143,32 @@ let createCurrentSnapShotFolderAsync root =
 let copySubVideoAsync dest =
     taskResult { File.Copy(PlayerLib.Randomize.destination', dest) }
 
+
+let randomizeAsync randomizeSource (player: MediaPlayer) (subPlayer: MediaPlayer) =
+    taskResult {
+        let! resultInfo = PlayerLib.Randomize.initSourceAsync randomizeSource player subPlayer
+        do!
+            fun () -> PlayerLib.Randomize.startSublayerAsync subPlayer
+            |> UIThread.invokeAsync DispatcherPriority.Input
+        do!
+            fun () -> PlayerLib.Randomize.startMainPlayerAsync player
+            |> UIThread.invokeAsync DispatcherPriority.Input
+        do!        
+            fun () -> 
+                PlayerLib.LibVLCSharp.seekAsync resultInfo.Position player
+            |> UIThread.invokeAsync DispatcherPriority.Input
+        do!        
+            fun () -> 
+                PlayerLib.LibVLCSharp.seekAsync resultInfo.Position subPlayer
+            |> UIThread.invokeAsync DispatcherPriority.Input
+
+        return resultInfo
+    }
+
+
 let mainApi (window: MainWindow) : Main.Api<'player> =
     { step = stepAsync
-      randomize = PlayerLib.Randomize.run
+      randomize = randomizeAsync
       createSnapShotFolder = createCurrentSnapShotFolderAsync
       takeSnapshot = PlayerLib.LibVLCSharp.takeSnapshot
       copySubVideo = copySubVideoAsync

@@ -39,7 +39,8 @@ type App() =
         let initMainPlayer = PlayerLib.LibVLCSharp.initPlayer
         let initSubPlayer = PlayerLib.LibVLCSharp.initSubPlayer
 
-        let init = Main.init settingsApi
+        LibVLCSharp.Core.Initialize()
+        let init =  Main.init settingsApi
 
         let update = Main.update mainApi settingsApi playerApi
 
@@ -55,7 +56,7 @@ module Main =
             .UsePlatformDetect()
             .UseSkia()
             .With( Win32PlatformOptions(
-                UseWgl=true,
                 UseWindowsUIComposition=true,
+                UseWgl=true,
                 OverlayPopups=true
             )).StartWithClassicDesktopLifetime(args)

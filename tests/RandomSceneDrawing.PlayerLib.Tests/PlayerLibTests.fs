@@ -31,7 +31,16 @@ let mainApi: Main.Api<MediaPlayer> =
       createSnapShotFolder = fun _ -> task { return Ok "test" }
       copySubVideo = fun _ -> task { return Ok() }
       showInfomation = fun _ -> task { () }
-      randomize = Randomize.run
+      randomize = fun randomizeSource (player) (subPlayer) ->
+        taskResult {
+            let! resultInfo = Randomize.initSourceAsync randomizeSource player subPlayer
+            do! Randomize.startSublayerAsync subPlayer
+
+            do! Randomize.startMainPlayerAsync player
+
+            do! LibVLCSharp.seekAsync resultInfo.Position player
+            return resultInfo
+        }
       takeSnapshot = LibVLCSharp.takeSnapshot }
 
 [<Tests>]
@@ -76,7 +85,7 @@ let playerLibTests =
              use subPlayer = LibVLCSharp.initPlayer ()
              let randomizeSource = (playListFilePath.Value >> PlayList) playListPath
 
-             let! randomizeResult = Randomize.run randomizeSource player subPlayer
+             let! randomizeResult = mainApi.randomize randomizeSource player subPlayer
              Expect.isOk randomizeResult "Randomize should Ok"
 
              let! takeSnapshotResult = LibVLCSharp.takeSnapshot player snapShot

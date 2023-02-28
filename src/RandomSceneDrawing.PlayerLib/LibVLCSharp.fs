@@ -36,7 +36,7 @@ module LibVLCSharp =
 #else
                "-q"
 #endif
-               "--reset-plugins-cache"
+            //    "--reset-plugins-cache"
                "--hw-dec"
                "--codec=nvdec,any"
                "--dec-dev=nvdec"
@@ -45,7 +45,8 @@ module LibVLCSharp =
                "--no-audio"
                "--aout=none"
                "--no-drop-late-frames"
-               "--no-skip-frames" |]
+               "--no-skip-frames"
+               |]
 
         new LibVLC(options)
 
@@ -74,11 +75,11 @@ module LibVLCSharp =
 
 
     module Media =
-        let ofUri source = new Media(libVLC, uri = source)
+        let ofUri source = new Media(uri = source)
 
         let inline parseAsync mediaParseOptions (media: Media) =
             taskResult {
-                match! media.ParseAsync mediaParseOptions with
+                match! media.ParseAsync(libVLC, mediaParseOptions) with
                 | MediaParsedStatus.Done -> return! Ok media
                 | other -> return! Error $"Media Parse %A{other}"
             }
@@ -143,6 +144,12 @@ module LibVLCSharp =
                 player.StopAsync()
                 |> TaskResult.requireTrue "Play Failed."
 
+        }
+
+    let seekAsync time (player: MediaPlayer) =
+        task {
+            while not <| player.SeekTo(time) do
+                do! Task.millisecondsDelay 1
         }
 
     let getSize (player: MediaPlayer) num =
