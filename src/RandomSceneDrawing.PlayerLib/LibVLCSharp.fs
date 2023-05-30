@@ -1,7 +1,9 @@
 namespace RandomSceneDrawing.PlayerLib
 
 open System
+open System.Threading
 open LibVLCSharp
+open LibVLCSharp.Shared
 open FsToolkit.ErrorHandling
 open RandomSceneDrawing.Util
 open FSharp.Control
@@ -32,28 +34,37 @@ module LibVLCSharp =
         let options =
             [|
 #if DEBUG
-               "-vvv"
+               "-vv"
 #else
                "-q"
 #endif
-            //    "--reset-plugins-cache"
-               "--hw-dec"
-               "--codec=nvdec,any"
-               "--dec-dev=nvdec"
-               "--packetizer=hevc,any"
+               "--sout-rtp-caching=1500"
+               "--sout-udp-caching=1500"
+               "--sout-rist-caching=1500"
+               "--file-caching=1500"
+               "--live-caching=1500"
+               "--disc-caching=1500"
+               "--network-caching=1500"
+               "--sout-mux-caching=1500"
+               "--reset-plugins-cache"
                "--no-snapshot-preview"
                "--no-audio"
                "--aout=none"
-               "--no-drop-late-frames"
-               "--no-skip-frames"
+            //    "--no-drop-late-frames"
+            //    "--no-skip-frames"
+               " --prefetch-seek-threshold=65536"
+               "--sout-avcodec-hurry-up"
+               "--http-continuous"
+               "--no-video-deco"
                |]
 
-        new LibVLC(options)
+        new LibVLC(true,options)
 
     let initPlayer () =
-        new MediaPlayer(libVLC)
+        let caching = uint 600
+        new MediaPlayer(libVLC,  EnableHardwareDecoding=true)
         |> tap (fun p ->
-            float32 config.SubPlayer.Rate
+            (float32 config.SubPlayer.Rate) / 2.0f
             |> p.SetRate
             |> ignore
         )
@@ -61,7 +72,7 @@ module LibVLCSharp =
     let initSubPlayer () =
         let caching = uint config.SubPlayer.RepeatDuration
 
-        new MediaPlayer(libVLC, FileCaching = caching, NetworkCaching = caching)
+        new MediaPlayer(libVLC ,EnableHardwareDecoding=true)
         |> tap (fun p ->
             float32 config.SubPlayer.Rate
             |> p.SetRate
@@ -75,11 +86,11 @@ module LibVLCSharp =
 
 
     module Media =
-        let ofUri source = new Media(uri = source)
+        let ofUri source = new Media(libVLC,uri = source)
 
         let inline parseAsync mediaParseOptions (media: Media) =
             taskResult {
-                match! media.ParseAsync(libVLC, mediaParseOptions) with
+                match! media.Parse(mediaParseOptions) with
                 | MediaParsedStatus.Done -> return! Ok media
                 | other -> return! Error $"Media Parse %A{other}"
             }
@@ -94,34 +105,54 @@ module LibVLCSharp =
         let inline videoSize (media: Media) =
             taskResult {
                 return!
-                    match media.TrackList TrackType.Video with
-                    | t when t.Count = 0u -> Error "Target is Not Video."
-                    | t ->
-                        ((0u, 0u), t)
-                        ||> (Seq.fold) (fun (w, h) t -> (max w t.Data.Video.Width, max h t.Data.Video.Height))
-                        |> Ok
+                    (Error "Target is Not Video.", media.Tracks)
+                    ||> Seq.fold (fun acc t ->
+                        match acc,t.TrackType with
+                        | Ok (w,h), TrackType.Video -> Ok ( max w t.Data.Video.Width, max h t.Data.Video.Height)
+                        | Error _, TrackType.Video -> Ok ( t.Data.Video.Width, t.Data.Video.Height)
+                        | _ ->  acc)
             }
 
         let inline addOptions (media: Media) options =
             for opt in options do
                 media.AddOption(option = opt)
 
-    let playAsync (player: MediaPlayer) media =
+    let inline playAsync (player: MediaPlayer) media =
         taskResult {
-            player.Media <- media
-
             do!
-                player.PlayAsync()
-                |> TaskResult.requireTrue "Play Failed."
+                ThreadPool.QueueUserWorkItem(fun _->
+                    player.Play media |> ignore
+                )
+                |> Result.requireTrue "Play Failed."
 
             return! MediaInfo.ofMedia media
 
         }
+    let inline replayAsync (player: MediaPlayer) =
+        taskResult {
+            do!
+                ThreadPool.QueueUserWorkItem(fun _->
+                    player.Play() |> ignore
+                )
+                |> Result.requireTrue "Play Failed."
+        }
 
-    let pauseAsync (player: MediaPlayer) =
-        task {
-            do! player.PauseAsync()
-
+    let inline pauseAsync (player: MediaPlayer) =
+        taskResult {
+            if not <| isNull player.Media then
+                do!
+                    ThreadPool.QueueUserWorkItem(fun _->
+                        if player.State = VLCState.Ended then
+                            player.Stop()
+                        match player.State with
+                        | VLCState.Paused
+                        | VLCState.Stopped
+                        | VLCState.Error ->
+                            player.Play() |> ignore
+                        | _ ->
+                            player.Pause()
+                    )
+                    |> Result.requireTrue "Pause Failed."
             return! MediaInfo.ofPlayer player
         }
 
@@ -138,18 +169,28 @@ module LibVLCSharp =
                 return onPlaying
         }
 
-    let stopAsync (player: MediaPlayer) =
+    let inline stopAsync (player: MediaPlayer) =
         task {
-            return!
-                player.StopAsync()
-                |> TaskResult.requireTrue "Play Failed."
-
+            return
+                ThreadPool.QueueUserWorkItem(fun _->
+                    player.Stop()
+                )
+                |> Result.requireTrue "Stop Failed."
         }
 
-    let seekAsync time (player: MediaPlayer) =
-        task {
-            while not <| player.SeekTo(time) do
-                do! Task.millisecondsDelay 1
+    let inline seekAsync time (player: MediaPlayer) =
+        taskResult {
+            if player.IsSeekable then
+                do! 
+                    player.SeekableChanged
+                    |> Event.filter ( fun e -> e.Seekable <> 0)
+                    |> Async.AwaitEvent
+                    |> Async.Ignore
+            do!
+                ThreadPool.QueueUserWorkItem(fun _->
+                    player.SeekTo(time)
+                )
+                |> Result.requireTrue "Seek Failed."
         }
 
     let getSize (player: MediaPlayer) num =

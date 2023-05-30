@@ -2,6 +2,7 @@ namespace RandomSceneDrawing.PlayerLib
 
 open System
 open LibVLCSharp
+open LibVLCSharp.Shared
 open System.IO
 open FsToolkit.ErrorHandling
 open FsToolkit.ErrorHandling.Operator.TaskResult
@@ -108,20 +109,15 @@ module Randomize =
         do! FFmpeg.encodeAsync startTime endTime rescaleParam path destination destination'
 
         // 生成した一時ファイルのMedia
-        let media = new Media(destination, FromType.FromPath)
+        let media = new Media(libVLC, destination, FromType.FromPath)
         /// サブプレイヤー用一時ファイル
-        let media' = new Media(destination', FromType.FromPath)
+        let media' = new Media(libVLC,destination', FromType.FromPath)
 
         // メインプレイヤーの設定
         let positionTime = Math.Round((endTime - startTime) / 2.0, 2)
 
-        [ ":start-paused"; ":input-repeat=65535" ] |> Media.addOptions media
-
-
         player.Media <- media
 
-        // サブプレイヤーの設定
-        [ ":no-start-paused"; ":input-repeat=65535" ] |> Media.addOptions media'
 
         subPlayer.Media <- media'
 
@@ -129,9 +125,23 @@ module Randomize =
     }
 
     let inline startMainPlayerAsync (player: MediaPlayer) = taskResult {
-        do! player.PlayAsync() |> TaskResult.requireTrue "Main Player: Play failed."
+        [ 
+          ":start-paused"
+          ":clock-jitter=0"
+          ":clock-synchro=0"
+          ":input-repeat=65535"
+        ]
+        |> List.iter player.Media.AddOption
+        do! player.Play() |> Result.requireTrue "Main Player: Play failed."
     }
 
     let inline startSublayerAsync (subPlayer: MediaPlayer) = taskResult {
-        do! subPlayer.PlayAsync() |> TaskResult.requireTrue "Sub Player: Play failed."
+        [ 
+         ":no-start-paused"
+         ":clock-jitter=0"
+         ":clock-synchro=0"
+         ":input-repeat=65535"
+        ]
+        |> List.iter subPlayer.Media.AddOption
+        do! subPlayer.Play() |> Result.requireTrue "Sub Player: Play failed."
     }

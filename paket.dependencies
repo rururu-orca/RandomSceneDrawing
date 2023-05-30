@@ -32,8 +32,5 @@ nuget Expecto.Hopac
 nuget YoloDev.Expecto.TestSdk
 nuget Microsoft.NET.Test.Sdk
 
-source https://f.feedz.io/videolan/preview/nuget/index.json
-
-nuget VideoLAN.LibVLC.Windows prerelease
-nuget LibVLCSharp prerelease
-nuget LibVLCSharp.WPF prerelease
+nuget VideoLAN.LibVLC.Windows
+nuget LibVLCSharp

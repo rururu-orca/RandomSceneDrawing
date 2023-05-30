@@ -79,6 +79,7 @@ let inline notFunc ([<InlineIfLambda>] f) x = not (f x)
 
 module LibVLCSharp =
     open LibVLCSharp
+    open LibVLCSharp.Shared
 
     let seekBar id (player: MediaPlayer) writablePosition onPositionChanged attrs =
         Component.create (
@@ -99,7 +100,7 @@ module LibVLCSharp =
                     (fun _ -> 
                         player.MediaChanged
                         |> Observable.ignore
-                        |> Observable.merge (player.Stopping |> Observable.ignore)
+                        |> Observable.merge (player.EndReached |> Observable.ignore)
                         |> Observable.subscribe (fun _ ->
                             isPressed.Set false
                         )
@@ -108,18 +109,14 @@ module LibVLCSharp =
                 )
                 ctx.useEffect (
                     (fun _ ->
-                        [
-                            player.Opening
-                            |> Observable.merge player.Playing
-                            |> Observable.merge player.Paused
-                            |> Observable.merge player.Stopping
-                            |> Observable.merge player.Stopped
-                            |> Observable.map (fun _ -> float player.Position)
-
-                            player.PositionChanged
-                            |> Observable.map (fun e ->float player.Position)
-                        ]
-                        |> Observable.mergeSeq
+                        player.EncounteredError
+                        |> Observable.ignore
+                        |> Observable.mergeIgnore player.Stopped
+                        |> Observable.mergeIgnore player.EndReached
+                        |> Observable.mergeIgnore player.SeekableChanged
+                        |> Observable.mergeIgnore player.LengthChanged
+                        |> Observable.mergeIgnore player.PositionChanged
+                        |> Observable.map (fun _ -> float player.Position)
                         |> Observable.filter(fun p ->
                             not isPressed.Current && minValue <= p && p <= maxValue)
                         |> Observable.subscribe (fun p ->
@@ -148,16 +145,12 @@ module LibVLCSharp =
                             outlet.Current.IsEnabled <- false
                             
                             let newPosition = outlet.Current.Value
-                            let rec trySeek = function
-                                | true -> ()
-                                | false ->
-                                    while not player.IsSeekable do
-                                        while not (Threading.Thread.Yield()) do
-                                            ()
-                                    player.SetPosition( newPosition, false)
-                                    |> trySeek
+                            let newTime  =float player.Length * newPosition |> TimeSpan.FromMilliseconds
                             
-                            trySeek false
+
+                            while not <| Threading.ThreadPool.QueueUserWorkItem(fun _ -> player.SeekTo newTime ) do
+                                ()
+
 
                             onPositionChanged newPosition
                             outlet.Current.IsEnabled <- true
@@ -470,7 +463,7 @@ let (|MediaResolved|_|) player =
     | _ -> None
 
 
-let mediaInfoView (model: IReadable<Model<LibVLCSharp.MediaPlayer>>) =
+let mediaInfoView (model: IReadable<Model<LibVLCSharp.Shared.MediaPlayer>>) =
     let timeSpanText (ts: TimeSpan) = ts.ToString "hh\:mm\:ss\.ff"
 
     let toStackPanel children =
@@ -591,7 +584,7 @@ let seekBar id model dispatch attrs =
 
 let mainSeekBar model dispatch = seekBar "main" model dispatch
 
-let mainPlayerControler id model dispatch attrs =
+let mainPlayerControler id (model: IReadable<Model<LibVLCSharp.Shared.MediaPlayer>>)  dispatch attrs =
     Component.create (
         id,
         fun ctx ->
@@ -616,10 +609,17 @@ let mainPlayerControler id model dispatch attrs =
                         Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
                     ]
                     Button.create [
-                        Button.content "Pause"
+                        match model.Current.MainPlayer with
+                        | Resolved {Player=player} when player.State = LibVLCSharp.Shared.VLCState.Paused ->
+                            "Resume"
+                        | _ ->
+                            "Pause"
+                        |> Button.content
                         (isMediaResolved && notRandomizeInPregress)
                         |> Button.isEnabled
-                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
+                        Button.onClick (fun _ ->
+                            PlayerMsg(MainPlayer, (Pause Started)) |> dispatch
+                            ctx.forceRender())
                     ]
                     Button.create [
                         Button.content "Stop"
@@ -709,10 +709,39 @@ let mainPlayerView id model dispatch =
     Component.create (
         id,
         fun ctx ->
+
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
             let outlet = ctx.useState (Unchecked.defaultof<_>, renderOnChange = false)
+
+            let logHander (e:LibVLCSharp.Shared.LogEventArgs) =
+                match player with
+                |Resolved {Player=mainPlayer:LibVLCSharp.Shared.MediaPlayer} ->
+                    printfn "try  avcodec_send_packet critical error recover.."
+                    [
+                        fun () -> taskResult{
+                            do! PlayerLib.LibVLCSharp.stopAsync mainPlayer
+                            do! PlayerLib.LibVLCSharp.replayAsync mainPlayer
+                            do! Task.delayMilliseconds 400
+                            let time = mainPlayer.Time
+                            mainPlayer.Time <- time
+                            mainPlayer.NextFrame()
+                        }
+                    ]
+                    |> List.map (UIThread.invokeAsync Threading.DispatcherPriority.Background)
+                    |> ignore
+                | _ -> ()
+
+
+            ctx.useEffect(
+                (fun _ ->
+                    PlayerLib.LibVLCSharp.libVLC.Log
+                    |> Observable.filter(fun e -> e.Level = LibVLCSharp.Shared.LogLevel.Error && e.Message = "avcodec_send_packet critical error")
+                    |> Observable.subscribe logHander
+                ),
+                [EffectTrigger.AfterInit]
+            )
 
             View.createWithOutlet
                 outlet.Set
@@ -750,10 +779,11 @@ let toolWindow model dispatch =
             let _, state = ctx.useMapRead model (fun m -> m.State)
 
             SubWindow.create [
-                state <> Setting |> SubWindow.isVisible
+                // state <> Setting |> SubWindow.isVisible
+                SubWindow.windowOpacity 50
                 SubWindow.content (
                     StackPanel.create [
-                        StackPanel.width 500
+                        StackPanel.minWidth 500
                         StackPanel.margin 4
                         StackPanel.children [
                             DockPanel.create [

@@ -31,6 +31,9 @@ let inline runAsync args = backgroundTask {
             return Ok()
         else
             let msg = $"ExitCode{ex.ExitCode}: %A{List.ofSeq errs}"
+#if DEBUG
+            printfn $"{msg}"
+#endif
             return Error msg
 }
 

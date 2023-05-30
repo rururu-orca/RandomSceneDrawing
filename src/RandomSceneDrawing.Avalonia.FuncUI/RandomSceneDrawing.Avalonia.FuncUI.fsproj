@@ -18,8 +18,8 @@
     <ProjectReference Include="..\RandomSceneDrawing.Core\RandomSceneDrawing.Core.fsproj" />
     <ProjectReference Include="..\RandomSceneDrawing.PlayerLib\RandomSceneDrawing.PlayerLib.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
-    <PropertyGroup>
+  <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

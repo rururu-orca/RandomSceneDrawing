@@ -39,7 +39,7 @@ type App() =
         let initMainPlayer = PlayerLib.LibVLCSharp.initPlayer
         let initSubPlayer = PlayerLib.LibVLCSharp.initSubPlayer
 
-        LibVLCSharp.Core.Initialize()
+        LibVLCSharp.Shared.Core.Initialize()
         let init =  Main.init settingsApi
 
         let update = Main.update mainApi settingsApi playerApi

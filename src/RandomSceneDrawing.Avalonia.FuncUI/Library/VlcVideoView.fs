@@ -19,6 +19,7 @@ open FSharpPlus
 open FSharp.Control.Reactive
 
 open LibVLCSharp
+open LibVLCSharp.Shared
 
 open RandomSceneDrawing
 open RandomSceneDrawing.AvaloniaExtensions
@@ -59,9 +60,9 @@ type VideoView() =
         | Some mp, Some p -> MediaPlayer.attachHandle p mp
         | Some mp, None -> MediaPlayer.detachHandle mp
         | _ -> ()
-
+    
     let nativePresenter =
-        { new NativeControlHost(Name = "VideoView-NativePresenter") with
+        { new NativeControlHost(Name = $"VideoView-NativePresenter-{Guid.NewGuid()}") with
             override _.CreateNativeControlCore(parent) =
                 base.CreateNativeControlCore parent
                 |> tap (fun handle ->
@@ -72,6 +73,32 @@ type VideoView() =
                 platformHandle <- None
                 onUpdateHandleOrMediaPlayer ()
                 base.DestroyNativeControlCore control }
+
+    let subscribes = Disposable.Composite
+
+    let trySubscribePlayer (player:MediaPlayer option) =
+        match player with
+        | Some player ->
+            player.Buffering
+            |> Observable.filter(fun e -> e.Cache = 100.0f)
+            |> Observable.ignore
+            |> Observable.mergeIgnore player.Playing
+            |> Observable.mergeIgnore player.SeekableChanged 
+            |> Observable.mergeIgnore player.PausableChanged
+            |> Observable.subscribe  (fun () ->
+                UIThread.invokeAsync Threading.DispatcherPriority.Background (
+                    fun _ ->
+                        task {
+                            player.SetRenderer null |> ignore
+                            nativePresenter.TryUpdateNativeControlPosition() |> ignore
+                            nativePresenter.InvalidateVisual()
+                        }
+                )
+                |> ignore
+                 )
+            |> subscribes.Add
+
+        | None -> ()
 
     override x.OnInitialized() =
         x.VisualChildren.Add nativePresenter
@@ -84,8 +111,10 @@ type VideoView() =
             | Some mp , Some v when mp.NativeReference = v.NativeReference ->
                 ()
             | _ -> 
+                subscribes.Clear()
+                trySubscribePlayer value
                 mediaPlayer <- value
-                onUpdateHandleOrMediaPlayer ()
+                onUpdateHandleOrMediaPlayer()
 
     static member MediaPlayerProperty =
         AvaloniaProperty.RegisterDirect<VideoView, MediaPlayer option>(

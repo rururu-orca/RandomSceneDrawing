@@ -3,7 +3,7 @@ module RandomSceneDrawing.Tests.Player.Lib
 open System
 open Expecto
 open FsToolkit.ErrorHandling
-open LibVLCSharp
+open LibVLCSharp.Shared
 open RandomSceneDrawing
 open RandomSceneDrawing.Player
 open RandomSceneDrawing.Main.ValueTypes

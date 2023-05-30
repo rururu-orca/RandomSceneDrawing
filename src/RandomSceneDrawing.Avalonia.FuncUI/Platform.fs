@@ -12,7 +12,7 @@ open Avalonia.Threading
 
 open Avalonia.FuncUI.DSL
 
-open LibVLCSharp
+open LibVLCSharp.Shared
 
 open FSharpPlus
 open FSharp.Control
@@ -20,14 +20,7 @@ open FsToolkit.ErrorHandling
 
 open RandomSceneDrawing.Types
 
-module UIThread =
-    open System.Threading.Tasks
-    let UIThread = Dispatcher.UIThread
-    let inline invokeAsync priority (f:unit -> Task<'t>) =
-        UIThread.InvokeAsync<'t>(f,priority)
-    
-    let inline post priority (f:unit -> unit) =
-        UIThread.Post(f,priority)
+
 
 let list (fsCollection: 'T seq) = List<'T> fsCollection
 
@@ -147,20 +140,29 @@ let copySubVideoAsync dest =
 let randomizeAsync randomizeSource (player: MediaPlayer) (subPlayer: MediaPlayer) =
     taskResult {
         let! resultInfo = PlayerLib.Randomize.initSourceAsync randomizeSource player subPlayer
-        do!
-            fun () -> PlayerLib.Randomize.startSublayerAsync subPlayer
-            |> UIThread.invokeAsync DispatcherPriority.Input
-        do!
-            fun () -> PlayerLib.Randomize.startMainPlayerAsync player
-            |> UIThread.invokeAsync DispatcherPriority.Input
+
         do!        
-            fun () -> 
-                PlayerLib.LibVLCSharp.seekAsync resultInfo.Position player
-            |> UIThread.invokeAsync DispatcherPriority.Input
+            fun () ->
+                taskResult {
+                    do! PlayerLib.Randomize.startSublayerAsync subPlayer
+                }                
+            |> UIThread.invokeAsync DispatcherPriority.Background
+
         do!        
-            fun () -> 
-                PlayerLib.LibVLCSharp.seekAsync resultInfo.Position subPlayer
-            |> UIThread.invokeAsync DispatcherPriority.Input
+            fun () ->
+                taskResult {
+                    do! PlayerLib.Randomize.startMainPlayerAsync player
+                }                
+            |> UIThread.invokeAsync DispatcherPriority.Background
+
+        do!        
+            fun () ->
+                taskResult {
+                    do! PlayerLib.LibVLCSharp.seekAsync resultInfo.Position player
+                    player.NextFrame()
+                }                
+            |> UIThread.invokeAsync DispatcherPriority.Background
+
 
         return resultInfo
     }
