@@ -22,7 +22,6 @@ module MainWindowConfig =
 type MainWindow(floating:Window)  =
     inherit Window
         (
-            new FloatingWindowHostRootImpl(),
             Title = "Random Pause  動画のシーンがランダムで表示されます",
             Height = MainWindowConfig.height,
             Width = MainWindowConfig.width,

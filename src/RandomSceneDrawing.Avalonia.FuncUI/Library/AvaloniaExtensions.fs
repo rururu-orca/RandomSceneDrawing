@@ -144,7 +144,7 @@ module AvaloniaExtensions =
         with :? KeyNotFoundException ->
             None
 
-    let inline setAvaloniaProperty (target: IAvaloniaObject) (prop: AvaloniaProperty) value =
+    let inline setAvaloniaProperty (target: AvaloniaObject) (prop: AvaloniaProperty) value =
         target.SetValue(prop, value)
 
 
