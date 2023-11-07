@@ -261,8 +261,8 @@ type Cmds<'player>
     member _.Randomize domain randomizeSource =
         taskResult {
             let! mainPlayer = askMainPlayer ()
-            and! subPlayer = askSubPlayer ()
-            and! rs = tryToRandomizeSource domain randomizeSource
+            let! subPlayer = askSubPlayer ()
+            let! rs = tryToRandomizeSource domain randomizeSource
 
             return! api.randomize rs mainPlayer subPlayer
         }
@@ -286,9 +286,9 @@ type Cmds<'player>
     member _.TakeSnapshot snapShotFolder currentFrames info =
         taskResult {
             let! mainPlayer = askMainPlayer ()
-            and! path' = resultDtoOr snapShotPath snapShotFolder
-            and! frames = resultDtoOr frames currentFrames
-            and! info = tryDeferredResult info
+            let! path' = resultDtoOr snapShotPath snapShotFolder
+            let! frames = resultDtoOr frames currentFrames
+            let! info = tryDeferredResult info
 
             let path =
                 Path.Combine [|
@@ -304,8 +304,8 @@ type Cmds<'player>
     member _.CopySubVideo snapShotFolder currentFrames info =
         taskResult {
             let! path' = resultDtoOr snapShotPath snapShotFolder
-            and! frames = resultDtoOr frames currentFrames
-            and! info = tryDeferredResult info
+            let! frames = resultDtoOr frames currentFrames
+            let! info = tryDeferredResult info
 
             let path =
                 Path.Combine [|

@@ -84,11 +84,11 @@ open Avalonia.Themes.Fluent
 //             None
 
 type FloatingWindow() =
-    inherit WindowWrapper
-        (
+    inherit
+        WindowWrapper(
             None,
             SystemDecorations = SystemDecorations.None,
-            TransparencyLevelHint = WindowTransparencyLevel.Transparent,
+            TransparencyLevelHint = [ WindowTransparencyLevel.Transparent ],
             Background = Brushes.Transparent,
             TransparencyBackgroundFallback = Brushes.Black,
             SizeToContent = SizeToContent.WidthAndHeight,
@@ -125,7 +125,7 @@ type FloatingWindow() =
 
     member x.RaizeOwnerEvent e =
         match x.FloatingHost with
-        | Some (:? Interactive as i) -> i.RaiseEvent e
+        | Some(:? Interactive as i) -> i.RaiseEvent e
         | _ -> ()
 
     override x.OnInitialized() =
@@ -193,9 +193,7 @@ type FloatingWindowHost() as x =
     let hostDisposables = Disposable.Composite
     let floatingDisposables = Disposable.Composite
 
-    let floatingWindowSub =
-        FloatingWindow(FloatingHost = Some x)
-        |> Subject.behavior
+    let floatingWindowSub = FloatingWindow(FloatingHost = Some x) |> Subject.behavior
 
     let isAttachedSub = Subject.behavior false
 
@@ -253,8 +251,7 @@ type FloatingWindowHost() as x =
                 floatingWindowSub.Value.Height <- getNewHeight x
 
                 let newPosition =
-                    Point(getNewTop x manager, getNewLeft x manager)
-                    |> x.PointToScreen
+                    Point(getNewTop x manager, getNewLeft x manager) |> x.PointToScreen
 
                 if newPosition <> floatingWindowSub.Value.Position then
                     floatingWindowSub.Value.Position <- newPosition
@@ -332,10 +329,7 @@ type FloatingWindowHost() as x =
     member x.FloatingWindow
         with get () = floatingWindowSub.Value
         and set (value: FloatingWindow) =
-            if
-                not
-                <| obj.ReferenceEquals(floatingWindowSub.Value, value)
-            then
+            if not <| obj.ReferenceEquals(floatingWindowSub.Value, value) then
                 floatingDisposables.Clear()
 
                 floatingWindowSub.Value.Close()
@@ -346,9 +340,7 @@ type FloatingWindowHost() as x =
 
     static member FloatingWindowProperty =
         AvaloniaProperty.RegisterDirect<FloatingWindowHost, _>(
-            nameof
-                Unchecked.defaultof<FloatingWindowHost>
-                    .FloatingWindow,
+            nameof Unchecked.defaultof<FloatingWindowHost>.FloatingWindow,
             (fun o -> o.FloatingWindow),
             (fun o v -> o.FloatingWindow <- v)
         )
@@ -377,13 +369,9 @@ type SubWindow() =
             ShowInTaskbar = false,
             Title = "Tool"
         )
-        |> tap (fun w ->
-            w.Styles.Add(FluentTheme())
-            w.RequestedThemeVariant <- Styling.ThemeVariant.Dark
 #if DEBUG
-            w.AttachDevTools()
+        |> tap (fun w -> w.AttachDevTools())
 #endif
-        )
 
 
     static member FloatingWindow() = ()

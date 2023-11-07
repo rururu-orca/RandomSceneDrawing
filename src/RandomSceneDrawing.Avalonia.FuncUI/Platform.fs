@@ -36,21 +36,32 @@ let showInfomationAsync (window: MainWindow) msg =
             Notification("Error!!", err, NotificationType.Error)
             |> window.NotificationManager.Show
     }
-    |> UIThread.invokeAsync DispatcherPriority.Layout
+    |> UIThread.invokeAsync DispatcherPriority.Send
 
 open Player
 
-let selectMediaAsync window = task {
-    let dialog =
-        OpenFileDialog(
-            Title = "Open Video File",
-            AllowMultiple = false,
-            Directory = GetFolderPath(SpecialFolder.MyVideos),
-            Filters = list [ FileDialogFilter(Name = "Video", Extensions = list [ "mp4"; "mkv" ]) ]
+let selectMediaAsync (window: Window) = task {
+    let provier = window.StorageProvider
+    let! location = provier.TryGetWellKnownFolderAsync(WellKnownFolder.Videos)
+
+    let! result =
+        provier.OpenFilePickerAsync(
+            FilePickerOpenOptions(
+                Title = "Open Video File",
+                AllowMultiple = false,
+                SuggestedStartLocation = location,
+                FileTypeFilter = [
+                    FilePickerFileType(
+                        "Open Video File",
+                        Patterns = [ "*mp4"; "*mkv" ],
+                        AppleUniformTypeIdentifiers = [ "public.data" ]
+                    )
+                ]
+            )
         )
 
-    match! dialog.ShowAsync window with
-    | [| path |] -> return (Uri >> PlayerLib.LibVLCSharp.Media.ofUri >> Ok) path
+    match List.ofSeq result with
+    | [ picked ] -> return (PlayerLib.LibVLCSharp.Media.ofUri >> Ok) picked.Path
     | _ -> return Error "Conceled"
 }
 
@@ -80,26 +91,31 @@ let pickPlayListAsync (window: Window) () = task {
             Title = "Open Playlist",
             AllowMultiple = false,
             SuggestedStartLocation = suggestedStartLocation,
-            FileTypeFilter = list [ FilePickerFileType("Playlist", Patterns = list [ "xspf" ]) ]
+            FileTypeFilter = list [ FilePickerFileType("Playlist", Patterns = list [ "*.xspf" ]) ]
         )
         |> window.StorageProvider.OpenFilePickerAsync
 
     match Seq.tryHead result with
-    | Some s -> return Ok(s.Path.ToString())
+    | Some s -> return Ok(s.Path.LocalPath)
     | None -> return Error Canceled
 }
 
-let pickSnapshotFolderAsync window () = task {
-    let dialog =
-        OpenFolderDialog(
-            Title = "Select SnapShot save root folder",
-            Directory = GetFolderPath(SpecialFolder.MyPictures)
+let pickSnapshotFolderAsync (window: Window) () = task {
+    let provier = window.StorageProvider
+    let! location = provier.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures)
+
+    let! result =
+        provier.OpenFolderPickerAsync(
+            FolderPickerOpenOptions(
+                Title = "Select SnapShot save root folder",
+                SuggestedStartLocation = location,
+                AllowMultiple = false
+            )
         )
 
-    match! dialog.ShowAsync window with
-    | notSelect when String.IsNullOrEmpty notSelect -> return Error Canceled
-    | folderPath -> return Ok folderPath
-
+    match List.ofSeq result with
+    | [ picked ] -> return Ok picked.Path.LocalPath
+    | _ -> return Error Canceled
 }
 
 let settingsApi (window: MainWindow) : DrawingSettings.Api = {

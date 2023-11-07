@@ -14,8 +14,8 @@ type App() =
 
     override this.Initialize() =
         this.Styles.Add(FluentTheme())
-        this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
         this.Styles.Load "avares://RandomSceneDrawing.Avalonia.FuncUI/Styles/Styles.xaml"
+        this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
 
     override _.OnFrameworkInitializationCompleted() =
 
@@ -51,9 +51,18 @@ module Main =
 
     [<EntryPoint>]
     let main (args: string[]) =
+
         AppBuilder
             .Configure<App>()
             .UsePlatformDetect()
             .UseSkia()
-            .With(Win32PlatformOptions(UseWindowsUIComposition = true, OverlayPopups = true))
+            .With(
+                Win32PlatformOptions(
+                    CompositionMode = [
+                        Win32CompositionMode.WinUIComposition
+                        Win32CompositionMode.RedirectionSurface
+                    ],
+                    OverlayPopups = true
+                )
+            )
             .StartWithClassicDesktopLifetime(args)

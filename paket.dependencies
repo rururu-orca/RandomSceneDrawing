@@ -3,7 +3,6 @@ source https://api.nuget.org/v3/index.json
 storage: none
 framework: auto-detect
 
-nuget Elmish.WPF >= 4.0.0 beta
 nuget FSharp.Configuration
 nuget FSharp.Control.AsyncSeq
 nuget FSharp.Control.Reactive
@@ -16,12 +15,12 @@ nuget ProcessX
 nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console
 
-nuget Avalonia.FuncUI 0.6.0-preview9.1
-nuget Avalonia.FuncUI.Elmish 0.6.0-preview9.1
-nuget Avalonia != 11.0.0-preview6
-nuget Avalonia.Desktop prerelease
-nuget Avalonia.Diagnostics prerelease
-nuget Avalonia.Themes.Fluent prerelease
+nuget Avalonia.FuncUI 1.1.0
+nuget Avalonia.FuncUI.Elmish 1.1.0
+nuget Avalonia != 11.0.5
+nuget Avalonia.Desktop 
+nuget Avalonia.Diagnostics 
+nuget Avalonia.Themes.Fluent 
 nuget Avalonia.Angle.Windows.Natives ~> 2.1.0.0
 
 nuget Expecto

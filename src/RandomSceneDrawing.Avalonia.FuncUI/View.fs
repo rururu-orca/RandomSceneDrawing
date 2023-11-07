@@ -307,7 +307,8 @@ let subPlayerView model dispatch =
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.SubPlayer, m.State, m.RandomizeState)
 
-            let outlet = ctx.useState (Unchecked.defaultof<_>, renderOnChange = false)
+            let outlet =
+                ctx.useStateLazy ((fun () -> Unchecked.defaultof<_>), renderOnChange = false)
 
             ctx.attrs [ Component.dock Dock.Right ]
 
@@ -652,12 +653,13 @@ let mainPlayerFloating = FloatingWindow()
 let mainPlayerView id model dispatch =
     Component.create (
         id,
-        fun ctx ->            
+        fun ctx ->
 
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
-            let outlet = ctx.useState (Unchecked.defaultof<VideoView>, renderOnChange = false)
+            let outlet =
+                ctx.useStateLazy ((fun () -> Unchecked.defaultof<VideoView>), renderOnChange = false)
 
             let logHander (e: LibVLCSharp.Shared.LogEventArgs) =
                 match player with
@@ -724,10 +726,11 @@ let toolWindow model dispatch =
         fun ctx ->
 
             let _, state = ctx.useMapRead model (fun m -> m.State)
+            let opacity = 0.3
 
             SubWindow.create [
-                // state <> Setting |> SubWindow.isVisible
-                SubWindow.windowOpacity 50
+                state <> Setting |> SubWindow.isVisible
+                SubWindow.windowOpacity opacity
                 SubWindow.content (
                     StackPanel.create [
                         StackPanel.minWidth 500

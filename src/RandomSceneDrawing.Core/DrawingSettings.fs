@@ -315,7 +315,7 @@ type Cmds(api: Api) =
 
 
     member _.PickSnapshotFolder() =
-        Cmd.OfTask.perform (api.pickSnapshotFolder >> teeFileSystemError) () (Finished >> PickPlayList)
+        Cmd.OfTask.perform (api.pickSnapshotFolder >> teeFileSystemError) () (Finished >> PickSnapshotFolder)
 
 let init api =
     initRandomizeInfoDomain api.validateMediaInfo

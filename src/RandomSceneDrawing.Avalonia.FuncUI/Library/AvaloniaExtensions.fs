@@ -97,7 +97,7 @@ module NativeModule =
     open Avalonia.Controls
 
     let addWindowExStyle addExStyle (window: WindowBase) =
-        let handle = window.PlatformImpl.Handle.Handle
+        let handle = window.TryGetPlatformHandle().Handle
 
         let style = GetWindowLongPtr(handle, GWL_EXSTYLE) ||| addExStyle
 
@@ -170,6 +170,7 @@ module AvaloniaExtensions =
 
     open Avalonia.FuncUI.Builder
     open Avalonia.FuncUI.Types
+    open Avalonia.FuncUI.DSL
 
     module Panel =
         let create (attrs: IAttr<Panel> list) : IView<Panel> = ViewBuilder.Create<Panel>(attrs)
@@ -208,7 +209,7 @@ module AvaloniaExtensions =
             AttrBuilder.CreateProperty(Flyout.TargetProperty, value, ValueNone)
 
     module WindowBase =
-        let getHandle (w: WindowBase) = w.PlatformImpl.Handle.Handle
+        let getHandle (w: WindowBase) = w.TryGetPlatformHandle().Handle
 
 
     type TemplatedControl with
@@ -259,6 +260,5 @@ module AvaloniaExtensions =
             if uri.IsAbsoluteUri && uri.IsFile then
                 new Bitmap(uri.LocalPath)
             else
-                let assets = AvaloniaLocator.Current.GetService<IAssetLoader>()
-                new Bitmap(assets.Open(uri))
+                new Bitmap(AssetLoader.Open(uri))
             |> Image.source
