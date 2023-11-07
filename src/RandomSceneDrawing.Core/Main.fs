@@ -27,12 +27,13 @@ module ValueTypes =
     let (|SnapShotPath|) (SnapShotPath sp) = sp
 
     let countDown (domain: Domain<TimeSpan, _, _>) x =
-        domain.MapDto(fun ts -> ts - TimeSpan.FromSeconds 1.0) x
+        domain.MapDto (fun ts -> ts - TimeSpan.FromSeconds 1.0) x
 
-    type DrawingRunning =
-        { Frames: Validated<int, Frames, string>
-          Duration: Validated<TimeSpan, Duration, string>
-          SnapShotPath: Validated<string, SnapShotPath, string> }
+    type DrawingRunning = {
+        Frames: Validated<int, Frames, string>
+        Duration: Validated<TimeSpan, Duration, string>
+        SnapShotPath: Validated<string, SnapShotPath, string>
+    }
 
     let (|CountDownDrawing|Continue|AtLast|) (modelRunning, setting) =
         match countDown duration modelRunning.Duration with
@@ -43,11 +44,12 @@ module ValueTypes =
             else
                 AtLast
 
-    type DrawingInterval =
-        { Frames: Validated<int, Frames, string>
-          Interval: Validated<TimeSpan, Interval, string>
-          SnapShotPath: Validated<string, SnapShotPath, string>
-          Init: Deferred<unit> }
+    type DrawingInterval = {
+        Frames: Validated<int, Frames, string>
+        Interval: Validated<TimeSpan, Interval, string>
+        SnapShotPath: Validated<string, SnapShotPath, string>
+        Init: Deferred<unit>
+    }
 
     let (|AtFirst|CountDownInterval|Zero|) (modelInterval) =
         if not <| Deferred.resolved modelInterval.Init then
@@ -61,40 +63,46 @@ module ValueTypes =
         | PlayList of PlayListFilePath
         | RandomizeInfos of RandomizeInfoDto list
 
-    type RandomizeResult =
-        { MainInfo: MediaInfo
-          MainPath: string
-          SubInfo: MediaInfo
-          SubPath: string
-          StartTime: TimeSpan
-          EndTime: TimeSpan
-          Position: TimeSpan }
+    type RandomizeResult = {
+        MainInfo: MediaInfo
+        MainPath: string
+        SubInfo: MediaInfo
+        SubPath: string
+        StartTime: TimeSpan
+        EndTime: TimeSpan
+        Position: TimeSpan
+    }
 
     module RandomizeResult =
         let mock =
             let mediaInfo = Player.ApiMock.mediaInfo
 
-            { MainInfo = mediaInfo
-              MainPath = ""
-              SubInfo = mediaInfo
-              SubPath = ""
-              StartTime = TimeSpan.Zero
-              EndTime = TimeSpan.Zero
-              Position = TimeSpan.Zero }
+            {
+                MainInfo = mediaInfo
+                MainPath = ""
+                SubInfo = mediaInfo
+                SubPath = ""
+                StartTime = TimeSpan.Zero
+                EndTime = TimeSpan.Zero
+                Position = TimeSpan.Zero
+            }
 
-        let syncMediaInfo (main: Deferred<Player.Model<'player>>) (sub: Deferred<Player.Model<'player>>) result =
-            {| Main =
+        let syncMediaInfo (main: Deferred<Player.Model<'player>>) (sub: Deferred<Player.Model<'player>>) result = {|
+            Main =
                 main
                 |> Deferred.map (fun player ->
                     { player with
                         Media = (Ok >> Resolved) result.MainInfo
-                        State = (Ok >> Finished) Paused })
-               Sub =
+                        State = (Ok >> Finished) Paused
+                    })
+            Sub =
                 sub
                 |> Deferred.map (fun player ->
                     { player with
                         Media = (Ok >> Resolved) result.SubInfo
-                        State = (Ok >> Finished) Playing }) |}
+                        State = (Ok >> Finished) Playing
+                    })
+        |}
 
 
 open ValueTypes
@@ -109,43 +117,47 @@ type PlayerId =
     | SubPlayer
 
 type Model<'player> =
-    { MainPlayer: Deferred<Player.Model<'player>>
-      SubPlayer: Deferred<Player.Model<'player>>
-      Settings: DrawingSettings.Model
-      State: RandomDrawingState
-      RandomizeState: Deferred<Result<RandomizeResult, string>> }
+    {
+        MainPlayer: Deferred<Player.Model<'player>>
+        SubPlayer: Deferred<Player.Model<'player>>
+        Settings: DrawingSettings.Model
+        State: RandomDrawingState
+        RandomizeState: Deferred<Result<RandomizeResult, string>>
+    }
 
     member inline x.WithState s = { x with State = Running s }
     member inline x.WithState s = { x with State = Interval s }
 
 module DrawingRunning =
-    let toInterval (r: DrawingRunning) (model: Model<'player>) =
-        { Interval = model.Settings.Settings.Interval
-          Frames = frames.MapDto((+) 1) r.Frames
-          SnapShotPath = r.SnapShotPath
-          Init = HasNotStartedYet }
+    let toInterval (r: DrawingRunning) (model: Model<'player>) = {
+        Interval = model.Settings.Settings.Interval
+        Frames = frames.MapDto ((+) 1) r.Frames
+        SnapShotPath = r.SnapShotPath
+        Init = HasNotStartedYet
+    }
 
 module DrawingInterval =
-    let toRunning i (model: Model<'player>) =
-        { Duration = model.Settings.Settings.Duration
-          SnapShotPath = i.SnapShotPath
-          Frames = i.Frames }
+    let toRunning i (model: Model<'player>) = {
+        Duration = model.Settings.Settings.Duration
+        SnapShotPath = i.SnapShotPath
+        Frames = i.Frames
+    }
 
 module Model =
     let initInterval (model: Model<'player>) snapShotPathStr =
         model.WithState
-            { Interval = model.Settings.Settings.Interval
-              Frames = frames.Create 1
-              SnapShotPath = snapShotPath.Create snapShotPathStr
-              Init = HasNotStartedYet }
+            {
+                Interval = model.Settings.Settings.Interval
+                Frames = frames.Create 1
+                SnapShotPath = snapShotPath.Create snapShotPathStr
+                Init = HasNotStartedYet
+            }
 
     let setRunning (drawingInterval: DrawingInterval) (model: Model<'player>) =
-        DrawingInterval.toRunning drawingInterval model
-        |> model.WithState
+        DrawingInterval.toRunning drawingInterval model |> model.WithState
 
     let setInterval (drawingRunning: DrawingRunning) (model: Model<'player>) =
-        DrawingRunning.toInterval drawingRunning model
-        |> model.WithState
+        DrawingRunning.toInterval drawingRunning model |> model.WithState
 
     let withRandomizeResult onError (model: Model<'player>) result =
         match result with
@@ -155,10 +167,14 @@ module Model =
             { model with
                 RandomizeState = Resolved result
                 MainPlayer = synced.Main
-                SubPlayer = synced.Sub }
+                SubPlayer = synced.Sub
+            }
         | Error ex ->
             onError ex
-            { model with RandomizeState = Resolved result }
+
+            { model with
+                RandomizeState = Resolved result
+            }
 
 type Msg<'player> =
     | InitMainPlayer of AsyncOperationStatus<'player>
@@ -172,46 +188,45 @@ type Msg<'player> =
     | Tick
     | Exit
 
-type Api<'player> =
-    { step: unit -> Async<unit>
-      randomize: RandomizeSource -> 'player -> 'player -> Task<Result<RandomizeResult, string>>
-      createSnapShotFolder: string -> Task<Result<string, string>>
-      takeSnapshot: 'player -> string -> Task<Result<unit, string>>
-      copySubVideo: string -> Task<Result<unit, string>>
-      showInfomation: NotifyMessage -> Task<unit> }
+type Api<'player> = {
+    step: unit -> Async<unit>
+    randomize: RandomizeSource -> 'player -> 'player -> Task<Result<RandomizeResult, string>>
+    createSnapShotFolder: string -> Task<Result<string, string>>
+    takeSnapshot: 'player -> string -> Task<Result<unit, string>>
+    copySubVideo: string -> Task<Result<unit, string>>
+    showInfomation: NotifyMessage -> Task<unit>
+}
 
 module Api =
-    let mockOk () =
-        { step = fun _ -> async { do! Async.Sleep 1 }
-          randomize = fun _ _ _ -> task { return Ok RandomizeResult.mock }
-          createSnapShotFolder = fun _ -> task { return Ok "test" }
-          takeSnapshot = fun _ _ -> task { return Ok() }
-          copySubVideo = fun _ -> task { return Ok() }
-          showInfomation = fun _ -> task { () } }
+    let mockOk () = {
+        step = fun _ -> async { do! Async.Sleep 1 }
+        randomize = fun _ _ _ -> task { return Ok RandomizeResult.mock }
+        createSnapShotFolder = fun _ -> task { return Ok "test" }
+        takeSnapshot = fun _ _ -> task { return Ok() }
+        copySubVideo = fun _ -> task { return Ok() }
+        showInfomation = fun _ -> task { () }
+    }
 
-    let mockError () =
-        { step = fun _ -> async { do! Async.Sleep 1 }
-          randomize = fun _ _ _ -> task { return Error "Mock." }
-          createSnapShotFolder = fun _ -> task { return Error "Mock." }
-          takeSnapshot = fun _ _ -> task { return Error "Mock." }
-          copySubVideo = fun _ -> task { return Error "Mock." }
-          showInfomation = fun _ -> task { () } }
+    let mockError () = {
+        step = fun _ -> async { do! Async.Sleep 1 }
+        randomize = fun _ _ _ -> task { return Error "Mock." }
+        createSnapShotFolder = fun _ -> task { return Error "Mock." }
+        takeSnapshot = fun _ _ -> task { return Error "Mock." }
+        copySubVideo = fun _ -> task { return Error "Mock." }
+        showInfomation = fun _ -> task { () }
+    }
 
 
 open System.IO
 
 type Cmds<'player>
-    (
-        api: Api<'player>,
-        mainPlayer: Deferred<Player.Model<'player>>,
-        subPlayer: Deferred<Player.Model<'player>>
-    )
-     =
+    (api: Api<'player>, mainPlayer: Deferred<Player.Model<'player>>, subPlayer: Deferred<Player.Model<'player>>)
+    =
 
     let getMediaTitle (media: Deferred<Result<MediaInfo, string>>) =
         match media with
-        | Resolved (Ok info) -> Ok info.Title
-        | Resolved (Error e) -> Error e
+        | Resolved(Ok info) -> Ok info.Title
+        | Resolved(Error e) -> Error e
         | _ -> Error "Not Resolved."
 
     let tryDeferredResult deferred =
@@ -240,45 +255,40 @@ type Cmds<'player>
     member _.ShowInfomation info = showInfomation info
 
     member _.Step() =
-        async {
-            do! api.step ()
-            return Tick
-        }
-        |> Cmd.OfAsync.result
+        Cmd.OfAsync.perform api.step () (fun () -> Tick)
+
 
     member _.Randomize domain randomizeSource =
         taskResult {
             let! mainPlayer = askMainPlayer ()
-            and! subPlayer = askSubPlayer ()
-            and! rs = tryToRandomizeSource domain randomizeSource
+            let! subPlayer = askSubPlayer ()
+            let! rs = tryToRandomizeSource domain randomizeSource
 
             return! api.randomize rs mainPlayer subPlayer
         }
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
 
     member this.RandomizeCmd domain randomizeSource =
-        task {
-            let! result = this.Randomize domain randomizeSource
-            return (Finished >> Randomize) result
-        }
-        |> Cmd.OfTask.result
+        Cmd.OfTask.perform (this.Randomize domain) randomizeSource (Finished >> Randomize)
+
 
     member this.StartDrawingCmd path =
-        taskResult {
-            let! path' = resultDtoOr snapShotFolderPath path
-            return! api.createSnapShotFolder path'
-        }
-        |> TaskResult.tee (fun _ -> InfoMsg "Drawing Started." |> showInfomation)
-        |> TaskResult.teeError (ErrorMsg >> showInfomation)
-        |> Task.map (Finished >> StartDrawing)
-        |> Cmd.OfTask.result
+        Cmd.OfTask.perform
+            (fun path ->
+                resultDtoOr snapShotFolderPath path
+                |> TaskResult.ofResult
+                |> TaskResult.bind api.createSnapShotFolder
+                |> TaskResult.tee (fun _ -> InfoMsg "Drawing Started." |> showInfomation)
+                |> TaskResult.teeError (ErrorMsg >> showInfomation))
+            path
+            (Finished >> StartDrawing)
 
     member _.TakeSnapshot snapShotFolder currentFrames info =
         taskResult {
             let! mainPlayer = askMainPlayer ()
-            and! path' = resultDtoOr snapShotPath snapShotFolder
-            and! frames = resultDtoOr frames currentFrames
-            and! info = tryDeferredResult info
+            let! path' = resultDtoOr snapShotPath snapShotFolder
+            let! frames = resultDtoOr frames currentFrames
+            let! info = tryDeferredResult info
 
             let path =
                 Path.Combine [|
@@ -294,8 +304,8 @@ type Cmds<'player>
     member _.CopySubVideo snapShotFolder currentFrames info =
         taskResult {
             let! path' = resultDtoOr snapShotPath snapShotFolder
-            and! frames = resultDtoOr frames currentFrames
-            and! info = tryDeferredResult info
+            let! frames = resultDtoOr frames currentFrames
+            let! info = tryDeferredResult info
 
             let path =
                 Path.Combine [|
@@ -308,12 +318,13 @@ type Cmds<'player>
         |> TaskResult.teeError (ErrorMsg >> showInfomation)
         |> ignore
 
-let init settingsApi =
-    { MainPlayer = HasNotStartedYet
-      SubPlayer = HasNotStartedYet
-      Settings = DrawingSettings.init settingsApi
-      State = Setting
-      RandomizeState = HasNotStartedYet }
+let init settingsApi = {
+    MainPlayer = HasNotStartedYet
+    SubPlayer = HasNotStartedYet
+    Settings = DrawingSettings.init settingsApi
+    State = Setting
+    RandomizeState = HasNotStartedYet
+}
 
 let update api settingsApi playerApi msg m =
     let settingUpdate = (DrawingSettings.Cmds >> DrawingSettings.update) settingsApi
@@ -323,29 +334,46 @@ let update api settingsApi playerApi msg m =
     let cmds = Cmds(api, m.MainPlayer, m.SubPlayer)
 
     match msg with
-    | InitMainPlayer (Finished player) -> { m with MainPlayer = (Player.init >> Resolved) player }, Cmd.none
+    | InitMainPlayer(Finished player) ->
+        { m with
+            MainPlayer = (Player.init >> Resolved) player
+        },
+        Cmd.none
     | InitMainPlayer _ -> m, Cmd.none
-    | InitSubPlayer (Finished player) -> { m with SubPlayer = (Player.init >> Resolved) player }, Cmd.none
+    | InitSubPlayer(Finished subPlayer) ->
+        { m with
+            SubPlayer = (Player.init >> Resolved) subPlayer
+        },
+        Cmd.none
     | InitSubPlayer _ -> m, Cmd.none
-    | PlayerMsg (MainPlayer, msg) ->
+    | PlayerMsg(MainPlayer, msg) ->
         match m.MainPlayer with
         | Resolved mainPlayer ->
             let m' =
                 match msg with
-                | Player.Msg.Stop (Finished (Ok _)) -> { m with RandomizeState = HasNotStartedYet }
+                | Player.Msg.Stop(Finished(Ok _)) ->
+                    { m with
+                        RandomizeState = HasNotStartedYet
+                    }
                 | _ -> m
 
             let mainPlayer', cmd' = playerUpdate msg mainPlayer
 
-            { m' with MainPlayer = Resolved mainPlayer' }, Cmd.map ((fun msg -> MainPlayer, msg) >> PlayerMsg) cmd'
+            { m' with
+                MainPlayer = Resolved mainPlayer'
+            },
+            Cmd.map ((fun msg -> MainPlayer, msg) >> PlayerMsg) cmd'
         | _ -> m, Cmd.none
 
-    | PlayerMsg (SubPlayer, msg) ->
+    | PlayerMsg(SubPlayer, msg) ->
         match m.SubPlayer with
         | Resolved subPlayer ->
             let m' =
                 match msg with
-                | Player.Msg.Stop (Finished (Ok _)) -> { m with RandomizeState = HasNotStartedYet }
+                | Player.Msg.Stop(Finished(Ok _)) ->
+                    { m with
+                        RandomizeState = HasNotStartedYet
+                    }
                 | _ -> m
 
             let player', cmd' = playerUpdate msg subPlayer
@@ -363,32 +391,25 @@ let update api settingsApi playerApi msg m =
     | Randomize Started when m.RandomizeState = InProgress -> m, Cmd.none
     | Randomize Started ->
         { m with RandomizeState = InProgress }, cmds.RandomizeCmd playListFilePath settings.PlayListFilePath
-    | Randomize (Finished result) ->
+    | Randomize(Finished result) ->
         match result, m.State with
         | Ok _, Interval i when i.Init = InProgress ->
-            (Model.withRandomizeResult ignore m result)
-                .WithState { i with Init = Resolved() },
-            Cmd.none
+            (Model.withRandomizeResult ignore m result).WithState { i with Init = Resolved() }, Cmd.none
         | Ok _, Running r ->
-            (Model.withRandomizeResult ignore m result)
-                .WithState { r with Duration = settings.Duration },
-            Cmd.none
+            (Model.withRandomizeResult ignore m result).WithState { r with Duration = settings.Duration }, Cmd.none
         | _ -> Model.withRandomizeResult ignore m result, Cmd.none
 
     | SetRandomizeResultPosition value ->
         match m.RandomizeState with
-        | Resolved (Ok rs) ->
-            Ok { rs with Position = value }
-            |> Model.withRandomizeResult ignore m
+        | Resolved(Ok rs) -> Ok { rs with Position = value } |> Model.withRandomizeResult ignore m
         | _ -> m
         , Cmd.none
     | Tick ->
         let updateRamdomize (model: Model<'player>) =
-            { model with RandomizeState = InProgress },
-            Cmd.batch [
-                cmds.RandomizeCmd playListFilePath settings.PlayListFilePath
-                cmds.Step()
-            ]
+            { model with
+                RandomizeState = InProgress
+            },
+            Cmd.batch [ cmds.RandomizeCmd playListFilePath settings.PlayListFilePath; cmds.Step() ]
 
         match m.State with
         | Setting -> m, Cmd.none
@@ -396,9 +417,7 @@ let update api settingsApi playerApi msg m =
         | _ when m.RandomizeState |> Deferred.exists Result.isError -> updateRamdomize m
         | Interval s ->
             match s with
-            | AtFirst x ->
-                m.WithState { s with Init = InProgress }
-                |> updateRamdomize
+            | AtFirst x -> m.WithState { s with Init = InProgress } |> updateRamdomize
             | CountDownInterval x -> m.WithState { s with Interval = x }, cmds.Step()
             | Zero -> Model.setRunning s m, cmds.Step()
         | Running s ->
@@ -417,10 +436,10 @@ let update api settingsApi playerApi msg m =
             | _ -> m, cmds.Step()
     | StartDrawing Started when m.State = Setting -> m, cmds.StartDrawingCmd settings.SnapShotFolderPath
     | StartDrawing Started -> m, Cmd.none
-    | StartDrawing (Finished (Error error)) ->
+    | StartDrawing(Finished(Error error)) ->
 
         { m with State = Setting }, Cmd.none
-    | StartDrawing (Finished (Ok snapShotPathStr)) -> Model.initInterval m snapShotPathStr, cmds.Step()
+    | StartDrawing(Finished(Ok snapShotPathStr)) -> Model.initInterval m snapShotPathStr, cmds.Step()
     | StopDrawing when m.State = Setting -> m, Cmd.none
     | StopDrawing ->
         InfoMsg "Drawing Stoped." |> cmds.ShowInfomation

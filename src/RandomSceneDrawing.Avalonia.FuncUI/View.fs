@@ -54,7 +54,8 @@ module CustomHooks =
                 (fun _ ->
                     let state' = mapping x.Current
 
-                    if y.Current <> state' then y.Set state'),
+                    if y.Current <> state' then
+                        y.Set state'),
                 [ EffectTrigger.AfterChange x ]
             )
 
@@ -79,6 +80,7 @@ let inline notFunc ([<InlineIfLambda>] f) x = not (f x)
 
 module LibVLCSharp =
     open LibVLCSharp
+    open LibVLCSharp.Shared
 
     let seekBar id (player: MediaPlayer) writablePosition onPositionChanged attrs =
         Component.create (
@@ -97,50 +99,59 @@ module LibVLCSharp =
 
                 ctx.useEffect (
                     (fun _ ->
-                        [ player.Opening
-                          |> Observable.merge player.Playing
-                          |> Observable.merge player.Paused
-                          |> Observable.merge player.Stopping
-                          |> Observable.merge player.Stopped
-                          |> Observable.map (fun _ -> float player.Position)
+                        player.MediaChanged
+                        |> Observable.ignore
+                        |> Observable.merge (player.EndReached |> Observable.ignore)
+                        |> Observable.subscribe (fun _ -> isPressed.Set false)),
+                    [ EffectTrigger.AfterInit ]
+                )
 
-                          player.PositionChanged
-                          |> Observable.map (fun e ->
-                              if player.State = VLCState.Stopping then
-                                  maxValue
-                              else
-                                  float e.Position |> max minValue) ]
-                        |> Observable.mergeSeq
-                        |> Observable.subscribe position.Set),
+                ctx.useEffect (
+                    (fun _ ->
+                        player.EncounteredError
+                        |> Observable.ignore
+                        |> Observable.mergeIgnore player.Stopped
+                        |> Observable.mergeIgnore player.EndReached
+                        |> Observable.mergeIgnore player.SeekableChanged
+                        |> Observable.mergeIgnore player.LengthChanged
+                        |> Observable.mergeIgnore player.PositionChanged
+                        |> Observable.map (fun _ -> float player.Position)
+                        |> Observable.filter (fun p -> not isPressed.Current && minValue <= p && p <= maxValue)
+                        |> Observable.subscribe (fun p -> position.Set p)),
                     [ EffectTrigger.AfterInit ]
                 )
 
                 ctx.attrs attrs
 
-                View.createWithOutlet
-                    outlet.Set
-                    Slider.create
-                    [ Slider.minimum minValue
-                      Slider.maximum maxValue
+                View.createWithOutlet outlet.Set Slider.create [
+                    Slider.minimum minValue
+                    Slider.maximum maxValue
 
-                      if player.IsSeekable then
-                          double position.Current
-                      else
-                          minValue
-                      |> Slider.value
+                    if player.IsSeekable then
+                        double position.Current
+                    else
+                        minValue
+                    |> Slider.value
 
-                      Slider.onPointerPressed (fun _ -> isPressed.Set true)
-                      Slider.onPointerReleased (fun _ ->
-                          if player.IsSeekable then
-                              float32 outlet.Current.Value
-                              |> player.SetPosition
-                              |> ignore
+                    player.IsSeekable |> Slider.isEnabled
 
-                              onPositionChanged outlet.Current.Value
-                          else
-                              outlet.Current.Value <- minValue
+                    Slider.onPointerPressed (fun _ -> isPressed.Set true)
+                    Slider.onPointerReleased (fun _ ->
+                        if isPressed.Current then
+                            outlet.Current.IsEnabled <- false
 
-                          isPressed.Set false) ]
+                            let newPosition = outlet.Current.Value
+                            let newTime = float player.Length * newPosition |> TimeSpan.FromMilliseconds
+
+
+                            while not <| Threading.ThreadPool.QueueUserWorkItem(fun _ -> player.SeekTo newTime) do
+                                ()
+
+
+                            onPositionChanged newPosition
+                            outlet.Current.IsEnabled <- true
+                            isPressed.Set false)
+                ]
         )
 
 
@@ -159,31 +170,31 @@ let inline isMediaResolved player =
     | _ -> false
 
 let validatedTextBox (domain: Domain<string, _, _>) value addAttrs dispatchSetValueMsg =
-    let invalidTextAttrs text errors =
-        [ TextBox.text text
-          List.map box errors |> TextBox.errors ]
+    let invalidTextAttrs text errors = [ TextBox.text text; List.map box errors |> TextBox.errors ]
 
     TextBox.create [
         match value with
         | Valid v -> domain.ToDto v |> TextBox.text
-        | Invalid (CreateFailed (dto, errors)) -> yield! invalidTextAttrs dto errors
-        | Invalid (UpdateFailed (ValueNone, dto, errors)) -> yield! invalidTextAttrs dto errors
-        | Invalid (UpdateFailed (ValueSome before, dto, errors)) ->
+        | Invalid(CreateFailed(dto, errors)) -> yield! invalidTextAttrs dto errors
+        | Invalid(UpdateFailed(ValueNone, dto, errors)) -> yield! invalidTextAttrs dto errors
+        | Invalid(UpdateFailed(ValueSome before, dto, errors)) ->
             yield! invalidTextAttrs dto errors
             TextBox.onLostFocus (fun _ -> (domain.ToDto >> dispatchSetValueMsg) before)
-        | Invalid (MargedError marged) -> List.map box marged |> TextBox.errors
+        | Invalid(MargedError marged) -> List.map box marged |> TextBox.errors
 
         yield! addAttrs
 
         TextBox.onTextChanged dispatchSetValueMsg
     ]
 
-let drawingSwtchBottonView model dispatch =
+let drawingSwtchBottonView model dispatch attrs =
     Component.create (
         "drawingSwtchBotton-view",
         fun ctx ->
             let _, (state, settings) =
                 ctx.useMapRead model (fun m -> m.State, m.Settings.Settings)
+
+            ctx.attrs attrs
 
             Button.create [
 
@@ -203,17 +214,7 @@ let drawingSwtchBottonView model dispatch =
     )
 
 let durationSecs =
-    [ 10.0
-      30.0
-      45.0
-      60.0
-      90.0
-      120.0
-      180.0
-      300.0
-      600.0
-      1200.0
-      1800.0 ]
+    [ 10.0; 30.0; 45.0; 60.0; 90.0; 120.0; 180.0; 300.0; 600.0; 1200.0; 1800.0 ]
     |> List.map TimeSpan.FromSeconds
 
 let durationBoxView model dispatch =
@@ -223,14 +224,10 @@ let durationBoxView model dispatch =
 
             let _, settings = ctx.useMapRead model (fun m -> m.Settings.Settings)
 
-            let selected =
-                settings.Duration
-                |> duration.DefaultDto durationSecs[0]
+            let selected = settings.Duration |> duration.DefaultDto durationSecs[0]
 
             let template ts =
-                TextBlock.create [
-                    TextBlock.text $"{ts}"
-                ]
+                TextBlock.create [ TextBlock.text $"{ts}" ]
 
             ComboBox.create [
                 ComboBox.dataItems durationSecs
@@ -250,9 +247,12 @@ let framesSettingView model dispatch =
             let _, settings = ctx.useMapRead model (fun m -> m.Settings.Settings)
 
             NumericUpDown.create [
-                NumericUpDown.minimum 1.0
+                NumericUpDown.minimum 1
                 frames.Dto settings.Frames |> NumericUpDown.value
-                NumericUpDown.onValueChanged (int >> SetFrames >> SettingsMsg >> dispatch)
+
+                NumericUpDown.onValueChanged (fun v ->
+                    if v.HasValue then
+                        int v.Value |> SetFrames |> SettingsMsg |> dispatch)
             ]
     )
 
@@ -283,7 +283,7 @@ let headerTopItemsView model dispatch =
             StackPanel.create [
                 StackPanel.orientation Orientation.Horizontal
                 StackPanel.children [
-                    drawingSwtchBottonView model dispatch
+                    drawingSwtchBottonView model dispatch []
                     match state with
                     | Setting ->
                         durationBoxView model dispatch
@@ -307,36 +307,41 @@ let subPlayerView model dispatch =
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.SubPlayer, m.State, m.RandomizeState)
 
-            let outlet = ctx.useState (VideoView(), renderOnChange = false)
+            let outlet =
+                ctx.useStateLazy ((fun () -> Unchecked.defaultof<_>), renderOnChange = false)
 
             ctx.attrs [ Component.dock Dock.Right ]
 
-            View.createWithOutlet
-                outlet.Set
-                VideoView.create
-                [ VideoView.height config.SubPlayer.Height
-                  VideoView.width config.SubPlayer.Width
-                  VideoView.margin (4, 4, 0, 4)
-                  VideoView.verticalAlignment VerticalAlignment.Top
-                  VideoView.horizontalAlignment HorizontalAlignment.Right
-                  match player with
-                  | Resolved player ->
-                      VideoView.mediaPlayer (Some player.Player)
+            View.createWithOutlet outlet.Set VideoView.create [
+                VideoView.height config.SubPlayer.Height
+                VideoView.width config.SubPlayer.Width
+                VideoView.margin (4, 4, 0, 4)
+                VideoView.verticalAlignment VerticalAlignment.Top
+                VideoView.horizontalAlignment HorizontalAlignment.Right
+                match player with
+                | Resolved player ->
+                    VideoView.mediaPlayer (Some player.Player)
 
-                      (Deferred.resolved player.Media
-                       && isNotInterval state
-                       && notFunc Deferred.inProgress randomizeState)
-                      |> VideoView.isVideoVisible
-                  | _ -> () ]
+                    //   match state, randomizeState, player.Media with
+                    //   | Interval _, _, _ -> false
+                    //   | _, InProgress, _ -> false
+                    //   | _, _, Resolved (Ok _) -> true
+                    //   | _ -> false
+                    true |> VideoView.isVideoVisible
+
+                | _ -> ()
+            ]
     )
 
 
-let randomizeButtonView model dispatch =
+let randomizeButtonView model dispatch attrs =
     Component.create (
         "randomizeButton-view",
         fun ctx ->
             let _, (randomizeState, settings) =
                 ctx.useMapRead model (fun m -> m.RandomizeState, m.Settings.Settings)
+
+            ctx.attrs attrs
 
             Button.create [
                 Button.content "🔀 Show Random 🔀"
@@ -351,9 +356,7 @@ let mediaPlayerControler model dispatch =
 
     StackPanel.create [
         StackPanel.orientation Orientation.Horizontal
-        StackPanel.children [
-            randomizeButtonView model dispatch
-        ]
+        StackPanel.children [ randomizeButtonView model dispatch [] ]
     ]
 
 let pathSelectorView domain value (buttonText: string) buttonCallback dispatchSetValueMsg addAttrs =
@@ -373,10 +376,12 @@ let pathSelectorView domain value (buttonText: string) buttonCallback dispatchSe
             validatedTextBox
                 domain
                 value
-                [ TextBox.column 1
-                  TextBox.row 0
-                  TextBox.rowSpan 2
-                  TextBox.verticalAlignment VerticalAlignment.Top ]
+                [
+                    TextBox.column 1
+                    TextBox.row 0
+                    TextBox.rowSpan 2
+                    TextBox.verticalAlignment VerticalAlignment.Top
+                ]
                 dispatchSetValueMsg
         ]
     ]
@@ -406,12 +411,10 @@ let snapShotFolderPathView model dispatch =
                 ctx.useMapRead model (fun m -> m.Settings.Settings.SnapShotFolderPath)
 
             let buttonCallback _ =
-                (PickSnapshotFolder >> SettingsMsg) Started
-                |> dispatch
+                (PickSnapshotFolder >> SettingsMsg) Started |> dispatch
 
             let dispatchSetValueMsg s =
-                (SetSnapShotFolderPath >> SettingsMsg) s
-                |> dispatch
+                (SetSnapShotFolderPath >> SettingsMsg) s |> dispatch
 
             ctx.attrs [ Grid.column 1 ]
 
@@ -424,31 +427,23 @@ let pathSettings model dispatch =
         Grid.dock Dock.Bottom
         Grid.rowDefinitions "*"
         Grid.columnDefinitions "*,*"
-        Grid.children [
-            playListFilePathView model dispatch
-            snapShotFolderPathView model dispatch
-        ]
+        Grid.children [ playListFilePathView model dispatch; snapShotFolderPathView model dispatch ]
     ]
 
 let (|MediaResolved|_|) player =
     match player with
     | Resolved player ->
         match player.Media with
-        | Resolved (Ok mediaInfo) -> Some(player, mediaInfo)
+        | Resolved(Ok mediaInfo) -> Some(player, mediaInfo)
         | _ -> None
     | _ -> None
 
 
-let mediaInfoView (model: IReadable<Model<LibVLCSharp.MediaPlayer>>) =
+let mediaInfoView (model: IReadable<Model<LibVLCSharp.Shared.MediaPlayer>>) =
     let timeSpanText (ts: TimeSpan) = ts.ToString "hh\:mm\:ss\.ff"
 
     let toStackPanel children =
-        StackPanel.create [
-            StackPanel.children [
-                yield! Seq.cast children
-            ]
-        ]
-        :> IView
+        StackPanel.create [ StackPanel.children [ yield! Seq.cast children ] ] :> IView
 
     Component.create (
         "mediaInfo-view",
@@ -466,15 +461,11 @@ let mediaInfoView (model: IReadable<Model<LibVLCSharp.MediaPlayer>>) =
                     TextBlock.text "RandomizeState InProgress..."
                 ]
                 :> IView
-            | Resolved (Ok rs), MediaResolved (main, mainInfo), MediaResolved (sub, subInfo) ->
+            | Resolved(Ok rs), MediaResolved(main, mainInfo), MediaResolved(sub, subInfo) ->
                 seq {
-                    TextBlock.create [
-                        TextBlock.text mainInfo.Title
-                    ]
+                    TextBlock.create [ TextBlock.text mainInfo.Title ]
 
-                    TextBlock.create [
-                        rs.Position |> timeSpanText |> TextBlock.text
-                    ]
+                    TextBlock.create [ rs.Position |> timeSpanText |> TextBlock.text ]
 
                     TextBlock.create [
                         let startTime = timeSpanText rs.StartTime
@@ -485,10 +476,7 @@ let mediaInfoView (model: IReadable<Model<LibVLCSharp.MediaPlayer>>) =
                 }
                 |> toStackPanel
 
-            | _, MediaResolved (main, mainInfo), _ ->
-                TextBlock.create [
-                    TextBlock.text mainInfo.Title
-                ]
+            | _, MediaResolved(main, mainInfo), _ -> TextBlock.create [ TextBlock.text mainInfo.Title ]
             | _ -> Panel.create []
     )
 
@@ -507,10 +495,7 @@ let headerView model dispatch =
                         pathSettings model dispatch
                     StackPanel.create [
                         StackPanel.dock Dock.Left
-                        StackPanel.children [
-                            headerTopItemsView model dispatch
-                            mediaPlayerControler model dispatch
-                        ]
+                        StackPanel.children [ headerTopItemsView model dispatch; mediaPlayerControler model dispatch ]
                     ]
                     mediaInfoView model
                 ]
@@ -527,24 +512,21 @@ let seekBar id model dispatch attrs =
 
             let hasRandomizeStateResolved = ctx.useState false
 
-            let position = ctx.useState -1.0
+            let position = ctx.useState 0.0
 
             match randomizeState with
-            | Resolved (Ok rs) when not hasRandomizeStateResolved.Current ->
+            | Resolved(Ok rs) when not hasRandomizeStateResolved.Current ->
                 rs.Position / rs.MainInfo.Duration |> position.Set
                 hasRandomizeStateResolved.Set true
             | HasNotStartedYet
             | InProgress when hasRandomizeStateResolved.Current ->
-                position.Set -1.0
+                position.Set 0.0
                 hasRandomizeStateResolved.Set false
             | _ -> ()
 
             let onPositionChanged p =
                 match model.Current.RandomizeState with
-                | Resolved (Ok rs) ->
-                    rs.MainInfo.Duration * p
-                    |> SetRandomizeResultPosition
-                    |> dispatch
+                | Resolved(Ok rs) -> rs.MainInfo.Duration * p |> SetRandomizeResultPosition |> dispatch
                 | _ -> ()
 
             ctx.attrs attrs
@@ -560,7 +542,7 @@ let seekBar id model dispatch attrs =
 
 let mainSeekBar model dispatch = seekBar "main" model dispatch
 
-let mainPlayerControler id model dispatch attrs =
+let mainPlayerControler id (model: IReadable<Model<LibVLCSharp.Shared.MediaPlayer>>) dispatch attrs =
     Component.create (
         id,
         fun ctx ->
@@ -571,6 +553,8 @@ let mainPlayerControler id model dispatch attrs =
 
             ctx.attrs attrs
 
+            let isSetting = model.Current.State = Setting
+
             StackPanel.create [
                 StackPanel.horizontalAlignment HorizontalAlignment.Center
                 StackPanel.verticalAlignment VerticalAlignment.Bottom
@@ -579,18 +563,24 @@ let mainPlayerControler id model dispatch attrs =
                     Button.create [
                         Button.content "Play"
                         notRandomizeInPregress |> Button.isEnabled
+                        isSetting |> Button.isVisible
                         Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Play Started)) |> dispatch)
                     ]
                     Button.create [
-                        Button.content "Pause"
-                        (isMediaResolved && notRandomizeInPregress)
-                        |> Button.isEnabled
-                        Button.onClick (fun _ -> PlayerMsg(MainPlayer, (Pause Started)) |> dispatch)
+                        match model.Current.MainPlayer with
+                        | Resolved { Player = player } when player.State = LibVLCSharp.Shared.VLCState.Paused ->
+                            "Resume"
+                        | _ -> "Pause"
+                        |> Button.content
+                        (isMediaResolved && notRandomizeInPregress) |> Button.isEnabled
+                        Button.onClick (fun _ ->
+                            PlayerMsg(MainPlayer, (Pause Started)) |> dispatch
+                            ctx.forceRender ())
                     ]
                     Button.create [
                         Button.content "Stop"
-                        (isMediaResolved && notRandomizeInPregress)
-                        |> Button.isEnabled
+                        (isMediaResolved && notRandomizeInPregress) |> Button.isEnabled
+                        isSetting |> Button.isVisible
                         Button.onClick (fun _ ->
                             PlayerMsg(MainPlayer, (Stop Started)) |> dispatch
                             PlayerMsg(SubPlayer, (Stop Started)) |> dispatch)
@@ -609,9 +599,11 @@ let floatingOnSetting id model dispatch =
             GradientStops =
                 (GradientStops()
                  |> tap (fun s ->
-                     [ GradientStop(Color.Parse "Black", 0.0)
-                       GradientStop(Color.Parse "Gray", 0.8)
-                       GradientStop(Color.Parse "Transparent", 1.0) ]
+                     [
+                         GradientStop(Color.Parse "Black", 0.0)
+                         GradientStop(Color.Parse "Gray", 0.8)
+                         GradientStop(Color.Parse "Transparent", 1.0)
+                     ]
                      |> s.AddRange))
         )
 
@@ -632,19 +624,12 @@ let floatingOnSetting id model dispatch =
                         Rectangle.opacity 0.5
                         Rectangle.opacityMask opacityMask
                     ]
-                    mainPlayerControler
-                        "controler"
-                        model
-                        dispatch
-                        [ Component.row 1
-                          Component.column 1
-                          Component.margin 8 ]
-                    mainSeekBar
-                        model
-                        dispatch
-                        [ Component.row 2
-                          Component.column 0
-                          Component.columnSpan 3 ]
+                    mainPlayerControler "controler" model dispatch [
+                        Component.row 1
+                        Component.column 1
+                        Component.margin 8
+                    ]
+                    mainSeekBar model dispatch [ Component.row 2; Component.column 0; Component.columnSpan 3 ]
                 ]
             ]
     )
@@ -658,12 +643,7 @@ let floatingOnOther id model dispatch =
                 Grid.columnDefinitions "*,Auto,*"
                 Grid.classes [ "floatring-content" ]
                 Grid.children [
-                    mainSeekBar
-                        model
-                        dispatch
-                        [ Component.row 2
-                          Component.column 0
-                          Component.columnSpan 3 ]
+                    mainSeekBar model dispatch [ Component.row 2; Component.column 0; Component.columnSpan 3 ]
                 ]
             ]
     )
@@ -674,35 +654,68 @@ let mainPlayerView id model dispatch =
     Component.create (
         id,
         fun ctx ->
+
             let _, (player, state, randomizeState) =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.State, m.RandomizeState)
 
-            let outlet = ctx.useState (VideoView(), renderOnChange = false)
+            let outlet =
+                ctx.useStateLazy ((fun () -> Unchecked.defaultof<VideoView>), renderOnChange = false)
 
-            View.createWithOutlet
-                outlet.Set
-                VideoView.create
-                [ VideoView.minHeight config.MainPlayer.Height
-                  VideoView.minWidth config.MainPlayer.Width
-                  FloatingWindowHost.floatingWindow mainPlayerFloating
+            let logHander (e: LibVLCSharp.Shared.LogEventArgs) =
+                match player with
+                | Resolved {
+                               Player = mainPlayer: LibVLCSharp.Shared.MediaPlayer
+                           } ->
+                    printfn "try  avcodec_send_packet critical error recover.."
 
-                  match player with
-                  | Resolved mainPlayer ->
-                      VideoView.mediaPlayer (Some mainPlayer.Player)
+                    [
+                        fun () -> taskResult {
+                            do! PlayerLib.LibVLCSharp.stopAsync mainPlayer
+                            do! PlayerLib.LibVLCSharp.replayAsync mainPlayer
+                            do! Task.delayMilliseconds 400
+                            let time = mainPlayer.Time
+                            mainPlayer.Time <- time
+                            mainPlayer.NextFrame()
+                        }
+                    ]
+                    |> List.map (UIThread.invokeAsync Threading.DispatcherPriority.Background)
+                    |> ignore
+                | _ -> ()
 
-                      match state, randomizeState, mainPlayer.Media with
-                      | Interval _, _, _ -> false
-                      | _, InProgress, _ -> false
-                      | _, _, Resolved (Ok _) -> true
-                      | _ -> false
-                      |> VideoView.isVideoVisible
 
-                  | _ -> ()
+            ctx.useEffect (
+                (fun _ ->
+                    PlayerLib.LibVLCSharp.libVLC.Log
+                    |> Observable.filter (fun e ->
+                        e.Level = LibVLCSharp.Shared.LogLevel.Error
+                        && e.Message = "avcodec_send_packet critical error")
+                    |> Observable.subscribe logHander),
+                [ EffectTrigger.AfterInit ]
+            )
 
-                  match state with
-                  | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
-                  | _ -> floatingOnOther "floatring-content-other" model dispatch
-                  |> FloatingWindowHost.content ]
+            View.createWithOutlet outlet.Set VideoView.create [
+                VideoView.minHeight config.MainPlayer.Height
+                VideoView.minWidth config.MainPlayer.Width
+                FloatingWindowHost.floatingWindow mainPlayerFloating
+
+                match player with
+                | Resolved mainPlayer ->
+                    VideoView.mediaPlayer (Some mainPlayer.Player)
+
+                    match state, randomizeState, mainPlayer.Media with
+                    | Interval _, _, _ -> false
+                    | _, InProgress, _ -> false
+                    | _, _, Resolved(Ok _) -> true
+                    | _ -> false
+                    |> VideoView.isVideoVisible
+
+                | _ -> ()
+
+                match state with
+                | Setting -> floatingOnSetting "floatring-content-setting" model dispatch
+                | _ -> floatingOnOther "floatring-content-other" model dispatch
+                |> FloatingWindowHost.content
+            ]
     )
 
 
@@ -713,15 +726,25 @@ let toolWindow model dispatch =
         fun ctx ->
 
             let _, state = ctx.useMapRead model (fun m -> m.State)
+            let opacity = 0.3
 
             SubWindow.create [
                 state <> Setting |> SubWindow.isVisible
+                SubWindow.windowOpacity opacity
                 SubWindow.content (
                     StackPanel.create [
-                        StackPanel.margin 12
+                        StackPanel.minWidth 500
+                        StackPanel.margin 4
                         StackPanel.children [
-                            randomizeButtonView model dispatch
-                            mainSeekBar model dispatch []
+                            DockPanel.create [
+                                DockPanel.lastChildFill false
+                                DockPanel.children [
+                                    randomizeButtonView model dispatch [ Component.dock Dock.Left ]
+                                    drawingSwtchBottonView model dispatch [ Component.dock Dock.Right ]
+                                ]
+                            ]
+                            mainPlayerControler "tool-controler" model dispatch []
+                            seekBar "tool-seekber" model dispatch []
                         ]
                     ]
                 )
@@ -733,8 +756,7 @@ let drawingProgressView model =
         let current = domain.Dto current
         let settings = domain.Dto setting
 
-        (settings - current) / settings * 100.0
-        |> ProgressBar.value
+        (settings - current) / settings * 100.0 |> ProgressBar.value
 
     Component.create (
         "drawing-progress",
@@ -769,31 +791,28 @@ let cmp initMainPlayer initSubPlayer init update =
             let _, (mainPlayer, subPlayer) =
                 ctx.useMapRead model (fun m -> m.MainPlayer, m.SubPlayer)
 
-            ctx.attrs [
-                Component.margin config.RootComponent.Margin
-            ]
+            ctx.attrs [ Component.margin config.RootComponent.Margin ]
 
             ctx.useEffect (
                 (fun _ ->
                     let lifetime =
                         Application.Current.ApplicationLifetime :?> IClassicDesktopStyleApplicationLifetime
 
-                    lifetime.MainWindow.Closed
-                    |> Observable.subscribe (fun _ -> dispatch Exit)),
+                    lifetime.MainWindow.Closed |> Observable.subscribe (fun _ -> dispatch Exit)),
                 [ EffectTrigger.AfterInit ]
             )
 
             ctx.useEffect (
                 (fun _ ->
                     task {
-                        let! msg = backgroundTask { return initMainPlayer () |> Finished |> InitMainPlayer }
-                        dispatch msg
-                    }
-                    |> ignore
+                        let! msgs =
+                            Threading.Tasks.Task.WhenAll [
+                                task { return initMainPlayer () |> Finished |> InitMainPlayer }
+                                task { return initSubPlayer () |> Finished |> InitSubPlayer }
+                            ]
 
-                    task {
-                        let! msg = backgroundTask { return initSubPlayer () |> Finished |> InitSubPlayer }
-                        dispatch msg
+                        for msg in msgs do
+                            dispatch msg
                     }
                     |> ignore),
                 [ EffectTrigger.AfterInit ]
@@ -808,14 +827,7 @@ let cmp initMainPlayer initSubPlayer init update =
                         headerView model dispatch
                         drawingProgressView model
                         mainPlayerView "main-player" model dispatch
-                    | _ ->
-                        Panel.create [
-                            Panel.children [
-                                TextBlock.create [
-                                    TextBlock.text "Loading..."
-                                ]
-                            ]
-                        ]
+                    | _ -> Panel.create [ Panel.children [ TextBlock.create [ TextBlock.text "Loading..." ] ] ]
                 ]
             ])
     )

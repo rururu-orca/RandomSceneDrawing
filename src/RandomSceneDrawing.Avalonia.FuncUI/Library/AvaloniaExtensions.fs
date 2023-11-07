@@ -10,10 +10,7 @@ module Helper =
     open Avalonia
 
     let (|NotEq|_|) x target =
-        if target <> x then
-            Some target
-        else
-            None
+        if target <> x then Some target else None
 
     let inline (!) property =
         AvaloniaProperty.op_OnesComplement property
@@ -26,6 +23,15 @@ module Observable =
 module Task =
     open System.Threading.Tasks
     let delayMilliseconds time = Task.Delay(millisecondsDelay = time)
+
+module UIThread =
+    open System.Threading.Tasks
+    open Avalonia.Threading
+
+    let UIThread = Dispatcher.UIThread
+    let inline invokeAsync priority (f: unit -> Task<'t>) = UIThread.InvokeAsync<'t>(f, priority)
+
+    let inline post priority (f: unit -> unit) = UIThread.Post(f, priority)
 
 module NativeModule =
 
@@ -69,7 +75,20 @@ module NativeModule =
     extern int ShowWindow(nativeint hWnd, uint nCmdShow)
 
     [<DllImport("user32.dll", SetLastError = true)>]
-    extern nativeint CreateWindowEx(unativeint dwExStyle, uint16 lpClassName, string lpWindowName, unativeint dwStyle, int x, int y, int nWidth, int nHeight, nativeint hWndParent, nativeint hMenu, nativeint hInstance, nativeint lpParam)
+    extern nativeint CreateWindowEx(
+        unativeint dwExStyle,
+        uint16 lpClassName,
+        string lpWindowName,
+        unativeint dwStyle,
+        int x,
+        int y,
+        int nWidth,
+        int nHeight,
+        nativeint hWndParent,
+        nativeint hMenu,
+        nativeint hInstance,
+        nativeint lpParam
+    )
 
     [<return: MarshalAs(UnmanagedType.Bool)>]
     [<DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)>]
@@ -78,16 +97,12 @@ module NativeModule =
     open Avalonia.Controls
 
     let addWindowExStyle addExStyle (window: WindowBase) =
-        let handle = window.PlatformImpl.Handle.Handle
+        let handle = window.TryGetPlatformHandle().Handle
 
-        let style =
-            GetWindowLongPtr(handle, GWL_EXSTYLE)
-            ||| addExStyle
+        let style = GetWindowLongPtr(handle, GWL_EXSTYLE) ||| addExStyle
 
         match SetWindowLongPtr(handle, GWL_EXSTYLE, style) with
-        | 0n ->
-            Marshal.GetLastPInvokeError()
-            |> failwith "SetWindowLongPtr Failed: %i"
+        | 0n -> Marshal.GetLastPInvokeError() |> failwith "SetWindowLongPtr Failed: %i"
         | _ -> ()
 
 
@@ -126,10 +141,10 @@ module AvaloniaExtensions =
     let findNameScope<'T when 'T: not struct> name (namescope: INameScope) =
         try
             Some(namescope.Get<'T> name)
-        with
-        | :? KeyNotFoundException -> None
+        with :? KeyNotFoundException ->
+            None
 
-    let inline setAvaloniaProperty (target: IAvaloniaObject) (prop: AvaloniaProperty) value =
+    let inline setAvaloniaProperty (target: AvaloniaObject) (prop: AvaloniaProperty) value =
         target.SetValue(prop, value)
 
 
@@ -155,6 +170,7 @@ module AvaloniaExtensions =
 
     open Avalonia.FuncUI.Builder
     open Avalonia.FuncUI.Types
+    open Avalonia.FuncUI.DSL
 
     module Panel =
         let create (attrs: IAttr<Panel> list) : IView<Panel> = ViewBuilder.Create<Panel>(attrs)
@@ -171,7 +187,8 @@ module AvaloniaExtensions =
 
     module FlyoutBase =
         let attachedFlyout<'t when 't :> Control> (value: FlyoutBase) =
-            AttrBuilder<'t>.CreateProperty (FlyoutBase.AttachedFlyoutProperty, value, ValueNone)
+            AttrBuilder<'t>
+                .CreateProperty(FlyoutBase.AttachedFlyoutProperty, value, ValueNone)
 
         let showAttachedFlyout control = FlyoutBase.ShowAttachedFlyout control
 
@@ -192,21 +209,20 @@ module AvaloniaExtensions =
             AttrBuilder.CreateProperty(Flyout.TargetProperty, value, ValueNone)
 
     module WindowBase =
-        let getHandle (w: WindowBase) = w.PlatformImpl.Handle.Handle
+        let getHandle (w: WindowBase) = w.TryGetPlatformHandle().Handle
 
 
     type TemplatedControl with
 
         static member cornerRadius<'t when 't :> TemplatedControl>(value: CornerRadius) : IAttr<'t> =
-            AttrBuilder<'t>.CreateProperty (TemplatedControl.CornerRadiusProperty, value, ValueNone)
+            AttrBuilder<'t>
+                .CreateProperty(TemplatedControl.CornerRadiusProperty, value, ValueNone)
 
         static member cornerRadius<'t when 't :> TemplatedControl>(uniformRadius) : IAttr<'t> =
-            CornerRadius uniformRadius
-            |> TemplatedControl.cornerRadius
+            CornerRadius uniformRadius |> TemplatedControl.cornerRadius
 
         static member cornerRadius<'t when 't :> TemplatedControl>(top, bottom) : IAttr<'t> =
-            CornerRadius(top, bottom)
-            |> TemplatedControl.cornerRadius
+            CornerRadius(top, bottom) |> TemplatedControl.cornerRadius
 
         static member cornerRadius<'t when 't :> TemplatedControl>
             (
@@ -225,5 +241,24 @@ module AvaloniaExtensions =
 
         new(impl) =
             match impl with
-            | Some (impl) -> { inherit Window(impl) }
+            | Some(impl) -> { inherit Window(impl) }
             | None -> { inherit Window() }
+
+    open Avalonia.Media.Imaging
+    open Avalonia.FuncUI.DSL
+    open Avalonia.Platform
+
+    type Image with
+
+        static member sourcee(s: string) =
+            let uri =
+                if s.StartsWith("/") then
+                    Uri(s, UriKind.Relative)
+                else
+                    Uri(s, UriKind.RelativeOrAbsolute)
+
+            if uri.IsAbsoluteUri && uri.IsFile then
+                new Bitmap(uri.LocalPath)
+            else
+                new Bitmap(AssetLoader.Open(uri))
+            |> Image.source

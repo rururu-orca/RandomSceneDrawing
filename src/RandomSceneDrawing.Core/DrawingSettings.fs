@@ -44,10 +44,7 @@ module ValueTypes =
 
 
     let randomizeInfoListDtoPath =
-        Path.Combine [|
-            AppDomain.CurrentDomain.BaseDirectory
-            "RandomizeInfoListDto.yaml"
-        |]
+        Path.Combine [| AppDomain.CurrentDomain.BaseDirectory; "RandomizeInfoListDto.yaml" |]
 
     let randomizeInfoListDto = RandomizeInfoListDtoYaml()
 
@@ -60,9 +57,10 @@ module ValueTypes =
 
 
     module MediaInfo =
-        let ofYamlConfig (dto: MediaInfoDtoYaml) =
-            { Title = dto.Title
-              Duration = dto.Duration }
+        let ofYamlConfig (dto: MediaInfoDtoYaml) = {
+            Title = dto.Title
+            Duration = dto.Duration
+        }
 
         let toYamlConfig (info) =
             MediaInfoDtoYaml(Title = info.Title, Duration = info.Duration)
@@ -70,19 +68,14 @@ module ValueTypes =
     type TrimDurationDtoYaml = RandomizeInfoDtoYaml.TrimDurations_Item_Type
 
     module TrimDuration =
-        let validate value =
-            result {
-                let! _ = validateIfPositiveTime value.Start
-                and! _ = validateIfPositiveTime value.End
+        let validate value = result {
+            let! _ = validateIfPositiveTime value.Start
+            and! _ = validateIfPositiveTime value.End
 
-                and! _ =
-                    value.Start < value.End
-                    |> Result.requireTrue [
-                        "Must be Start < End."
-                       ]
+            and! _ = value.Start < value.End |> Result.requireTrue [ "Must be Start < End." ]
 
-                return value
-            }
+            return value
+        }
 
         let ofYamlConfig (dto: TrimDurationDtoYaml) = { Start = dto.Start; End = dto.End }
 
@@ -90,51 +83,43 @@ module ValueTypes =
             TrimDurationDtoYaml(Start = dur.Start, End = dur.End)
 
 
-    type RandomizeInfoDto =
-        { Id: Guid
-          MediaInfo: MediaInfo
-          Path: string
-          TrimDurations: TrimDuration list }
+    type RandomizeInfoDto = {
+        Id: Guid
+        MediaInfo: MediaInfo
+        Path: string
+        TrimDurations: TrimDuration list
+    }
 
     module RandomizeInfoDto =
-        let validateTrimDurations dto =
-            result {
-                match dto.TrimDurations with
-                | [ t ] ->
-                    let! _ = TrimDuration.validate t
+        let validateTrimDurations dto = result {
+            match dto.TrimDurations with
+            | [ t ] ->
+                let! _ = TrimDuration.validate t
 
-                    if t.End <= dto.MediaInfo.Duration then
-                        return! Ok()
-                    else
-                        return!
-                            Error [
-                                "MediaInfo.Duration < TrimDuration.End"
-                            ]
-                | ts ->
-                    for (ts1, ts2) in List.pairwise ts do
-                        let! _ = TrimDuration.validate ts1
+                if t.End <= dto.MediaInfo.Duration then
+                    return! Ok()
+                else
+                    return! Error [ "MediaInfo.Duration < TrimDuration.End" ]
+            | ts ->
+                for (ts1, ts2) in List.pairwise ts do
+                    let! _ = TrimDuration.validate ts1
 
-                        if ts1.End > ts2.Start then
-                            return! Error [ $"{ts1} < {ts2}" ]
+                    if ts1.End > ts2.Start then
+                        return! Error [ $"{ts1} < {ts2}" ]
 
-                    if ts[-1].End <= dto.MediaInfo.Duration then
-                        return! Ok()
-                    else
-                        return!
-                            Error [
-                                "MediaInfo.Duration < TrimDuration.End"
-                            ]
+                if ts[-1].End <= dto.MediaInfo.Duration then
+                    return! Ok()
+                else
+                    return! Error [ "MediaInfo.Duration < TrimDuration.End" ]
 
-            }
+        }
 
-        let ofYamlConfig (yaml: RandomizeInfoDtoYaml) =
-            { Id = Guid.NewGuid()
-              TrimDurations =
-                yaml.TrimDurations
-                |> Seq.map TrimDuration.ofYamlConfig
-                |> Seq.toList
-              MediaInfo = MediaInfo.ofYamlConfig yaml.MediaInfo
-              Path = yaml.Path }
+        let ofYamlConfig (yaml: RandomizeInfoDtoYaml) = {
+            Id = Guid.NewGuid()
+            TrimDurations = yaml.TrimDurations |> Seq.map TrimDuration.ofYamlConfig |> Seq.toList
+            MediaInfo = MediaInfo.ofYamlConfig yaml.MediaInfo
+            Path = yaml.Path
+        }
 
         let toYamlConfig dto =
             let yaml = RandomizeInfoDtoYaml()
@@ -151,27 +136,29 @@ module ValueTypes =
 
         let mock = ofYamlConfig RandomizeInfoListDtoYaml().RandomizeInfoDto[0]
 
-    type RandomizeInfo =
-        private
-            { Id: Guid
-              MediaInfo: MediaInfo
-              Path: string
-              TrimDurations: TrimDuration list }
+    type RandomizeInfo = private {
+        Id: Guid
+        MediaInfo: MediaInfo
+        Path: string
+        TrimDurations: TrimDuration list
+    }
 
     type ValidatedRandomizeInfo = Validated<RandomizeInfoDto, RandomizeInfo, string>
 
     let initRandomizeInfoDomain validator =
         Domain<RandomizeInfoDto, RandomizeInfo, string>(
-            (fun dto ->
-                { Id = dto.Id
-                  MediaInfo = dto.MediaInfo
-                  Path = dto.Path
-                  TrimDurations = dto.TrimDurations }),
-            (fun domain ->
-                { Id = domain.Id
-                  MediaInfo = domain.MediaInfo
-                  Path = domain.Path
-                  TrimDurations = domain.TrimDurations }),
+            (fun dto -> {
+                Id = dto.Id
+                MediaInfo = dto.MediaInfo
+                Path = dto.Path
+                TrimDurations = dto.TrimDurations
+            }),
+            (fun domain -> {
+                Id = domain.Id
+                MediaInfo = domain.MediaInfo
+                Path = domain.Path
+                TrimDurations = domain.TrimDurations
+            }),
             (fun dto -> result { return! validator dto })
         )
 
@@ -188,8 +175,8 @@ module ValueTypes =
             =
             match info with
             | Valid v -> Ok (randomizeInfo.ToDto v).MediaInfo
-            | Invalid (CreateFailed (dto, _)) -> Ok dto.MediaInfo
-            | Invalid (UpdateFailed (_, dto, _)) -> Ok dto.MediaInfo
+            | Invalid(CreateFailed(dto, _)) -> Ok dto.MediaInfo
+            | Invalid(UpdateFailed(_, dto, _)) -> Ok dto.MediaInfo
             | _ -> Error "MediaInfo get Failed..."
 
 open ValueTypes
@@ -197,32 +184,32 @@ open ValueTypes
 
 
 type Settings =
-    { Frames: Validated<int, Frames, string>
-      Duration: Validated<TimeSpan, Duration, string>
-      Interval: Validated<TimeSpan, Interval, string>
-      RandomizeInfoList: list<ValidatedRandomizeInfo>
-      PlayListFilePath: Validated<string, PlayListFilePath, string>
-      SnapShotFolderPath: Validated<string, SnapShotFolderPath, string> }
+    {
+        Frames: Validated<int, Frames, string>
+        Duration: Validated<TimeSpan, Duration, string>
+        Interval: Validated<TimeSpan, Interval, string>
+        RandomizeInfoList: list<ValidatedRandomizeInfo>
+        PlayListFilePath: Validated<string, PlayListFilePath, string>
+        SnapShotFolderPath: Validated<string, SnapShotFolderPath, string>
+    }
 
-    static member Default(randomizeInfo: Domain<RandomizeInfoDto, RandomizeInfo, string>) =
-        { Frames = frames.Create config.Frames
-          Duration = duration.Create config.Duration
-          Interval = interval.Create config.Interval
-          RandomizeInfoList =
+    static member Default(randomizeInfo: Domain<RandomizeInfoDto, RandomizeInfo, string>) = {
+        Frames = frames.Create config.Frames
+        Duration = duration.Create config.Duration
+        Interval = interval.Create config.Interval
+        RandomizeInfoList =
             List.ofSeq randomizeInfoListDto.RandomizeInfoDto
-            |> List.map (
-                RandomizeInfoDto.ofYamlConfig
-                >> randomizeInfo.Create
-            )
+            |> List.map (RandomizeInfoDto.ofYamlConfig >> randomizeInfo.Create)
 
-          PlayListFilePath = playListFilePath.Create config.PlayListFilePath
-          SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath }
+        PlayListFilePath = playListFilePath.Create config.PlayListFilePath
+        SnapShotFolderPath = snapShotFolderPath.Create config.SnapShotFolderPath
+    }
 
 module Settings =
     let dtoOrEmptyString (domain: Domain<string, _, _>) value =
         domain.DtoOr
             (function
-            | UpdateFailed ((ValueSome c), _, _) -> (domain.ofDomain >> domain.Dto) c
+            | UpdateFailed((ValueSome c), _, _) -> (domain.ofDomain >> domain.Dto) c
             | _ -> "")
             value
 
@@ -238,9 +225,9 @@ module Settings =
             settings.RandomizeInfoList
             |> List.choose (function
                 | Valid v -> (randomizeInfo.ToDto >> Some) v
-                | Invalid (CreateFailed (dto, _)) -> Some dto
-                | Invalid (UpdateFailed ((ValueSome v), _, _)) -> (randomizeInfo.ToDto >> Some) v
-                | Invalid (UpdateFailed ((ValueNone), dto, _)) -> Some dto
+                | Invalid(CreateFailed(dto, _)) -> Some dto
+                | Invalid(UpdateFailed((ValueSome v), _, _)) -> (randomizeInfo.ToDto >> Some) v
+                | Invalid(UpdateFailed((ValueNone), dto, _)) -> Some dto
                 | _ -> None)
             |> List.map RandomizeInfoDto.toYamlConfig
             |> Collections.Generic.List
@@ -251,30 +238,32 @@ module Settings =
         let origin = Config()
         let randomizeInfoListDtoOrigin = RandomizeInfoListDtoYaml()
 
-        { Frames = frames.Create origin.Frames
-          Duration = duration.Create origin.Duration
-          Interval = interval.Create origin.Interval
-          RandomizeInfoList =
-            List.ofSeq randomizeInfoListDtoOrigin.RandomizeInfoDto
-            |> List.map (
-                RandomizeInfoDto.ofYamlConfig
-                >> randomizeInfo.Create
-            )
-          PlayListFilePath = playListFilePath.Create origin.PlayListFilePath
-          SnapShotFolderPath = snapShotFolderPath.Create origin.SnapShotFolderPath }
+        {
+            Frames = frames.Create origin.Frames
+            Duration = duration.Create origin.Duration
+            Interval = interval.Create origin.Interval
+            RandomizeInfoList =
+                List.ofSeq randomizeInfoListDtoOrigin.RandomizeInfoDto
+                |> List.map (RandomizeInfoDto.ofYamlConfig >> randomizeInfo.Create)
+            PlayListFilePath = playListFilePath.Create origin.PlayListFilePath
+            SnapShotFolderPath = snapShotFolderPath.Create origin.SnapShotFolderPath
+        }
 
 type Model =
-    { Settings: Settings
-      PickedPlayListPath: DeferredResult<string, FilePickerError>
-      PickedSnapShotFolderPath: DeferredResult<string, FilePickerError> }
+    {
+        Settings: Settings
+        PickedPlayListPath: DeferredResult<string, FilePickerError>
+        PickedSnapShotFolderPath: DeferredResult<string, FilePickerError>
+    }
 
     member inline x.WithSettings([<InlineIfLambda>] f) = { x with Settings = f x.Settings }
 
 module Model =
-    let create settings =
-        { Settings = settings
-          PickedPlayListPath = HasNotStartedYet
-          PickedSnapShotFolderPath = HasNotStartedYet }
+    let create settings = {
+        Settings = settings
+        PickedPlayListPath = HasNotStartedYet
+        PickedSnapShotFolderPath = HasNotStartedYet
+    }
 
     let inline withSettings (x: Model) ([<InlineIfLambda>] f) = x.WithSettings f
 
@@ -289,20 +278,22 @@ type Msg =
     | SaveSettings
     | ResetSettings
 
-type Api =
-    { validateMediaInfo: RandomizeInfoDto -> Result<RandomizeInfoDto, string list>
-      parsePlayListFile: PlayListFilePath -> Task<Result<RandomizeInfoDto list, string list>>
-      pickPlayList: unit -> Task<Result<string, FilePickerError>>
-      pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>>
-      showInfomation: NotifyMessage -> Task<unit> }
+type Api = {
+    validateMediaInfo: RandomizeInfoDto -> Result<RandomizeInfoDto, string list>
+    parsePlayListFile: PlayListFilePath -> Task<Result<RandomizeInfoDto list, string list>>
+    pickPlayList: unit -> Task<Result<string, FilePickerError>>
+    pickSnapshotFolder: unit -> Task<Result<string, FilePickerError>>
+    showInfomation: NotifyMessage -> Task<unit>
+}
 
 module ApiMock =
-    let api =
-        { validateMediaInfo = fun info -> Ok info
-          parsePlayListFile = fun _ -> task { return Ok [ RandomizeInfoDto.mock ] }
-          pickPlayList = fun _ -> task { return Ok "Test" }
-          pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
-          showInfomation = fun _ -> task { () } }
+    let api = {
+        validateMediaInfo = fun info -> Ok info
+        parsePlayListFile = fun _ -> task { return Ok [ RandomizeInfoDto.mock ] }
+        pickPlayList = fun _ -> task { return Ok "Test" }
+        pickSnapshotFolder = fun _ -> task { return Ok "Foo" }
+        showInfomation = fun _ -> task { () }
+    }
 
 open Elmish
 open FsToolkit.ErrorHandling
@@ -313,26 +304,18 @@ type Cmds(api: Api) =
         task { do! api.showInfomation info } |> ignore
 
     let teeFileSystemError result =
-        result
-        |> TaskResult.teeError (sprintf "%A" >> ErrorMsg >> showInfomation)
+        result |> TaskResult.teeError (sprintf "%A" >> ErrorMsg >> showInfomation)
 
     member _.randomizeInfo = initRandomizeInfoDomain api.validateMediaInfo
 
     member _.ShowInfomation info = showInfomation info
 
     member _.PickPlayList() =
-        task {
-            let! result = api.pickPlayList () |> teeFileSystemError
-            return (Finished >> PickPlayList) result
-        }
-        |> Cmd.OfTask.result
+        Cmd.OfTask.perform (api.pickPlayList >> teeFileSystemError) () (Finished >> PickPlayList)
+
 
     member _.PickSnapshotFolder() =
-        task {
-            let! result = api.pickSnapshotFolder () |> teeFileSystemError
-            return (Finished >> PickSnapshotFolder) result
-        }
-        |> Cmd.OfTask.result
+        Cmd.OfTask.perform (api.pickSnapshotFolder >> teeFileSystemError) () (Finished >> PickSnapshotFolder)
 
 let init api =
     initRandomizeInfoDomain api.validateMediaInfo
@@ -342,42 +325,87 @@ let init api =
 let update (cmds: Cmds) msg (m: Model) =
 
     match msg with
-    | SetFrames x -> (m.WithSettings) (fun m -> { m with Frames = m.Frames |> frames.Update x }), Cmd.none
-    | SetDuration x -> m.WithSettings(fun m -> { m with Duration = m.Duration |> duration.Update x }), Cmd.none
-    | SetInterval x -> m.WithSettings(fun m -> { m with Interval = m.Interval |> interval.Update x }), Cmd.none
-    | SetPlayListFilePath x ->
-        m.WithSettings(fun m -> { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }), Cmd.none
-    | PickPlayList Started when m.PickedPlayListPath = InProgress -> m, Cmd.none
-    | PickPlayList Started -> { m with PickedPlayListPath = InProgress }, cmds.PickPlayList()
-    | PickPlayList (Finished (Ok x as result)) ->
-        let m' =
-            fun (m: Settings) -> { m with PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x }
-            |> Model.withSettings { m with PickedPlayListPath = Resolved result }
-
-        m', Cmd.none
-    | PickPlayList (Finished (Error _ as result)) -> { m with PickedPlayListPath = Resolved result }, Cmd.none
-    | SetSnapShotFolderPath x ->
-        m.WithSettings (fun m ->
+    | SetFrames x ->
+        (m.WithSettings) (fun m ->
             { m with
-                SnapShotFolderPath =
-                    m.SnapShotFolderPath
-                    |> snapShotFolderPath.Update x }),
+                Frames = m.Frames |> frames.Update x
+            }),
         Cmd.none
-    | PickSnapshotFolder Started when m.PickedSnapShotFolderPath = InProgress -> m, Cmd.none
-    | PickSnapshotFolder Started -> { m with PickedSnapShotFolderPath = InProgress }, cmds.PickSnapshotFolder()
-    | PickSnapshotFolder (Finished (Ok x as result)) ->
+    | SetDuration x ->
+        m.WithSettings(fun m ->
+            { m with
+                Duration = m.Duration |> duration.Update x
+            }),
+        Cmd.none
+    | SetInterval x ->
+        m.WithSettings(fun m ->
+            { m with
+                Interval = m.Interval |> interval.Update x
+            }),
+        Cmd.none
+    | SetPlayListFilePath x ->
+        m.WithSettings(fun m ->
+            { m with
+                PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x
+            }),
+        Cmd.none
+    | PickPlayList Started when m.PickedPlayListPath = InProgress -> m, Cmd.none
+    | PickPlayList Started ->
+        { m with
+            PickedPlayListPath = InProgress
+        },
+        cmds.PickPlayList()
+    | PickPlayList(Finished(Ok x as result)) ->
         let m' =
             fun (m: Settings) ->
                 { m with
-                    SnapShotFolderPath =
-                        m.SnapShotFolderPath
-                        |> snapShotFolderPath.Update x }
-            |> Model.withSettings { m with PickedSnapShotFolderPath = Resolved result }
+                    PlayListFilePath = m.PlayListFilePath |> playListFilePath.Update x
+                }
+            |> Model.withSettings
+                { m with
+                    PickedPlayListPath = Resolved result
+                }
 
         m', Cmd.none
-    | PickSnapshotFolder (Finished (Error _ as result)) ->
-        { m with PickedSnapShotFolderPath = Resolved result }, Cmd.none
+    | PickPlayList(Finished(Error _ as result)) ->
+        { m with
+            PickedPlayListPath = Resolved result
+        },
+        Cmd.none
+    | SetSnapShotFolderPath x ->
+        m.WithSettings(fun m ->
+            { m with
+                SnapShotFolderPath = m.SnapShotFolderPath |> snapShotFolderPath.Update x
+            }),
+        Cmd.none
+    | PickSnapshotFolder Started when m.PickedSnapShotFolderPath = InProgress -> m, Cmd.none
+    | PickSnapshotFolder Started ->
+        { m with
+            PickedSnapShotFolderPath = InProgress
+        },
+        cmds.PickSnapshotFolder()
+    | PickSnapshotFolder(Finished(Ok x as result)) ->
+        let m' =
+            fun (m: Settings) ->
+                { m with
+                    SnapShotFolderPath = m.SnapShotFolderPath |> snapShotFolderPath.Update x
+                }
+            |> Model.withSettings
+                { m with
+                    PickedSnapShotFolderPath = Resolved result
+                }
+
+        m', Cmd.none
+    | PickSnapshotFolder(Finished(Error _ as result)) ->
+        { m with
+            PickedSnapShotFolderPath = Resolved result
+        },
+        Cmd.none
     | SaveSettings ->
         Settings.save cmds.randomizeInfo m.Settings
         m, Cmd.none
-    | ResetSettings -> { m with Settings = Settings.reset cmds.randomizeInfo }, Cmd.none
+    | ResetSettings ->
+        { m with
+            Settings = Settings.reset cmds.randomizeInfo
+        },
+        Cmd.none

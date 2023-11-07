@@ -3,7 +3,6 @@ source https://api.nuget.org/v3/index.json
 storage: none
 framework: auto-detect
 
-nuget Elmish.WPF >= 4.0.0 beta
 nuget FSharp.Configuration
 nuget FSharp.Control.AsyncSeq
 nuget FSharp.Control.Reactive
@@ -16,13 +15,13 @@ nuget ProcessX
 nuget Serilog.Extensions.Logging
 nuget Serilog.Sinks.Console
 
-nuget JaggerJo.Avalonia.FuncUI
-nuget JaggerJo.Avalonia.FuncUI.DSL
-nuget JaggerJo.Avalonia.FuncUI.Elmish
-nuget Avalonia
-nuget Avalonia.Desktop
-nuget Avalonia.Diagnostics
-nuget FluentAvaloniaUI
+nuget Avalonia.FuncUI 1.1.0
+nuget Avalonia.FuncUI.Elmish 1.1.0
+nuget Avalonia != 11.0.5
+nuget Avalonia.Desktop 
+nuget Avalonia.Diagnostics 
+nuget Avalonia.Themes.Fluent 
+nuget Avalonia.Angle.Windows.Natives ~> 2.1.0.0
 
 nuget Expecto
 nuget Expecto.BenchmarkDotNet
@@ -31,8 +30,5 @@ nuget Expecto.Hopac
 nuget YoloDev.Expecto.TestSdk
 nuget Microsoft.NET.Test.Sdk
 
-source https://f.feedz.io/videolan/preview/nuget/index.json
-
-nuget VideoLAN.LibVLC.Windows prerelease
-nuget LibVLCSharp prerelease
-nuget LibVLCSharp.WPF prerelease
+nuget VideoLAN.LibVLC.Windows
+nuget LibVLCSharp
